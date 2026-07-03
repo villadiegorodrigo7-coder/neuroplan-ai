@@ -3,7 +3,7 @@ workflows:
     name: NEUROPLAN AI - Android APK
     max_build_duration: 60
     environment:
-      flutter: 3.19.0
+      flutter: stable
       java: 17
     scripts:
       - name: Get Flutter packages
