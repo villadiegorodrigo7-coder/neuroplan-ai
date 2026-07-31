@@ -3,12 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class GeminiService {
   static const String _apiKeyPref = 'gemini_api_key';
-
   static const String _systemPrompt = '''
 Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI.
 Tu misión es ayudar al usuario a organizar su vida cotidiana con planificación inteligente,
 gestión del tiempo, recordatorios y acompañamiento emocional.
-
 Comportamiento:
 - Habla siempre en español, con un tono amigable, motivador y profesional.
 - Ayuda a crear, organizar y priorizar tareas cuando el usuario lo pida.
@@ -17,7 +15,6 @@ Comportamiento:
 - Sé conciso pero completo. Usa listas cuando ayude a la claridad.
 - Si el usuario menciona eventos, sugiere agregarlos a la agenda.
 - Celebra los logros del usuario.
-
 Contexto: Eres parte de NEUROPLAN AI, diseñado para optimizar la organización personal mediante IA.
 ''';
 
@@ -36,32 +33,26 @@ Contexto: Eres parte de NEUROPLAN AI, diseñado para optimizar la organización 
     List<Map<String, String>> history = const [],
   }) async {
     final apiKey = await getApiKey();
-
     if (apiKey.isEmpty) {
       return '⚠️ Por favor configura tu API key de Gemini en tu perfil para activar el chat con IA.';
     }
-
     try {
       final model = GenerativeModel(
         model: 'gemini-3.5-flash',
         apiKey: apiKey,
         systemInstruction: Content.system(_systemPrompt),
       );
-
       final List<Content> contents = history
           .map((msg) => Content(
                 msg['role'] == 'user' ? 'user' : 'model',
                 [TextPart(msg['content'] ?? '')],
               ))
           .toList();
-
       contents.add(Content('user', [TextPart(userMessage)]));
-
       final response = await model.generateContent(contents);
       return response.text ?? 'Lo siento, hubo un problema al procesar la respuesta.';
-   } catch (e) {
+    } catch (e) {
       return '⚠️ ERROR REAL: $e';
-    }
     }
   }
 
