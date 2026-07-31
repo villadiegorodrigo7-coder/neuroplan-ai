@@ -84,7 +84,7 @@ class _TasksScreenState extends State<TasksScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar'),
           ),
@@ -105,6 +105,9 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final pending = _tasks.where((t) => !t.done).length;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Tareas')),
       body: _loading
@@ -112,17 +115,32 @@ class _TasksScreenState extends State<TasksScreen> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Row(
+                    children: [
+                      Text(
+                        '$pending pendientes',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _controller,
+                          style: const TextStyle(fontSize: 14),
                           decoration: const InputDecoration(
                             hintText: 'Nueva tarea...',
-                            border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
+                                horizontal: 16, vertical: 12),
                           ),
                           onSubmitted: (_) => _addTask(),
                         ),
@@ -135,35 +153,60 @@ class _TasksScreenState extends State<TasksScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
                 Expanded(
                   child: _tasks.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'No tienes tareas todavía.\nAgrega una arriba 👆',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4)),
                           ),
                         )
                       : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: _tasks.length,
                           itemBuilder: (context, index) {
                             final task = _tasks[index];
-                            return CheckboxListTile(
-                              value: task.done,
-                              onChanged: (_) => _toggleTask(task),
-                              title: Text(
-                                task.title,
-                                style: TextStyle(
-                                  decoration: task.done
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                  color: task.done ? Colors.grey : null,
-                                ),
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: scheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.05)),
                               ),
-                              secondary: IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.red),
-                                onPressed: () => _confirmDeleteTask(task),
+                              child: ListTile(
+                                onTap: () => _toggleTask(task),
+                                leading: Icon(
+                                  task.done
+                                      ? Icons.check_circle
+                                      : Icons.circle_outlined,
+                                  color: task.done
+                                      ? scheme.primary
+                                      : Colors.white.withValues(alpha: 0.3),
+                                ),
+                                title: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    decoration: task.done
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: task.done
+                                        ? Colors.white.withValues(alpha: 0.4)
+                                        : Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      color: Colors.white.withValues(alpha: 0.4),
+                                      size: 20),
+                                  onPressed: () => _confirmDeleteTask(task),
+                                ),
                               ),
                             );
                           },
