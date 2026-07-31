@@ -68,7 +68,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Icon(Icons.person, size: 44, color: Colors.white),
             ),
           ),
-          const SizedBox(heightadv: 24),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: scheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Configuración de IA',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ingresa tu API key de Google Gemini para activar el asistente de chat.',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: _apiKeyController,
+                  obscureText: _obscureKey,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    labelText: 'API Key de Gemini',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureKey ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _obscureKey = !_obscureKey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _saveApiKey,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Guardar'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
