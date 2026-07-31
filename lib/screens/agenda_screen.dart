@@ -80,7 +80,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
-                trailing: const Icon(Icons.calendar_today),
+                trailing: const Icon(Icons.calendar_today, size: 20),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -96,7 +96,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(selectedTime.format(context)),
-                trailing: const Icon(Icons.access_time),
+                trailing: const Icon(Icons.access_time, size: 20),
                 onTap: () async {
                   final picked = await showTimePicker(
                     context: context,
@@ -143,51 +143,92 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
-  void _deleteEvent(AgendaEvent event) {
-    setState(() => _events.removeWhere((e) => e.id == event.id));
-    _saveEvents();
+  Future<void> _confirmDeleteEvent(AgendaEvent event) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar evento'),
+        content: Text('¿Seguro que quieres eliminar "${event.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      setState(() => _events.removeWhere((e) => e.id == event.id));
+      _saveEvents();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Agenda')),
       floatingActionButton: FloatingActionButton(
         onPressed: _addEvent,
+        backgroundColor: scheme.primary,
         child: const Icon(Icons.add),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _events.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No tienes eventos todavía.\nToca + para agregar uno',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   itemCount: _events.length,
                   itemBuilder: (context, index) {
                     final event = _events[index];
-                    return Dismissible(
-                      key: Key(event.id),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (_) => _deleteEvent(event),
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        child: const Icon(Icons.delete, color: Colors.white),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.05)),
                       ),
-                      child: Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.event),
-                          title: Text(event.title),
-                          subtitle: Text(
-                            DateFormat('dd/MM/yyyy - HH:mm').format(event.date),
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
                           ),
+                          child: Icon(Icons.event, color: scheme.primary, size: 20),
+                        ),
+                        title: Text(
+                          event.title,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        subtitle: Text(
+                          DateFormat('dd/MM/yyyy · HH:mm').format(event.date),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.5)),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              color: Colors.white.withValues(alpha: 0.4),
+                              size: 20),
+                          onPressed: () => _confirmDeleteEvent(event),
                         ),
                       ),
                     );
