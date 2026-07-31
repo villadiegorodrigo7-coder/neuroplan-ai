@@ -59,11 +59,9 @@ Contexto: Eres parte de NEUROPLAN AI, diseñado para optimizar la organización 
 
       final response = await model.generateContent(contents);
       return response.text ?? 'Lo siento, hubo un problema al procesar la respuesta.';
-    } catch (e) {
-      if (e.toString().contains('API_KEY_INVALID')) {
-        return '❌ Tu API key no es válida. Veríficala en tu perfil.';
-      }
-      return '⚠️ Sin conexión o error en el servidor. Intenta de nuevo.';
+   } catch (e) {
+      return '⚠️ ERROR REAL: $e';
+    }
     }
   }
 
