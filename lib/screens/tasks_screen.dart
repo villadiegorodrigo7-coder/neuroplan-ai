@@ -72,9 +72,29 @@ class _TasksScreenState extends State<TasksScreen> {
     _saveTasks();
   }
 
-  void _deleteTask(Task task) {
-    setState(() => _tasks.removeWhere((t) => t.id == task.id));
-    _saveTasks();
+  Future<void> _confirmDeleteTask(Task task) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar tarea'),
+        content: Text('¿Seguro que quieres eliminar "${task.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      setState(() => _tasks.removeWhere((t) => t.id == task.id));
+      _saveTasks();
+    }
   }
 
   @override
@@ -128,29 +148,22 @@ class _TasksScreenState extends State<TasksScreen> {
                           itemCount: _tasks.length,
                           itemBuilder: (context, index) {
                             final task = _tasks[index];
-                            return Dismissible(
-                              key: Key(task.id),
-                              direction: DismissDirection.endToStart,
-                              onDismissed: (_) => _deleteTask(task),
-                              background: Container(
-                                color: Colors.red,
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 20),
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
-                              ),
-                              child: CheckboxListTile(
-                                value: task.done,
-                                onChanged: (_) => _toggleTask(task),
-                                title: Text(
-                                  task.title,
-                                  style: TextStyle(
-                                    decoration: task.done
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    color: task.done ? Colors.grey : null,
-                                  ),
+                            return CheckboxListTile(
+                              value: task.done,
+                              onChanged: (_) => _toggleTask(task),
+                              title: Text(
+                                task.title,
+                                style: TextStyle(
+                                  decoration: task.done
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: task.done ? Colors.grey : null,
                                 ),
+                              ),
+                              secondary: IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.red),
+                                onPressed: () => _confirmDeleteTask(task),
                               ),
                             );
                           },
