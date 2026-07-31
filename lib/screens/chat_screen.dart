@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/gemini_service.dart';
 
 class ChatMessage {
-  final String role; // 'user' o 'model'
+  final String role;
   final String content;
   ChatMessage({required this.role, required this.content});
 }
@@ -66,26 +66,51 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat con NEUROPLAN')),
+      appBar: AppBar(title: const Text('NEUROPLAN')),
       body: Column(
         children: [
           Expanded(
             child: _messages.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Escríbeme y te ayudo a organizar tu día 💡\n\n'
-                        'Si no has configurado tu API key, ve a la pestaña Perfil.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.primary.withValues(alpha: 0.15),
+                            ),
+                            child: Icon(Icons.auto_awesome,
+                                color: scheme.primary, size: 32),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Escríbeme y te ayudo a\norganizar tu día',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Si no has configurado tu API key,\nve a la pestaña Perfil.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 13),
+                          ),
+                        ],
                       ),
                     ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
@@ -95,25 +120,37 @@ class _ChatScreenState extends State<ChatScreen> {
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
                         child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          margin: const EdgeInsets.symmetric(vertical: 5),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
+                              horizontal: 16, vertical: 12),
                           constraints: BoxConstraints(
-                            maxWidth:
-                                MediaQuery.of(context).size.width * 0.75,
+                            maxWidth: MediaQuery.of(context).size.width * 0.78,
                           ),
                           decoration: BoxDecoration(
-                            color: isUser
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
+                            gradient: isUser
+                                ? LinearGradient(
+                                    colors: [
+                                      scheme.primary,
+                                      scheme.primary.withValues(alpha: 0.75),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
+                            color: isUser ? null : scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(18),
+                              topRight: const Radius.circular(18),
+                              bottomLeft: Radius.circular(isUser ? 18 : 4),
+                              bottomRight: Radius.circular(isUser ? 4 : 18),
+                            ),
                           ),
                           child: Text(
                             msg.content,
                             style: TextStyle(
-                              color: isUser
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : Theme.of(context).colorScheme.onSurface,
+                              color: isUser ? Colors.white : Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                              height: 1.4,
                             ),
                           ),
                         ),
@@ -122,27 +159,30 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
           ),
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
               child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: scheme.primary,
+                ),
               ),
             ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      style: const TextStyle(fontSize: 14),
                       decoration: const InputDecoration(
                         hintText: 'Escribe un mensaje...',
-                        border: OutlineInputBorder(),
                         contentPadding:
-                            EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),
@@ -150,7 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: _isLoading ? null : _sendMessage,
-                    icon: const Icon(Icons.send),
+                    icon: const Icon(Icons.arrow_upward, size: 20),
                   ),
                 ],
               ),
