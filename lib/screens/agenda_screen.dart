@@ -82,3 +82,117 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 title: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedDate = picked);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(selectedTime.format(context)),
+                trailing: const Icon(Icons.access_time),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: selectedTime,
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedTime = picked);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true && titleController.text.trim().isNotEmpty) {
+      final fullDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        selectedTime.hour,
+        selectedTime.minute,
+      );
+      setState(() {
+        _events.add(AgendaEvent(
+          id: const Uuid().v4(),
+          title: titleController.text.trim(),
+          date: fullDate,
+        ));
+        _events.sort((a, b) => a.date.compareTo(b.date));
+      });
+      _saveEvents();
+    }
+  }
+
+  void _deleteEvent(AgendaEvent event) {
+    setState(() => _events.removeWhere((e) => e.id == event.id));
+    _saveEvents();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Agenda')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addEvent,
+        child: const Icon(Icons.add),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _events.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No tienes eventos todavía.\nToca + para agregar uno',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _events.length,
+                  itemBuilder: (context, index) {
+                    final event = _events[index];
+                    return Dismissible(
+                      key: Key(event.id),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (_) => _deleteEvent(event),
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      child: Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.event),
+                          title: Text(event.title),
+                          subtitle: Text(
+                            DateFormat('dd/MM/yyyy - HH:mm').format(event.date),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
