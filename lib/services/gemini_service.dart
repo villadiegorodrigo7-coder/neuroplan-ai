@@ -38,7 +38,7 @@ Contexto: Eres parte de NEUROPLAN AI, diseñado para optimizar la organización 
     }
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         apiKey: apiKey,
         systemInstruction: Content.system(_systemPrompt),
       );
