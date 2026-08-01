@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/gemini_service.dart';
+import '../services/voice_service.dart';
 
 class ChatMessage {
   final String role;
@@ -19,9 +20,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
+  bool _isListening = false;
+  bool _voiceReplyEnabled = true;
 
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
+  Future<void> _sendMessage([String? voiceText]) async {
+    final text = (voiceText ?? _controller.text).trim();
     if (text.isEmpty) return;
 
     setState(() {
@@ -43,6 +46,39 @@ class _ChatScreenState extends State<ChatScreen> {
       _isLoading = false;
     });
     _scrollToBottom();
+
+    if (_voiceReplyEnabled) {
+      VoiceService.speak(response);
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await VoiceService.stopListening();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    final available = await VoiceService.initSpeech();
+    if (!available) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo activar el micrófono. Revisa los permisos.')),
+      );
+      return;
+    }
+
+    setState(() => _isListening = true);
+    VoiceService.startListening(
+      onResult: (text) {
+        if (text.trim().isNotEmpty) {
+          _sendMessage(text);
+        }
+      },
+      onDone: () {
+        if (mounted) setState(() => _isListening = false);
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -61,6 +97,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    VoiceService.stopListening();
+    VoiceService.stopSpeaking();
     super.dispose();
   }
 
@@ -68,7 +106,22 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('NEUROPLAN')),
+      appBar: AppBar(
+        title: const Text('NEUROPLAN'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _voiceReplyEnabled ? Icons.volume_up : Icons.volume_off,
+              color: _voiceReplyEnabled ? scheme.primary : Colors.white38,
+            ),
+            tooltip: 'Respuesta por voz',
+            onPressed: () {
+              setState(() => _voiceReplyEnabled = !_voiceReplyEnabled);
+              if (!_voiceReplyEnabled) VoiceService.stopSpeaking();
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
@@ -91,7 +144,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           const SizedBox(height: 20),
                           const Text(
-                            'Escríbeme y te ayudo a\norganizar tu día',
+                            'Escríbeme o háblame y te\nayudo a organizar tu día',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.w600),
@@ -170,11 +223,27 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
+          if (_isListening)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Escuchando...',
+                style: TextStyle(color: scheme.primary, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 children: [
+                  IconButton.filledTonal(
+                    onPressed: _toggleListening,
+                    icon: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      color: _isListening ? Colors.redAccent : null,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -189,7 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: _isLoading ? null : _sendMessage,
+                    onPressed: _isLoading ? null : () => _sendMessage(),
                     icon: const Icon(Icons.arrow_upward, size: 20),
                   ),
                 ],
