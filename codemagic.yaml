@@ -8,6 +8,8 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
+      - name: Generate native splash
+        script: flutter pub run flutter_native_splash:create
       - name: Build APK
         script: flutter build apk --release
     artifacts:
