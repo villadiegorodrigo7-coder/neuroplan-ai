@@ -6,37 +6,38 @@ class GeminiService {
 
   static const String _systemPrompt = '''
 Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI.
-Tu misión es ayudar al usuario a organizar su vida cotidiana con planificación inteligente,
-gestión del tiempo, recordatorios y acompañamiento emocional.
 
-Comportamiento:
-Habla siempre en español, con un tono amigable, motivador y profesional.
-Ayuda a crear, organizar y priorizar tareas cuando el usuario lo pida.
-Cuando detectes estrés o agotamiento emocional, ofrece apoyo empático.
-Genera planes de acción concretos y realistas.
-Sé conciso pero completo, explicando las prioridades y los tiempos estimados en prosa continua.
-Si el usuario menciona eventos, sugiere agregarlos a la agenda.
-Celebra los logros del usuario.
+Tu misión es ayudar al usuario a organizar su vida cotidiana mediante planificación inteligente, productividad, recordatorios y acompañamiento emocional.
 
-Créditos de creación:
-NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, quien es su fundador, CEO y creador.
-Si el usuario pregunta quién te creó, quién hizo la app, quién es el fundador o el CEO,
-responde con esa información de forma clara y con reconocimiento genuino hacia él.
+Habla siempre en español.
 
-Contexto: Eres parte de NEUROPLAN AI, diseñado para optimizar la organización personal mediante IA.
+Mantén un tono profesional, amable y cercano.
 
-Responde de forma estrictamente técnica y profesional. No utilices asteriscos, guiones, viñetas ni ningún carácter de marcado Markdown en la salida. Usa prosa continua o párrafos planos.
-Puedes incluir de forma moderada algún emoji relevante al inicio o cierre de la respuesta, o junto a un logro o una tarea completada, siempre que aporte claridad emocional sin sustituir el contenido técnico ni recargar visualmente el texto.
+Cuando el usuario solicite ayuda para organizar tareas, crea un plan claro por prioridades.
+
+Cuando detectes estrés, ansiedad o cansancio, responde con empatía y ofrece estrategias prácticas.
+
+No utilices Markdown.
+
+No escribas asteriscos.
+
+No uses listas con viñetas salvo que el usuario las solicite.
+
+Si el usuario pregunta quién creó NEUROPLAN responde exactamente:
+
+"NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, fundador, CEO y creador del proyecto."
+
+Siempre responde como si fueras el asistente oficial de NEUROPLAN.
 ''';
 
   static Future<String> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_apiKeyPref) ?? '';
+    return prefs.getString(_apiKeyPref) ?? "";
   }
 
   static Future<void> saveApiKey(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_apiKeyPref, key);
+    await prefs.setString(_apiKeyPref, key.trim());
   }
 
   static Future<String> sendMessage(
@@ -44,33 +45,77 @@ Puedes incluir de forma moderada algún emoji relevante al inicio o cierre de la
     List<Map<String, String>> history = const [],
   }) async {
     final apiKey = await getApiKey();
+
     if (apiKey.isEmpty) {
-      return '⚠️ Por favor configura tu API key de Gemini en tu perfil para activar el chat con IA.';
+      return "Configura primero tu API Key de Gemini desde el perfil.";
     }
+
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: "gemini-2.5-flash-lite",
         apiKey: apiKey,
         systemInstruction: Content.system(_systemPrompt),
       );
-      final List<Content> contents = history
-          .map((msg) => Content(
-                msg['role'] == 'user' ? 'user' : 'model',
-                [TextPart(msg['content'] ?? '')],
-              ))
-          .toList();
-      contents.add(Content('user', [TextPart(userMessage)]));
-      final response = await model.generateContent(contents);
-      return response.text ?? 'Lo siento, hubo un problema al procesar la respuesta.';
+
+      final List<Content> conversation = [];
+
+      for (final msg in history) {
+        conversation.add(
+          Content(
+            msg["role"] == "user" ? "user" : "model",
+            [
+              TextPart(
+                msg["content"] ?? "",
+              )
+            ],
+          ),
+        );
+      }
+
+      conversation.add(
+        Content(
+          "user",
+          [
+            TextPart(userMessage),
+          ],
+        ),
+      );
+
+      final response = await model.generateContent(conversation);
+
+      if (response.text != null && response.text!.trim().isNotEmpty) {
+        return response.text!;
+      }
+
+      return "No fue posible generar una respuesta.";
+
     } catch (e) {
-      return '⚠️ ERROR REAL: $e';
+      return "ERROR GEMINI:\n$e";
     }
   }
 
   static Future<String> generateDailyPlan(List<String> tasks) async {
-    final taskList = tasks.join('\n- ');
-    return sendMessage(
-      'Tengo estas tareas pendientes:\n- $taskList\n\nGenera un plan diario organizado por prioridad y tiempo estimado.',
-    );
+
+    if (tasks.isEmpty) {
+      return "No hay tareas registradas para organizar.";
+    }
+
+    final text = tasks.join("\n");
+
+    return sendMessage("""
+Estas son mis tareas:
+
+$text
+
+Organízalas por prioridad.
+
+Asigna tiempos estimados.
+
+Propón un horario para hoy.
+
+Sugiere descansos.
+
+Finaliza con un mensaje motivador.
+""");
   }
 }
