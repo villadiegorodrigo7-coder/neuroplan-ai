@@ -1,4 +1,4 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+dartimport 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GeminiService {
