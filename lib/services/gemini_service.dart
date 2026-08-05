@@ -103,9 +103,9 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     try {
       final systemPromptConfigurado = await _determinarPrompt(userMessage);
 
-      // Usar el modelo gratuito estable
+      // Modelo confirmado disponible en el nivel gratuito (verificado con ListModels)
       final model = GenerativeModel(
-        model: "gemini-1.5-flash", 
+        model: "gemini-2.5-flash",
         apiKey: apiKey,
         systemInstruction: Content.system(systemPromptConfigurado),
       );
