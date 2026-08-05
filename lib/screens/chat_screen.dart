@@ -19,7 +19,6 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatConversation? _current;
 
   bool _isLoading = false;
-  bool _isListening = false;
   bool _voiceReplyEnabled = true;
   bool _loadingHistory = true;
 
@@ -113,35 +112,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _toggleListening() async {
-    if (_isListening) {
-      await VoiceService.stopListening();
-      setState(() => _isListening = false);
-      return;
-    }
-
-    final available = await VoiceService.initSpeech();
-    if (!available) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo activar el micrófono. Revisa los permisos.')),
-      );
-      return;
-    }
-
-    setState(() => _isListening = true);
-    VoiceService.startListening(
-      onResult: (text) {
-        if (text.trim().isNotEmpty) {
-          _sendMessage(text);
-        }
-      },
-      onDone: () {
-        if (mounted) setState(() => _isListening = false);
-      },
-    );
-  }
-
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -158,7 +128,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    VoiceService.stopListening();
     VoiceService.stopSpeaking();
     super.dispose();
   }
@@ -389,17 +358,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
           ),
-          if (_isListening)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                'Escuchando...',
-                style: TextStyle(
-                    color: scheme.primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600),
-              ),
-            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
@@ -415,16 +373,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    IconButton(
-                      onPressed: _toggleListening,
-                      icon: Icon(
-                        _isListening ? Icons.mic : Icons.mic_none_rounded,
-                        color: _isListening
-                            ? Colors.redAccent
-                            : Colors.white.withValues(alpha: 0.55),
-                      ),
-                      tooltip: 'Hablar',
-                    ),
                     Expanded(
                       child: TextField(
                         controller: _controller,
@@ -438,8 +386,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                         ),
                         onSubmitted: (_) => _sendMessage(),
                       ),
