@@ -64,7 +64,7 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     if (mensajeMinuscula.contains('estoy agotado') || 
         mensajeMinuscula.contains('no puedo más') || 
         mensajeMinuscula.contains('me siento triste') || 
-        mensajeMinuscula.contains('tengo ansiedad') ||
+        mensajeMinuscula.contains('tengo ansiedad') || 
         mensajeMinuscula.contains('estoy deprimido')) {
       return _promptPsicologo;
     }
@@ -73,7 +73,7 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     if (mensajeMinuscula.contains('quiero emprender') || 
         mensajeMinuscula.contains('tengo una idea') || 
         mensajeMinuscula.contains('necesito vender') || 
-        mensajeMinuscula.contains('quiero crear una empresa') ||
+        mensajeMinuscula.contains('quiero crear una empresa') || 
         mensajeMinuscula.contains('crear un negocio')) {
       return _promptEmprendimiento;
     }
@@ -103,7 +103,7 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     try {
       final systemPromptConfigurado = await _determinarPrompt(userMessage);
 
-      // Usar un modelo estable compatible con la versión gratuita
+      // Usar el modelo gratuito estable
       final model = GenerativeModel(
         model: "gemini-1.5-flash", 
         apiKey: apiKey,
@@ -112,20 +112,20 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
 
       final List<Content> conversation = [];
 
-      // CONSTRUCCIÓN CORRECTA DEL HISTORIAL SEGÚN EL SDK ACTUALIZADO
+      // CONSTRUCCIÓN DEL HISTORIAL CORREGIDA Y COMPATIBLE
       for (final msg in history) {
         final role = msg["role"] == "user" ? "user" : "model";
         final contentText = msg["content"] ?? "";
         
-        if (role == "user") {
-          conversation.add(Content.text(contentText));
-        } else {
-          conversation.add(Content.model([TextPart(contentText)]));
-        }
+        conversation.add(
+          Content(role, [TextPart(contentText)]),
+        );
       }
 
-      // Añadir el último mensaje enviado por el usuario
-      conversation.add(Content.text(userMessage));
+      // Añadir el último mensaje enviado por el usuario de forma válida
+      conversation.add(
+        Content('user', [TextPart(userMessage)]),
+      );
 
       final response = await model.generateContent(conversation);
 
@@ -144,8 +144,6 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
       return "No hay tareas registradas para organizar.";
     }
     final text = tasks.join("\n");
-    return sendMessage("""Estas son mis tareas:
-$text
-Organízalas por prioridad. Asigna tiempos estimados. Propón un horario para hoy. Sugiere descansos. Finaliza con un mensaje motivador.""");
+    return sendMessage("""Estas son mis tareas: $text Organízalas por prioridad. Asigna tiempos estimados. Propón un horario para hoy. Sugiere descansos. Finaliza con un mensaje motivador.""");
   }
 }
