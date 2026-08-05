@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/gemini_service.dart';
-import 'cuadernillo_screen.dart';
+import 'cuadernillo_home_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -77,7 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(18),
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CuadernilloScreen()),
+                  MaterialPageRoute(builder: (_) => const CuadernilloHomeScreen()),
                 );
               },
               child: Container(
