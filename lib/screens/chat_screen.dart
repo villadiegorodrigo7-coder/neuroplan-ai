@@ -254,7 +254,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NEUROPLAN'),
+        title: const Text(
+          'NEUROPLAN',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        ),
+        centerTitle: false,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -292,29 +297,41 @@ class _ChatScreenState extends State<ChatScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 72,
-                                height: 72,
+                                width: 76,
+                                height: 76,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: scheme.primary.withValues(alpha: 0.15),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      scheme.primary.withValues(alpha: 0.25),
+                                      scheme.primary.withValues(alpha: 0.05),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
                                 ),
-                                child: Icon(Icons.auto_awesome,
-                                    color: scheme.primary, size: 32),
+                                child: Icon(Icons.auto_awesome_rounded,
+                                    color: scheme.primary, size: 34),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 22),
                               const Text(
                                 'Escríbeme o háblame y te\nayudo a organizar tu día',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Text(
                                 'Si no has configurado tu API key,\nve a la pestaña Perfil.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                    fontSize: 13),
+                                  color: Colors.white.withValues(alpha: 0.45),
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
                               ),
                             ],
                           ),
@@ -372,21 +389,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
           ),
-          if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: scheme.primary,
-                ),
-              ),
-            ),
           if (_isListening)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 'Escuchando...',
                 style: TextStyle(
@@ -397,35 +402,81 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Row(
-                children: [
-                  IconButton.filledTonal(
-                    onPressed: _toggleListening,
-                    icon: Icon(
-                      _isListening ? Icons.mic : Icons.mic_none,
-                      color: _isListening ? Colors.redAccent : null,
-                    ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: const TextStyle(fontSize: 14),
-                      decoration: const InputDecoration(
-                        hintText: 'Escribe un mensaje...',
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: _toggleListening,
+                      icon: Icon(
+                        _isListening ? Icons.mic : Icons.mic_none_rounded,
+                        color: _isListening
+                            ? Colors.redAccent
+                            : Colors.white.withValues(alpha: 0.55),
                       ),
-                      onSubmitted: (_) => _sendMessage(),
+                      tooltip: 'Hablar',
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _isLoading ? null : () => _sendMessage(),
-                    icon: const Icon(Icons.arrow_upward, size: 20),
-                  ),
-                ],
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        minLines: 1,
+                        maxLines: 5,
+                        style: const TextStyle(fontSize: 14.5),
+                        decoration: InputDecoration(
+                          hintText: 'Escribe un mensaje...',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              scheme.primary,
+                              scheme.primary.withValues(alpha: 0.75),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: _isLoading ? null : () => _sendMessage(),
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_upward_rounded,
+                                  color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
