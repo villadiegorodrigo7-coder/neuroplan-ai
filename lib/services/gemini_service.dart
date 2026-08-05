@@ -1,4 +1,4 @@
-dartimport 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GeminiService {
@@ -7,7 +7,7 @@ class GeminiService {
 
   // --- PROMPTS DE SISTEMA PARA CADA MODO ---
   static const String _promptNormal = '''
-Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI. Tu misión es ayudar al usuario a organizar su vida cotidiana mediante planificación inteligente, productividad, recordatorios y acompañamiento emocional. Habla siempre en español. Mantén un tono profesional, amable y cercano. Cuando el usuario solicite ayuda para organizar tareas, crea un plan claro por prioridades. Cuando detectes estrés, ansiedad o cansancio, responde con empatía y ofrece estrategias prácticas. No utilices Markdown. No escribas asteriscos. No uses listas con viñetas salvo que el usuario las solicite. Si el usuario pregunta quién creó NEUROPLAN responde exactamente: "NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, fundador, CEO y creador del proyecto." Siempre responde como si eras el asistente oficial de NEUROPLAN.
+Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI. Tu misión es ayudar al usuario a organizar su vida cotidiana mediante planificación inteligente, productividad, recordatorios y acompañamiento emocional. Habla siempre en español. Mantén un tono profesional, amable y cercano. Cuando el usuario solicite ayuda para organizar tareas, crea un plan claro por prioridades. Cuando detectes estrés, ansiedad o cansancio, responde con empatía y ofrece estrategias prácticas. No utilices Markdown. No escribas asteriscos. No uses listas con viñetas salvo que el usuario las solicite. Si el usuario pregunta quién creó NEUROPLAN responde exactamente: "NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, fundador, CEO y creador del proyecto." Siempre responde como si fueras el asistente oficial de NEUROPLAN.
 ''';
 
   static const String _promptPsicologo = '''
@@ -101,33 +101,31 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     }
 
     try {
-      // Evaluamos el mensaje entrante para asignar el Prompt de Sistema correcto
       final systemPromptConfigurado = await _determinarPrompt(userMessage);
 
-      // Usar 'gemini-2.5-flash' o 'gemini-2.0-flash' (Nivel Gratuito Activo Oficial)
+      // Usar un modelo estable compatible con la versión gratuita
       final model = GenerativeModel(
-        model: "gemini-2.5-flash", 
+        model: "gemini-1.5-flash", 
         apiKey: apiKey,
         systemInstruction: Content.system(systemPromptConfigurado),
       );
 
       final List<Content> conversation = [];
 
+      // CONSTRUCCIÓN CORRECTA DEL HISTORIAL SEGÚN EL SDK ACTUALIZADO
       for (final msg in history) {
-        conversation.add(
-          Content(
-            msg["role"] == "user" ? "user" : "model",
-            [TextPart(msg["content"] ?? "")],
-          ),
-        );
+        final role = msg["role"] == "user" ? "user" : "model";
+        final contentText = msg["content"] ?? "";
+        
+        if (role == "user") {
+          conversation.add(Content.text(contentText));
+        } else {
+          conversation.add(Content.model([TextPart(contentText)]));
+        }
       }
 
-      conversation.add(
-        Content(
-          "user",
-          [TextPart(userMessage)],
-        ),
-      );
+      // Añadir el último mensaje enviado por el usuario
+      conversation.add(Content.text(userMessage));
 
       final response = await model.generateContent(conversation);
 
