@@ -103,9 +103,8 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     try {
       final systemPromptConfigurado = await _determinarPrompt(userMessage);
 
-      // Modelo confirmado disponible en el nivel gratuito (verificado con ListModels)
       final model = GenerativeModel(
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         apiKey: apiKey,
         systemInstruction: Content.system(systemPromptConfigurado),
       );
@@ -147,3 +146,6 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     return sendMessage("""Estas son mis tareas: $text Organízalas por prioridad. Asigna tiempos estimados. Propón un horario para hoy. Sugiere descansos. Finaliza con un mensaje motivador.""");
   }
 }
+
+
+
