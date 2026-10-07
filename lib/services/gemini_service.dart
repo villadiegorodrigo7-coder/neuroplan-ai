@@ -94,6 +94,7 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
   static Future<String> sendMessage(
     String userMessage, {
     List<Map<String, String>> history = const [],
+    String? contextoUsuario,
   }) async {
     final apiKey = await getApiKey();
     if (apiKey.isEmpty) {
@@ -103,10 +104,16 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     try {
       final systemPromptConfigurado = await _determinarPrompt(userMessage);
 
+      // Si hay contexto real del cuadernillo (ej. Rueda de la Vida), se
+      // agrega al system prompt, nunca al historial visible del chat.
+      final promptFinal = (contextoUsuario == null || contextoUsuario.isEmpty)
+          ? systemPromptConfigurado
+          : "$systemPromptConfigurado\n\n--- CONTEXTO REAL DEL USUARIO (no lo repitas textualmente, úsalo para entender su situación) ---\n$contextoUsuario";
+
       final model = GenerativeModel(
         model: "gemini-3.6-flash",
         apiKey: apiKey,
-        systemInstruction: Content.system(systemPromptConfigurado),
+        systemInstruction: Content.system(promptFinal),
       );
 
       final List<Content> conversation = [];
@@ -146,6 +153,3 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     return sendMessage("""Estas son mis tareas: $text Organízalas por prioridad. Asigna tiempos estimados. Propón un horario para hoy. Sugiere descansos. Finaliza con un mensaje motivador.""");
   }
 }
-
-
-
