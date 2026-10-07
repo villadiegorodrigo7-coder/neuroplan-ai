@@ -3,6 +3,7 @@ import '../models/chat_conversation.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
+import '../services/cuadernillo_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -97,7 +98,13 @@ class _ChatScreenState extends State<ChatScreen> {
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
-    final response = await GeminiService.sendMessage(text, history: history);
+    final contexto = await _construirContextoRuedaVida();
+
+    final response = await GeminiService.sendMessage(
+      text,
+      history: history,
+      contextoUsuario: contexto,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -110,6 +117,21 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_voiceReplyEnabled) {
       VoiceService.speak(response);
     }
+  }
+
+  /// Arma un resumen corto de la Rueda de la Vida para dárselo al agente
+  /// como contexto real, solo si el usuario ya completó la Etapa 1
+  /// (si no, los valores son solo el default en 5 y no dicen nada de la
+  /// persona real).
+  Future<String?> _construirContextoRuedaVida() async {
+    final data = await CuadernilloService.cargar();
+    if (!data.etapa1Completada) return null;
+
+    final r = data.ruedaVida;
+    return "Rueda de la Vida del usuario (escala 0-10): "
+        "Salud ${r.salud}, Estudios ${r.estudios}, Trabajo ${r.trabajo}, "
+        "Finanzas ${r.finanzas}, Familia ${r.familia}, Amigos ${r.amigos}, "
+        "Descanso ${r.descanso}, Crecimiento personal ${r.crecimiento}.";
   }
 
   void _scrollToBottom() {
