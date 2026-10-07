@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,15 +28,24 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
 ¡Modo Arquitecto Activado! Saluda reconociendo con el máximo respeto a Rodrigo Luis Villadiego Acevedo como el fundador, CEO y creador del proyecto. En este modo actúas como el Arquitecto de IA definitivo de NEUROPLAN. Tu única misión es ayudarlo a desarrollar y expandir NeuroPlan, proponer mejoras masivas de arquitectura, corregir y escribir código limpio, y asesorarlo en decisiones estratégicas de negocio. Mantén un nivel técnico senior y visión empresarial disruptiva. No utilices Markdown ni asteriscos.
 ''';
 
-  // --- GESTIÓN DE API KEY ---
+  // --- GESTIÓN DE API KEY (almacenamiento cifrado) ---
+  static const FlutterSecureStorage _secure = FlutterSecureStorage();
+
   static Future<String> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_apiKeyPref) ?? "";
+
+    // Migración: si la key quedó en el almacenamiento viejo (texto plano),
+    // se mueve al almacenamiento cifrado y se borra del viejo.
+    final vieja = prefs.getString(_apiKeyPref);
+    if (vieja != null && vieja.isNotEmpty) {
+      await _secure.write(key: _apiKeyPref, value: vieja);
+      await prefs.remove(_apiKeyPref);
+    }
+    return await _secure.read(key: _apiKeyPref) ?? "";
   }
 
   static Future<void> saveApiKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_apiKeyPref, key.trim());
+    await _secure.write(key: _apiKeyPref, value: key.trim());
   }
 
   // --- LÓGICA DE DETECCIÓN DE MODOS AUTOMÁTICOS ---
@@ -42,8 +53,8 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
     final prefs = await SharedPreferences.getInstance();
     final mensajeMinuscula = mensaje.toLowerCase();
 
-    // 1. Verificación especial para el Modo Agorasophia (Persistente)
-    if (mensajeMinuscula.contains('agorasophia')) {
+    // 1. Modo Agorasophia: SOLO en compilaciones de depuración (nunca en el APK release)
+    if (kDebugMode && mensajeMinuscula.contains('agorasophia')) {
       await prefs.setString(_modePref, 'agorasophia');
       return _promptAgoraSophia;
     }
@@ -56,7 +67,7 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
 
     // Si el modo Agorasophia está activo en memoria, no cambia hasta escribir salir
     final modoActual = prefs.getString(_modePref) ?? 'normal';
-    if (modoActual == 'agorasophia') {
+    if (kDebugMode && modoActual == 'agorasophia') {
       return _promptAgoraSophia; 
     }
 
@@ -140,7 +151,8 @@ Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la 
       }
       return "No fue posible generar una respuesta.";
     } catch (e) {
-      return "ERROR GEMINI:\n$e";
+      if (kDebugMode) debugPrint('Gemini error: $e');
+      return "No pude conectarme con el asistente. Revisa tu API key y tu conexión e inténtalo de nuevo.";
     }
   }
 

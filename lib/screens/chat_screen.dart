@@ -94,7 +94,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
     await _persist();
 
+    // El último mensaje (el que acaba de escribir el usuario) se envía aparte
+    // en sendMessage, así que se excluye del historial para no duplicarlo.
     final history = conv.messages
+        .sublist(0, conv.messages.length - 1)
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 

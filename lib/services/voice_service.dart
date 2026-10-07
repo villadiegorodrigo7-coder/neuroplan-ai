@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -16,8 +17,8 @@ class VoiceService {
 
   static Future<bool> initSpeech() async {
     return await _speech.initialize(
-      onError: (error) => print('Error de voz: $error'),
-      onStatus: (status) => print('Estado de voz: $status'),
+      onError: (error) => debugPrint('Error de voz: $error'),
+      onStatus: (status) => debugPrint('Estado de voz: $status'),
     );
   }
 

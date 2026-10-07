@@ -1,17 +1,7 @@
-# neuroplan_ai
+# NEUROPLAN AI
 
-A new Flutter project.
+Asistente personal de planificación, productividad y bienestar, creado por
+Rodrigo Luis Villadiego Acevedo.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Copyright (c) 2026 Rodrigo Luis Villadiego Acevedo. Todos los derechos
+reservados. Proyecto privado: no se permite su copia ni distribución.
