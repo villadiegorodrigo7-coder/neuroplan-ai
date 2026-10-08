@@ -1,0 +1,43 @@
+name: NEUROPLAN AI - Android APK
+
+# Se ejecuta en cada push a main, y también a mano desde la pestaña Actions
+# (botón "Run workflow"). Los repos públicos no consumen minutos de pago.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Instalar Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Generate native splash
+        run: flutter pub run flutter_native_splash:create
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Guardar el APK como descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuroplan-ai-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
