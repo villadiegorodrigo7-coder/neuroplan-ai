@@ -4,7 +4,6 @@ import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/profile_screen.dart';
-import 'services/voice_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +55,9 @@ class NeuroplanApp extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -68,11 +69,16 @@ class NeuroplanApp extends StatelessWidget {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF8C7CFF), width: 1.5),
+            borderSide: const BorderSide(
+              color: Color(0xFF8C7CFF),
+              width: 1.5,
+            ),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
@@ -91,10 +97,13 @@ class NeuroplanApp extends StatelessWidget {
           elevation: 0,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
+
             return GoogleFonts.inter(
               fontSize: 12,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? const Color(0xFF8C7CFF) : Colors.white60,
+              fontWeight:
+                  selected ? FontWeight.w600 : FontWeight.w400,
+              color:
+                  selected ? const Color(0xFF8C7CFF) : Colors.white60,
             );
           }),
         ),
@@ -113,7 +122,6 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  bool _isListening = false;
 
   final List<Widget> _screens = [
     const ChatScreen(),
@@ -122,66 +130,18 @@ class _MainNavigationState extends State<MainNavigation> {
     const ProfileScreen(),
   ];
 
-  final Map<String, int> _voiceRoutes = {
-    'chat': 0,
-    'tareas': 1,
-    'tarea': 1,
-    'agenda': 2,
-    'calendario': 2,
-    'perfil': 3,
-  };
-
-  Future<void> _handleVoiceCommand() async {
-    if (_isListening) {
-      await VoiceService.stopListening();
-      setState(() => _isListening = false);
-      return;
-    }
-
-    final available = await VoiceService.initSpeech();
-    if (!available) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo activar el micrófono.')),
-      );
-      return;
-    }
-
-    setState(() => _isListening = true);
-    VoiceService.startListening(
-      onResult: (text) {
-        final lower = text.toLowerCase();
-        for (final entry in _voiceRoutes.entries) {
-          if (lower.contains(entry.key)) {
-            setState(() => _currentIndex = entry.value);
-            VoiceService.speak('Abriendo ${entry.key}');
-            return;
-          }
-        }
-      },
-      onDone: () {
-        if (mounted) setState(() => _isListening = false);
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _handleVoiceCommand,
-        backgroundColor: _isListening ? Colors.redAccent : scheme.primary,
-        child: Icon(_isListening ? Icons.mic : Icons.mic_none),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.chat_bubble_outline),
