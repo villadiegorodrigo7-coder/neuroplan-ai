@@ -15,3 +15,20 @@ workflows:
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
       - build/symbols/**
+
+  web-workflow:
+    name: NEUROPLAN AI - Web
+    max_build_duration: 30
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Habilitar web (crea la carpeta web si no existe)
+        script: flutter create . --platforms=web --project-name neuroplan_ai
+      - name: Build Web
+        script: flutter build web --release
+      - name: Comprimir el sitio
+        script: cd build/web && zip -r ../neuroplan-web.zip .
+    artifacts:
+      - build/neuroplan-web.zip
