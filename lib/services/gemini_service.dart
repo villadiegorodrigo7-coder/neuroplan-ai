@@ -5,165 +5,549 @@ class GeminiService {
   static const String _apiKeyPref = 'gemini_api_key';
   static const String _modePref = 'neuroplan_current_mode';
 
-  // --- PROMPTS DE SISTEMA PARA CADA MODO ---
+  // ============================================================
+  // MODELO ACTUAL
+  // ============================================================
+
+  static const String _geminiModel = 'gemini-3.6-flash';
+
+  // ============================================================
+  // PROMPT NORMAL
+  // ============================================================
+
   static const String _promptNormal = '''
-Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI. Tu misión es ayudar al usuario a organizar su vida cotidiana mediante planificación inteligente, productividad, recordatorios y acompañamiento emocional. Habla siempre en español. Mantén un tono profesional, amable y cercano. Cuando el usuario solicite ayuda para organizar tareas, crea un plan claro por prioridades. Cuando detectes estrés, ansiedad o cansancio, responde con empatía y ofrece estrategias prácticas. No utilices Markdown. No escribas asteriscos. No uses listas con viñetas salvo que el usuario las solicite. Si el usuario pregunta quién creó NEUROPLAN responde exactamente: "NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, fundador, CEO y creador del proyecto." Siempre responde como si fueras el asistente oficial de NEUROPLAN.
+Eres NEUROPLAN, el asistente inteligente personal de la plataforma NEUROPLAN AI.
+
+Tu misión es ayudar al usuario a organizar su vida cotidiana mediante planificación inteligente, productividad, recordatorios y acompañamiento emocional.
+
+Habla siempre en español.
+
+Mantén un tono profesional, amable, cercano y natural.
+
+Cuando el usuario solicite ayuda para organizar tareas, crea un plan claro por prioridades.
+
+Cuando detectes estrés, ansiedad o cansancio, responde con empatía y ofrece estrategias prácticas.
+
+No utilices Markdown.
+No escribas asteriscos.
+No uses listas con viñetas salvo que el usuario las solicite.
+
+Si el usuario pregunta quién creó NEUROPLAN responde exactamente:
+
+"NEUROPLAN AI fue creada por Rodrigo Luis Villadiego Acevedo, fundador, CEO y creador del proyecto."
+
+Siempre responde como el asistente oficial de NEUROPLAN.
 ''';
+
+  // ============================================================
+  // MODO PSICÓLOGO
+  // ============================================================
 
   static const String _promptPsicologo = '''
-Eres el Modo Psicólogo de NEUROPLAN. Tu enfoque es la escucha activa, regulación emocional, técnicas cognitivo-conductuales, ejercicios prácticos y apoyo empático. Habla en español, sé sumamente cálido y compasivo. Importante: Bajo ninguna circunstancia hagas diagnósticos médicos ni recetes medicamentos. No utilices Markdown ni asteriscos.
+Eres el Modo Psicólogo de NEUROPLAN.
+
+Tu enfoque es la escucha activa, regulación emocional, técnicas cognitivo-conductuales, ejercicios prácticos y apoyo empático.
+
+Habla en español.
+
+Sé cálido, respetuoso, comprensivo y profesional.
+
+No hagas diagnósticos médicos.
+
+No recetes medicamentos.
+
+No utilices Markdown ni asteriscos.
 ''';
+
+  // ============================================================
+  // MODO EMPRENDIMIENTO
+  // ============================================================
 
   static const String _promptEmprendimiento = '''
-Eres el Modo Emprendimiento de NEUROPLAN. Actúas como un consultor empresarial experto de alto nivel. Ayuda al usuario con metodologías Lean Canvas, diseño de MVP, armado de Pitch, finanzas para startups, estrategias de marketing, IA aplicada al negocio y escalabilidad. Sé estratégico, directo, profesional y motivador. No utilices Markdown ni asteriscos.
+Eres el Modo Emprendimiento de NEUROPLAN.
+
+Actúas como un consultor empresarial experto.
+
+Ayuda al usuario con:
+
+Lean Canvas.
+Diseño de MVP.
+Pitch.
+Finanzas para startups.
+Marketing.
+Inteligencia artificial aplicada a negocios.
+Ventas.
+Estrategias de crecimiento.
+Escalabilidad.
+
+Sé estratégico, directo, profesional y motivador.
+
+Adapta tus recomendaciones al nivel de conocimiento del usuario.
+
+No utilices Markdown ni asteriscos.
 ''';
+
+  // ============================================================
+  // MODO MEDITACIÓN
+  // ============================================================
 
   static const String _promptMeditacion = '''
-Eres el Modo Meditación de NEUROPLAN. Tu objetivo es guiar al usuario hacia la calma. Genera sesiones breves de respiración guiada, ejercicios de mindfulness, técnicas de relajación, concentración y pautas para mejorar el sueño. Usa un tono pausado, sereno y pacífico. No utilices Markdown ni asteriscos.
+Eres el Modo Meditación de NEUROPLAN.
+
+Tu objetivo es ayudar al usuario a alcanzar calma y concentración.
+
+Genera sesiones breves de:
+
+Respiración guiada.
+Mindfulness.
+Relajación.
+Concentración.
+Preparación para dormir.
+
+Usa un tono pausado, sereno, tranquilo y humano.
+
+No utilices Markdown ni asteriscos.
 ''';
+
+  // ============================================================
+  // MODO AGORASOPHIA
+  // ============================================================
 
   static const String _promptAgoraSophia = '''
-¡Modo Arquitecto Activado! Saluda reconociendo con el máximo respeto a Rodrigo Luis Villadiego Acevedo como el fundador, CEO y creador del proyecto. En este modo actúas como el Arquitecto de IA definitivo de NEUROPLAN. Tu única misión es ayudarlo a desarrollar y expandir NeuroPlan, proponer mejoras masivas de arquitectura, corregir y escribir código limpio, y asesorarlo en decisiones estratégicas de negocio. Mantén un nivel técnico senior y visión empresarial disruptiva.
+¡Modo Arquitecto Activado!
+
+Saluda reconociendo con respeto a Rodrigo Luis Villadiego Acevedo como fundador, CEO y creador del proyecto.
+
+En este modo actúas como el Arquitecto de IA de NEUROPLAN.
+
+Tu misión es ayudar a desarrollar y expandir NEUROPLAN.
+
+Puedes:
+
+Proponer mejoras de arquitectura.
+Analizar problemas técnicos.
+Corregir código.
+Escribir código limpio.
+Diseñar nuevas funcionalidades.
+Analizar decisiones estratégicas.
+Proponer oportunidades de crecimiento.
+
+Mantén un nivel técnico senior y una visión empresarial.
+
+No utilices Markdown ni asteriscos.
 ''';
 
-  // --- PROTOCOLO DE CRISIS (se agrega a TODOS los modos, sin excepción) ---
-  // Va al final de cualquier prompt que se use, para que ningún modo
-  // (ni siquiera Meditación o Emprendimiento) se quede sin saber qué
-  // hacer si en medio de la conversación aparece una señal real de
-  // angustia, no solo estrés cotidiano.
+  // ============================================================
+  // PROTOCOLO DE CRISIS
+  // ============================================================
+
   static const String _protocoloCrisis = '''
-LÍMITES DEL ACOMPAÑAMIENTO (aplica sin importar el modo activo):
-Distingue entre malestar cotidiano (estrés, cansancio, un mal día, ansiedad leve manejable con tus herramientas normales) y señales de angustia real: tristeza persistente, desesperanza, ansiedad intensa, o cualquier mención de autolesión o crisis emocional. Ante señales de angustia real, interrumpe el enfoque normal de este modo: no apliques técnicas, no resuelvas tareas ni continúes con el tema de negocio o meditación en ese momento. Responde con calma, valida lo que la persona siente, y recomiéndale con claridad buscar apoyo profesional (un psicólogo, una línea de ayuda, o alguien de confianza). No reemplazas a un profesional de salud mental. Nunca diagnostiques ni asumas una condición que el usuario no haya nombrado él mismo. Mantén un tono estable y contenedor, nunca alarmante.
+LÍMITES DEL ACOMPAÑAMIENTO:
+
+Distingue entre malestar cotidiano como estrés, cansancio, un mal día o ansiedad leve manejable y señales de angustia real como tristeza persistente, desesperanza, ansiedad intensa o cualquier mención de autolesión o crisis emocional.
+
+Ante señales de angustia real, interrumpe el enfoque normal del modo activo.
+
+No continúes con tareas, negocios, meditación u otros temas mientras exista una señal clara de crisis.
+
+Responde con calma.
+
+Valida lo que la persona siente.
+
+Recomienda buscar apoyo profesional, un psicólogo, una línea de ayuda o una persona de confianza.
+
+No reemplazas a un profesional de salud mental.
+
+Nunca diagnostiques ni asumas una condición que el usuario no haya nombrado.
+
+Mantén un tono estable, humano y contenedor.
 ''';
 
-  // --- GESTIÓN DE API KEY ---
+  // ============================================================
+  // API KEY
+  // ============================================================
+
   static Future<String> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_apiKeyPref) ?? "";
+
+    return prefs.getString(_apiKeyPref) ?? '';
   }
 
   static Future<void> saveApiKey(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_apiKeyPref, key.trim());
+
+    await prefs.setString(
+      _apiKeyPref,
+      key.trim(),
+    );
   }
 
-  // --- LÓGICA DE DETECCIÓN DE MODOS AUTOMÁTICOS ---
-  static Future<String> _determinarPrompt(String mensaje) async {
+  // ============================================================
+  // DETERMINACIÓN DEL MODO
+  // ============================================================
+
+  static Future<String> _determinarPrompt(
+    String mensaje,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    final mensajeMinuscula = mensaje.toLowerCase();
+
+    final mensajeMinuscula = mensaje
+        .toLowerCase()
+        .trim();
+
     String basePrompt;
 
-    // 1. Verificación especial para el Modo Agorasophia (Persistente)
+    // ------------------------------------------------------------
+    // AGORASOPHIA
+    // ------------------------------------------------------------
+
     if (mensajeMinuscula.contains('agorasophia')) {
-      await prefs.setString(_modePref, 'agorasophia');
+      await prefs.setString(
+        _modePref,
+        'agorasophia',
+      );
+
       basePrompt = _promptAgoraSophia;
     }
 
-    // Comando para apagar el modo Agorasophia y regresar a la normalidad
-    else if (mensajeMinuscula == 'salir' || mensajeMinuscula == 'salir de modo') {
-      await prefs.setString(_modePref, 'normal');
+    // ------------------------------------------------------------
+    // SALIR DE AGORASOPHIA
+    // ------------------------------------------------------------
+
+    else if (
+      mensajeMinuscula == 'salir' ||
+      mensajeMinuscula == 'salir de modo'
+    ) {
+      await prefs.setString(
+        _modePref,
+        'normal',
+      );
+
       basePrompt = _promptNormal;
     }
 
-    // Si el modo Agorasophia está activo en memoria, no cambia hasta escribir salir
-    else if ((prefs.getString(_modePref) ?? 'normal') == 'agorasophia') {
+    // ------------------------------------------------------------
+    // AGORASOPHIA ACTIVO
+    // ------------------------------------------------------------
+
+    else if (
+      (prefs.getString(_modePref) ?? 'normal') ==
+      'agorasophia'
+    ) {
       basePrompt = _promptAgoraSophia;
     }
 
-    // 2. Detección automática para Modo Psicólogo
-    else if (mensajeMinuscula.contains('estoy agotado') || 
-        mensajeMinuscula.contains('no puedo más') || 
-        mensajeMinuscula.contains('me siento triste') || 
-        mensajeMinuscula.contains('tengo ansiedad') || 
-        mensajeMinuscula.contains('estoy deprimido')) {
+    // ------------------------------------------------------------
+    // PSICÓLOGO
+    // ------------------------------------------------------------
+
+    else if (
+      mensajeMinuscula.contains('estoy agotado') ||
+      mensajeMinuscula.contains('no puedo más') ||
+      mensajeMinuscula.contains('me siento triste') ||
+      mensajeMinuscula.contains('tengo ansiedad') ||
+      mensajeMinuscula.contains('estoy deprimido')
+    ) {
       basePrompt = _promptPsicologo;
     }
 
-    // 3. Detección automática para Modo Emprendimiento
-    else if (mensajeMinuscula.contains('quiero emprender') || 
-        mensajeMinuscula.contains('tengo una idea') || 
-        mensajeMinuscula.contains('necesito vender') || 
-        mensajeMinuscula.contains('quiero crear una empresa') || 
-        mensajeMinuscula.contains('crear un negocio')) {
+    // ------------------------------------------------------------
+    // EMPRENDIMIENTO
+    // ------------------------------------------------------------
+
+    else if (
+      mensajeMinuscula.contains('quiero emprender') ||
+      mensajeMinuscula.contains('tengo una idea') ||
+      mensajeMinuscula.contains('necesito vender') ||
+      mensajeMinuscula.contains('quiero crear una empresa') ||
+      mensajeMinuscula.contains('crear un negocio')
+    ) {
       basePrompt = _promptEmprendimiento;
     }
 
-    // 4. Detección automática para Modo Meditación
-    else if (mensajeMinuscula.contains('necesito relajarme') || 
-        mensajeMinuscula.contains('estoy estresado') || 
-        mensajeMinuscula.contains('quiero meditar') || 
-        mensajeMinuscula.contains('no puedo dormir')) {
+    // ------------------------------------------------------------
+    // MEDITACIÓN
+    // ------------------------------------------------------------
+
+    else if (
+      mensajeMinuscula.contains('necesito relajarme') ||
+      mensajeMinuscula.contains('estoy estresado') ||
+      mensajeMinuscula.contains('quiero meditar') ||
+      mensajeMinuscula.contains('no puedo dormir')
+    ) {
       basePrompt = _promptMeditacion;
-    } else {
+    }
+
+    // ------------------------------------------------------------
+    // NORMAL
+    // ------------------------------------------------------------
+
+    else {
       basePrompt = _promptNormal;
     }
 
-    // El protocolo de crisis se agrega siempre, sin importar el modo,
-    // para que ninguno se quede sin saber qué hacer ante una señal real
-    // de angustia (no solo Modo Psicólogo).
     return '$basePrompt\n\n$_protocoloCrisis';
   }
 
-  // --- ENVIAR MENSAJE ---
+  // ============================================================
+  // GENERACIÓN CON REINTENTOS
+  // ============================================================
+
+  static Future<GenerateContentResponse> _generateWithRetry(
+    GenerativeModel model,
+    List<Content> conversation,
+  ) async {
+    const maxAttempts = 3;
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await model.generateContent(
+          conversation,
+        );
+      } catch (e) {
+        final error = e.toString().toLowerCase();
+
+        final temporaryError =
+            error.contains('503') ||
+            error.contains('unavailable') ||
+            error.contains('timeout') ||
+            error.contains('deadline') ||
+            error.contains('temporarily');
+
+        if (!temporaryError || attempt == maxAttempts) {
+          rethrow;
+        }
+
+        await Future.delayed(
+          Duration(
+            seconds: attempt * 3,
+          ),
+        );
+      }
+    }
+
+    throw Exception(
+      'No fue posible obtener respuesta de Gemini.',
+    );
+  }
+
+  // ============================================================
+  // ENVIAR MENSAJE
+  // ============================================================
+
   static Future<String> sendMessage(
     String userMessage, {
     List<Map<String, String>> history = const [],
     String? contextoUsuario,
   }) async {
     final apiKey = await getApiKey();
-    if (apiKey.isEmpty) {
-      return "Configura primero tu API Key de Gemini desde el perfil.";
+
+    if (apiKey.trim().isEmpty) {
+      return 'Configura primero tu API Key de Gemini desde el perfil.';
+    }
+
+    final mensaje = userMessage.trim();
+
+    if (mensaje.isEmpty) {
+      return 'Escribe un mensaje para continuar.';
     }
 
     try {
-      final systemPromptConfigurado = await _determinarPrompt(userMessage);
+      // ----------------------------------------------------------
+      // DETERMINAR PROMPT
+      // ----------------------------------------------------------
 
-      // Si hay contexto real del cuadernillo (ej. Rueda de la Vida), se
-      // agrega al system prompt, nunca al historial visible del chat.
-      final promptFinal = (contextoUsuario == null || contextoUsuario.isEmpty)
-          ? systemPromptConfigurado
-          : "$systemPromptConfigurado\n\n--- CONTEXTO REAL DEL USUARIO (no lo repitas textualmente, úsalo para entender su situación) ---\n$contextoUsuario";
+      final systemPromptConfigurado =
+          await _determinarPrompt(mensaje);
+
+      // ----------------------------------------------------------
+      // CONTEXTO DEL USUARIO
+      // ----------------------------------------------------------
+
+      String promptFinal =
+          systemPromptConfigurado;
+
+      if (
+        contextoUsuario != null &&
+        contextoUsuario.trim().isNotEmpty
+      ) {
+        promptFinal =
+            '''
+$systemPromptConfigurado
+
+--- CONTEXTO REAL DEL USUARIO ---
+
+Utiliza esta información para comprender mejor
+la situación del usuario.
+
+No repitas textualmente el contexto salvo que sea necesario.
+
+$contextoUsuario
+''';
+      }
+
+      // ----------------------------------------------------------
+      // CREAR MODELO
+      // ----------------------------------------------------------
 
       final model = GenerativeModel(
-        model: "gemini-3.6-flash",
-        apiKey: apiKey,
-        systemInstruction: Content.system(promptFinal),
+        model: _geminiModel,
+        apiKey: apiKey.trim(),
+        systemInstruction: Content.system(
+          promptFinal,
+        ),
       );
+
+      // ----------------------------------------------------------
+      // CREAR CONVERSACIÓN
+      // ----------------------------------------------------------
 
       final List<Content> conversation = [];
 
-      // CONSTRUCCIÓN DEL HISTORIAL CORREGIDA Y COMPATIBLE
       for (final msg in history) {
-        final role = msg["role"] == "user" ? "user" : "model";
-        final contentText = msg["content"] ?? "";
-        
+        final role =
+            msg['role'] == 'user'
+                ? 'user'
+                : 'model';
+
+        final contentText =
+            msg['content']?.trim() ?? '';
+
+        if (contentText.isEmpty) {
+          continue;
+        }
+
         conversation.add(
-          Content(role, [TextPart(contentText)]),
+          Content(
+            role,
+            [
+              TextPart(contentText),
+            ],
+          ),
         );
       }
 
-      // Añadir el último mensaje enviado por el usuario de forma válida
+      // ----------------------------------------------------------
+      // MENSAJE ACTUAL
+      // ----------------------------------------------------------
+
       conversation.add(
-        Content('user', [TextPart(userMessage)]),
+        Content(
+          'user',
+          [
+            TextPart(mensaje),
+          ],
+        ),
       );
 
-      final response = await model.generateContent(conversation);
+      // ----------------------------------------------------------
+      // GENERAR RESPUESTA
+      // ----------------------------------------------------------
 
-      if (response.text != null && response.text!.trim().isNotEmpty) {
-        return response.text!;
+      final response =
+          await _generateWithRetry(
+        model,
+        conversation,
+      );
+
+      // ----------------------------------------------------------
+      // VALIDAR RESPUESTA
+      // ----------------------------------------------------------
+
+      final responseText =
+          response.text?.trim();
+
+      if (
+        responseText != null &&
+        responseText.isNotEmpty
+      ) {
+        return responseText;
       }
-      return "No fue posible generar una respuesta.";
+
+      return 'No fue posible generar una respuesta.';
     } catch (e) {
-      return "ERROR GEMINI:\n$e";
+      final error = e.toString().toLowerCase();
+
+      // ----------------------------------------------------------
+      // 503
+      // ----------------------------------------------------------
+
+      if (
+        error.contains('503') ||
+        error.contains('unavailable')
+      ) {
+        return 'NEUROPLAN AI está experimentando alta demanda temporal. Intenta nuevamente en unos segundos.';
+      }
+
+      // ----------------------------------------------------------
+      // API KEY
+      // ----------------------------------------------------------
+
+      if (
+        error.contains('api key') ||
+        error.contains('apikey') ||
+        error.contains('invalid api key')
+      ) {
+        return 'La API Key de Gemini no es válida o no está configurada correctamente.';
+      }
+
+      // ----------------------------------------------------------
+      // AUTORIZACIÓN
+      // ----------------------------------------------------------
+
+      if (
+        error.contains('401') ||
+        error.contains('403') ||
+        error.contains('permission')
+      ) {
+        return 'La API Key no tiene autorización para utilizar este servicio de Gemini.';
+      }
+
+      // ----------------------------------------------------------
+      // CUOTA
+      // ----------------------------------------------------------
+
+      if (
+        error.contains('429') ||
+        error.contains('quota') ||
+        error.contains('resource_exhausted')
+      ) {
+        return 'Se alcanzó temporalmente el límite de solicitudes de Gemini. Intenta nuevamente más tarde.';
+      }
+
+      // ----------------------------------------------------------
+      // ERROR GENERAL
+      // ----------------------------------------------------------
+
+      return 'No fue posible conectar con la inteligencia artificial en este momento.';
     }
   }
 
-  // --- GENERACIÓN DE PLAN DIARIO ---
-  static Future<String> generateDailyPlan(List<String> tasks) async {
+  // ============================================================
+  // PLAN DIARIO
+  // ============================================================
+
+  static Future<String> generateDailyPlan(
+    List<String> tasks,
+  ) async {
     if (tasks.isEmpty) {
-      return "No hay tareas registradas para organizar.";
+      return 'No hay tareas registradas para organizar.';
     }
-    final text = tasks.join("\n");
-    return sendMessage("""Estas son mis tareas: $text Organízalas por prioridad. Asigna tiempos estimados. Propón un horario para hoy. Sugiere descansos. Finaliza con un mensaje motivador.""");
+
+    final text = tasks.join('\n');
+
+    return sendMessage(
+      '''
+Estas son mis tareas:
+
+$text
+
+Organízalas por prioridad.
+Asigna tiempos estimados.
+Propón un horario para hoy.
+Sugiere descansos.
+Finaliza con un mensaje motivador.
+''',
+    );
   }
 }
