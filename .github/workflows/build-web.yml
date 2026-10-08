@@ -1,0 +1,38 @@
+name: NEUROPLAN AI - Web
+
+# Solo se ejecuta a mano (Actions -> este workflow -> Run workflow),
+# para no gastar minutos del cupo en cada push, ya que el repo es privado.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # El proyecto se creó solo para Android y no tiene carpeta web/.
+      # Esto la genera SOLO dentro de esta máquina de compilación; no
+      # modifica tu repositorio ni tu código en lib/.
+      - name: Agregar soporte web (index.html, íconos, manifest)
+        run: flutter create . --platforms web
+
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release
+
+      - name: Guardar la web como descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuroplan-ai-web
+          path: build/web
