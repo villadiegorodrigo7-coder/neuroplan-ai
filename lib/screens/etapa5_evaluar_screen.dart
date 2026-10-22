@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
@@ -24,6 +25,12 @@ class _Etapa5EvaluarScreenState extends State<Etapa5EvaluarScreen> {
   final _queNoFuncionoController = TextEditingController();
   final _proximosPasosController = TextEditingController();
 
+  /// Guardado automático con debounce (ver services/auto_guardado.dart).
+  late final AutoGuardado _auto = AutoGuardado(
+    obtenerDatos: () => _data,
+    sincronizar: (_) => _copiarControladoresAlModelo(),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -41,14 +48,18 @@ class _Etapa5EvaluarScreenState extends State<Etapa5EvaluarScreen> {
     });
   }
 
-  Future<void> _guardar({bool completar = false}) async {
+  /// Copia los 3 textos al modelo. Se ejecuta antes de cada escritura.
+  void _copiarControladoresAlModelo() {
     _data.evaluacionFinal.queFunciono = _queFuncionoController.text;
     _data.evaluacionFinal.queNoFunciono = _queNoFuncionoController.text;
     _data.evaluacionFinal.proximosPasos = _proximosPasosController.text;
-    setState(() => _guardando = true);
+  }
+
+  Future<void> _guardar({bool completar = false}) async {
     if (completar) _data.etapa5Completada = true;
-    await CuadernilloService.guardar(_data);
-    setState(() => _guardando = false);
+    setState(() => _guardando = true);
+    await _auto.guardarAhora(); // copia los textos al modelo y guarda
+    if (mounted) setState(() => _guardando = false);
   }
 
   Future<void> _finalizar() async {
@@ -66,6 +77,9 @@ class _Etapa5EvaluarScreenState extends State<Etapa5EvaluarScreen> {
 
   @override
   void dispose() {
+    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
+    // los controllers, porque la sincronización los lee).
+    _auto.dispose();
     _queFuncionoController.dispose();
     _queNoFuncionoController.dispose();
     _proximosPasosController.dispose();
@@ -133,6 +147,7 @@ class _Etapa5EvaluarScreenState extends State<Etapa5EvaluarScreen> {
           child: TextField(
             controller: controller,
             maxLines: 4,
+            onChanged: (_) => _auto.programar(), // guardado automático
             style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
