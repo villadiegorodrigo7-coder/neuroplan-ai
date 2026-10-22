@@ -101,7 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
-    final contexto = await _construirContextoRuedaVida();
+    final contexto = await _construirContextoUsuario();
 
     final response = await GeminiService.sendMessage(
       text,
@@ -122,19 +122,89 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  /// Arma un resumen corto de la Rueda de la Vida para dárselo al agente
-  /// como contexto real, solo si el usuario ya completó la Etapa 1
-  /// (si no, los valores son solo el default en 5 y no dicen nada de la
-  /// persona real).
-  Future<String?> _construirContextoRuedaVida() async {
+  /// Arma el contexto de la Etapa 1 (diagnóstico, Rueda de la Vida y
+  /// consumo de tiempo) para dárselo al agente.
+  ///
+  /// Ya NO exige que la Etapa 1 esté marcada como completada: si el usuario
+  /// solo avanzó una parte, se envía lo que exista. Como los valores
+  /// numéricos arrancan en 5 por defecto, un 5 puede ser "no tocado" o un
+  /// 5 real. Por eso, si la etapa no está completada, solo se incluye cada
+  /// bloque numérico cuando algún valor se movió del 5, y se avisa al agente
+  /// de que los datos son parciales.
+  Future<String?> _construirContextoUsuario() async {
     final data = await CuadernilloService.cargar();
-    if (!data.etapa1Completada) return null;
+    final completa = data.etapa1Completada;
 
+    final bloques = <String>[];
+
+    // --- Diagnóstico inicial ---
+    final d = data.diagnosticoInicial;
+    final diagTocado = d.energia != 5 ||
+        d.estres != 5 ||
+        d.claridadMental != 5 ||
+        d.organizacion != 5 ||
+        d.motivacion != 5 ||
+        d.satisfaccionGeneral != 5;
+    if (completa || diagTocado) {
+      bloques.add('Diagnóstico inicial (escala 0-10): '
+          'Energía ${d.energia}, Estrés ${d.estres}, '
+          'Claridad mental ${d.claridadMental}, '
+          'Organización ${d.organizacion}, Motivación ${d.motivacion}, '
+          'Satisfacción general ${d.satisfaccionGeneral}.');
+    }
+    if (d.nota.trim().isNotEmpty) {
+      bloques.add('Nota del usuario en el diagnóstico: ${_recortar(d.nota)}');
+    }
+
+    // --- Rueda de la Vida ---
     final r = data.ruedaVida;
-    return "Rueda de la Vida del usuario (escala 0-10): "
-        "Salud ${r.salud}, Estudios ${r.estudios}, Trabajo ${r.trabajo}, "
-        "Finanzas ${r.finanzas}, Familia ${r.familia}, Amigos ${r.amigos}, "
-        "Descanso ${r.descanso}, Crecimiento personal ${r.crecimiento}.";
+    final ruedaTocada = r.salud != 5 ||
+        r.estudios != 5 ||
+        r.trabajo != 5 ||
+        r.finanzas != 5 ||
+        r.familia != 5 ||
+        r.amigos != 5 ||
+        r.descanso != 5 ||
+        r.crecimiento != 5;
+    if (completa || ruedaTocada) {
+      bloques.add('Rueda de la Vida (escala 0-10): '
+          'Salud ${r.salud}, Estudios ${r.estudios}, Trabajo ${r.trabajo}, '
+          'Finanzas ${r.finanzas}, Familia ${r.familia}, '
+          'Amigos ${r.amigos}, Descanso ${r.descanso}, '
+          'Crecimiento personal ${r.crecimiento}.');
+    }
+
+    // --- Distribución / consumo de tiempo (texto libre) ---
+    final t = data.consumoTiempo;
+    final tiempo = <String>[
+      if (t.redesSociales.trim().isNotEmpty)
+        'Redes sociales: ${_recortar(t.redesSociales)}',
+      if (t.distracciones.trim().isNotEmpty)
+        'Distracciones: ${_recortar(t.distracciones)}',
+      if (t.obligaciones.trim().isNotEmpty)
+        'Obligaciones: ${_recortar(t.obligaciones)}',
+      if (t.habitos.trim().isNotEmpty) 'Hábitos: ${_recortar(t.habitos)}',
+    ];
+    if (tiempo.isNotEmpty) {
+      bloques.add('Cómo usa su tiempo el usuario. ${tiempo.join(' | ')}');
+    }
+
+    // Nada real todavía: no mandamos contexto (evita que el agente
+    // trate los valores por defecto como si fueran datos de la persona).
+    if (bloques.isEmpty) return null;
+
+    final estado = completa
+        ? 'Etapa 1 del Cuadernillo completada.'
+        : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES; lo que '
+            'falte aún no lo ha respondido, no lo des por hecho.';
+
+    return '$estado\n${bloques.join('\n')}';
+  }
+
+  /// Limita el largo de textos libres para no inflar el prompt.
+  String _recortar(String texto, {int max = 300}) {
+    final limpio = texto.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return limpio.length <= max ? limpio : '${limpio.substring(0, max)}…';
   }
 
   void _scrollToBottom() {
