@@ -436,7 +436,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                               const SizedBox(height: 22),
                               const Text(
-                                'Escríbeme o háblame y te\nayudo a organizar tu día',
+                                'Soy Ágora, tu asistente de\ninteligencia artificial',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 17,
@@ -445,6 +445,26 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                               const SizedBox(height: 10),
+                              Text(
+                                'Te acompaño en tu organización y en cada etapa de NEUROPLAN, a tu ritmo. Escríbeme o háblame cuando quieras.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  fontSize: 14,
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'Soy una IA y puedo equivocarme. No soy psicólogo ni otro profesional de la salud: si estás pasando por algo difícil, busca también a una persona de confianza o a un profesional.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
                               Text(
                                 'Si no has configurado tu API key,\nve a la pestaña Perfil.',
                                 textAlign: TextAlign.center,
