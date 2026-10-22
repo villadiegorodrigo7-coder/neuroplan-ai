@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 // Colores del tema (mismo morado/azul del resto de la app)
@@ -32,6 +33,12 @@ class _CuadernilloScreenState extends State<CuadernilloScreen> {
   // Controlador para la nota del Diagnostico Inicial
   final _notaController = TextEditingController();
 
+  /// Guardado automático con debounce (ver services/auto_guardado.dart).
+  late final AutoGuardado _auto = AutoGuardado(
+    obtenerDatos: () => _data,
+    sincronizar: (_) => _copiarControladoresAlModelo(),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -51,22 +58,22 @@ class _CuadernilloScreenState extends State<CuadernilloScreen> {
     });
   }
 
-  Future<void> _guardarProgreso({bool marcarCompletada = false}) async {
-    setState(() => _guardando = true);
-
+  /// Copia los textos escritos al modelo. Se ejecuta antes de cada escritura.
+  void _copiarControladoresAlModelo() {
     _data.diagnosticoInicial.nota = _notaController.text;
     _data.consumoTiempo.redesSociales = _redesController.text;
     _data.consumoTiempo.distracciones = _distraccionesController.text;
     _data.consumoTiempo.obligaciones = _obligacionesController.text;
     _data.consumoTiempo.habitos = _habitosController.text;
+  }
 
+  Future<void> _guardarProgreso({bool marcarCompletada = false}) async {
     if (marcarCompletada) {
       _data.etapa1Completada = true;
     }
-
-    await CuadernilloService.guardar(_data);
-
-    setState(() => _guardando = false);
+    setState(() => _guardando = true);
+    await _auto.guardarAhora(); // copia los textos al modelo y guarda
+    if (mounted) setState(() => _guardando = false);
   }
 
   void _irSiguiente() async {
@@ -98,6 +105,9 @@ class _CuadernilloScreenState extends State<CuadernilloScreen> {
 
   @override
   void dispose() {
+    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
+    // los controllers, porque la sincronización los lee).
+    _auto.dispose();
     _redesController.dispose();
     _distraccionesController.dispose();
     _obligacionesController.dispose();
@@ -389,7 +399,10 @@ class _CuadernilloScreenState extends State<CuadernilloScreen> {
               min: 1,
               max: 10,
               divisions: 9,
-              onChanged: (v) => onChanged(v.round()),
+              onChanged: (v) {
+                onChanged(v.round());
+                _auto.programar(); // guardado automático
+              },
             ),
           ),
         ],
@@ -423,6 +436,7 @@ class _CuadernilloScreenState extends State<CuadernilloScreen> {
           child: TextField(
             controller: controller,
             maxLines: lineas,
+            onChanged: (_) => _auto.programar(), // guardado automático
             style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
