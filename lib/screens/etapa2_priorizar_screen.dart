@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
 import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
+import '../services/tasks_service.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
 const Color kFondo = Color(0xFF12121E);
@@ -46,20 +49,23 @@ class _Etapa2PriorizarScreenState extends State<Etapa2PriorizarScreen> {
     });
   }
 
-  /// Se ejecuta justo antes de cada escritura. Las tareas ya viven en el
-  /// modelo (se agregan/eliminan directo sobre las listas), así que lo único
-  /// "suelto" son los textos escritos que el usuario aún no agregó con el
-  /// botón +. Esos se confirman solo cuando el usuario sale de la pantalla
-  /// o la app pasa a segundo plano, nunca mientras escribe (para no guardar
-  /// tareas a medias).
+  /// Se ejecuta justo antes de cada escritura. Hace dos cosas:
+  ///  1. Confirma los textos escritos que el usuario aún no agregó con el
+  ///     botón + (solo al salir o pasar a segundo plano, nunca mientras
+  ///     escribe, para no guardar tareas a medias).
+  ///  2. Pasa la matriz a la pantalla de Tareas (TasksService), para que
+  ///     las tareas del cuadernillo aparezcan en "Tareas".
   void _sincronizar(MotivoGuardado motivo) {
-    if (motivo == MotivoGuardado.debounce) return;
     final m = _data.matrizEisenhower;
-    final refrescar = motivo != MotivoGuardado.cierre;
-    _confirmarBorrador(m.urgenteImportante, _controllerUI, refrescar);
-    _confirmarBorrador(m.importanteNoUrgente, _controllerINU, refrescar);
-    _confirmarBorrador(m.urgenteNoImportante, _controllerUNI, refrescar);
-    _confirmarBorrador(m.niUrgenteNiImportante, _controllerNN, refrescar);
+    if (motivo != MotivoGuardado.debounce) {
+      final refrescar = motivo != MotivoGuardado.cierre;
+      _confirmarBorrador(m.urgenteImportante, _controllerUI, refrescar);
+      _confirmarBorrador(m.importanteNoUrgente, _controllerINU, refrescar);
+      _confirmarBorrador(m.urgenteNoImportante, _controllerUNI, refrescar);
+      _confirmarBorrador(m.niUrgenteNiImportante, _controllerNN, refrescar);
+    }
+    // No se espera (fire and forget): no depende del estado del widget.
+    unawaited(TasksService.instance.sincronizarMatriz(m));
   }
 
   void _confirmarBorrador(
