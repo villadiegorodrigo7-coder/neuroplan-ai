@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // NUEVO
+import 'auth_gate.dart'; // NUEVO
 import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/profile_screen.dart';
 
-void main() {
+// NUEVO: main ahora es async e inicia Supabase
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://hzisvmapqmadddejrerq.supabase.co',
+    anonKey: 'sb_publishable_dx27o7FnPWhrkmY1tlA6tw_xoLcQr-T',
+  );
   runApp(const NeuroplanApp());
 }
 
@@ -108,7 +115,7 @@ class NeuroplanApp extends StatelessWidget {
           }),
         ),
       ),
-      home: const MainNavigation(),
+      home: const AuthGate(), // NUEVO: antes era MainNavigation()
     );
   }
 }
