@@ -125,54 +125,55 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Arma el contexto de la Etapa 1 (diagnóstico, Rueda de la Vida y
   /// consumo de tiempo) para dárselo al agente.
   ///
-  /// Ya NO exige que la Etapa 1 esté marcada como completada: si el usuario
-  /// solo avanzó una parte, se envía lo que exista. Como los valores
-  /// numéricos arrancan en 5 por defecto, un 5 puede ser "no tocado" o un
-  /// 5 real. Por eso, si la etapa no está completada, solo se incluye cada
-  /// bloque numérico cuando algún valor se movió del 5, y se avisa al agente
-  /// de que los datos son parciales.
+  /// Los valores numéricos arrancan en 5 por defecto, así que un 5 puede
+  /// ser "no lo toqué" o un 5 real. Por eso:
+  ///  * Etapa 1 completada  -> se envían todos los valores (ya los revisó).
+  ///  * Etapa 1 en progreso -> solo se envían los valores distintos de 5
+  ///    (los que seguro movió el usuario) y se avisa que son parciales.
+  /// Así el agente no trata valores por defecto como si fueran de la persona.
   Future<String?> _construirContextoUsuario() async {
     final data = await CuadernilloService.cargar();
     final completa = data.etapa1Completada;
+
+    // Devuelve "Etiqueta valor, ..." con los campos que corresponda enviar.
+    String? valores(Map<String, int> campos) {
+      final usados = campos.entries
+          .where((e) => completa || e.value != 5)
+          .map((e) => '${e.key} ${e.value}')
+          .toList();
+      return usados.isEmpty ? null : usados.join(', ');
+    }
 
     final bloques = <String>[];
 
     // --- Diagnóstico inicial ---
     final d = data.diagnosticoInicial;
-    final diagTocado = d.energia != 5 ||
-        d.estres != 5 ||
-        d.claridadMental != 5 ||
-        d.organizacion != 5 ||
-        d.motivacion != 5 ||
-        d.satisfaccionGeneral != 5;
-    if (completa || diagTocado) {
-      bloques.add('Diagnóstico inicial (escala 0-10): '
-          'Energía ${d.energia}, Estrés ${d.estres}, '
-          'Claridad mental ${d.claridadMental}, '
-          'Organización ${d.organizacion}, Motivación ${d.motivacion}, '
-          'Satisfacción general ${d.satisfaccionGeneral}.');
-    }
+    final diag = valores({
+      'Energía': d.energia,
+      'Estrés': d.estres,
+      'Claridad mental': d.claridadMental,
+      'Organización': d.organizacion,
+      'Motivación': d.motivacion,
+      'Satisfacción general': d.satisfaccionGeneral,
+    });
+    if (diag != null) bloques.add('Diagnóstico inicial (escala 0-10): $diag.');
     if (d.nota.trim().isNotEmpty) {
       bloques.add('Nota del usuario en el diagnóstico: ${_recortar(d.nota)}');
     }
 
     // --- Rueda de la Vida ---
     final r = data.ruedaVida;
-    final ruedaTocada = r.salud != 5 ||
-        r.estudios != 5 ||
-        r.trabajo != 5 ||
-        r.finanzas != 5 ||
-        r.familia != 5 ||
-        r.amigos != 5 ||
-        r.descanso != 5 ||
-        r.crecimiento != 5;
-    if (completa || ruedaTocada) {
-      bloques.add('Rueda de la Vida (escala 0-10): '
-          'Salud ${r.salud}, Estudios ${r.estudios}, Trabajo ${r.trabajo}, '
-          'Finanzas ${r.finanzas}, Familia ${r.familia}, '
-          'Amigos ${r.amigos}, Descanso ${r.descanso}, '
-          'Crecimiento personal ${r.crecimiento}.');
-    }
+    final rueda = valores({
+      'Salud': r.salud,
+      'Estudios': r.estudios,
+      'Trabajo': r.trabajo,
+      'Finanzas': r.finanzas,
+      'Familia': r.familia,
+      'Amigos': r.amigos,
+      'Descanso': r.descanso,
+      'Crecimiento personal': r.crecimiento,
+    });
+    if (rueda != null) bloques.add('Rueda de la Vida (escala 0-10): $rueda.');
 
     // --- Distribución / consumo de tiempo (texto libre) ---
     final t = data.consumoTiempo;
@@ -189,14 +190,14 @@ class _ChatScreenState extends State<ChatScreen> {
       bloques.add('Cómo usa su tiempo el usuario. ${tiempo.join(' | ')}');
     }
 
-    // Nada real todavía: no mandamos contexto (evita que el agente
-    // trate los valores por defecto como si fueran datos de la persona).
+    // Nada real todavía: no mandamos contexto.
     if (bloques.isEmpty) return null;
 
     final estado = completa
         ? 'Etapa 1 del Cuadernillo completada.'
-        : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES; lo que '
-            'falte aún no lo ha respondido, no lo des por hecho.';
+        : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES. Lo que '
+            'no aparece aquí aún no lo ha respondido; no lo des por hecho ni '
+            'asumas un valor.';
 
     return '$estado\n${bloques.join('\n')}';
   }
