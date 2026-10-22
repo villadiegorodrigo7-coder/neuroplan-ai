@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
@@ -24,6 +25,12 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
   final _nuevaTareaController = TextEditingController();
   final _notaController = TextEditingController();
 
+  /// Guardado automático con debounce (ver services/auto_guardado.dart).
+  late final AutoGuardado _auto = AutoGuardado(
+    obtenerDatos: () => _data,
+    sincronizar: _sincronizar,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -41,12 +48,28 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
 
   RegistroDiario get _registroActual => _data.seguimiento30Dias.registros[_diaSeleccionado];
 
+  /// Se ejecuta justo antes de cada escritura: copia la nota del día
+  /// visible al modelo. Si el usuario escribió una tarea pero no pulsó +,
+  /// se confirma solo al salir o al pasar a segundo plano (nunca mientras
+  /// escribe, para no guardar tareas a medias).
+  void _sincronizar(MotivoGuardado motivo) {
+    _registroActual.nota = _notaController.text;
+    if (motivo == MotivoGuardado.debounce) return;
+    final texto = _nuevaTareaController.text.trim();
+    if (texto.isEmpty) return;
+    _registroActual.tareas.add(TareaChecklist(texto: texto));
+    _nuevaTareaController.clear();
+    // No se puede llamar setState mientras la pantalla se está cerrando.
+    if (motivo != MotivoGuardado.cierre && mounted) setState(() {});
+  }
+
   void _cambiarDia(int index) {
     _registroActual.nota = _notaController.text;
     setState(() {
       _diaSeleccionado = index;
       _notaController.text = _registroActual.nota;
     });
+    _auto.programar();
   }
 
   void _agregarTarea() {
@@ -56,24 +79,26 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
       _registroActual.tareas.add(TareaChecklist(texto: texto));
       _nuevaTareaController.clear();
     });
+    _auto.programar();
   }
 
   void _toggleTarea(int index) {
     setState(() {
       _registroActual.tareas[index].completada = !_registroActual.tareas[index].completada;
     });
+    _auto.programar();
   }
 
   void _eliminarTarea(int index) {
     setState(() => _registroActual.tareas.removeAt(index));
+    _auto.programar();
   }
 
   Future<void> _guardar({bool completar = false}) async {
-    _registroActual.nota = _notaController.text;
-    setState(() => _guardando = true);
     if (completar) _data.etapa4Completada = true;
-    await CuadernilloService.guardar(_data);
-    setState(() => _guardando = false);
+    setState(() => _guardando = true);
+    await _auto.guardarAhora(); // copia la nota al modelo y guarda
+    if (mounted) setState(() => _guardando = false);
   }
 
   Future<void> _finalizar() async {
@@ -91,6 +116,9 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
 
   @override
   void dispose() {
+    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
+    // los controllers, porque la sincronización los lee).
+    _auto.dispose();
     _nuevaTareaController.dispose();
     _notaController.dispose();
     super.dispose();
@@ -179,9 +207,11 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                   const SizedBox(height: 20),
                   _buildSlider('Estado de ánimo', registro.estadoAnimo, (v) {
                     setState(() => registro.estadoAnimo = v);
+                    _auto.programar();
                   }),
                   _buildSlider('Nivel de cumplimiento (%)', registro.nivelCumplimiento, (v) {
                     setState(() => registro.nivelCumplimiento = v);
+                    _auto.programar();
                   }, max: 100, divisions: 10, sufijo: '%'),
                   const SizedBox(height: 8),
                   _buildCampoTexto(_notaController, 'Nota del día', '¿Cómo te fue hoy?'),
@@ -317,6 +347,7 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
           child: TextField(
             controller: controller,
             maxLines: 3,
+            onChanged: (_) => _auto.programar(), // guardado automático
             style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
