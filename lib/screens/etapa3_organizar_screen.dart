@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
@@ -24,6 +25,13 @@ class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
   final _mananaController = TextEditingController();
   final _tardeController = TextEditingController();
   final _nocheController = TextEditingController();
+
+  /// Guardado automático con debounce (ver services/auto_guardado.dart).
+  /// Antes de cada escritura copia los 3 campos del día visible al modelo.
+  late final AutoGuardado _auto = AutoGuardado(
+    obtenerDatos: () => _data,
+    sincronizar: (_) => _guardarDiaActual(),
+  );
 
   @override
   void initState() {
@@ -60,14 +68,14 @@ class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
       _diaSeleccionado = index;
       _cargarDiaEnControladores();
     });
+    _auto.programar();
   }
 
   Future<void> _guardar({bool completar = false}) async {
-    _guardarDiaActual();
-    setState(() => _guardando = true);
     if (completar) _data.etapa3Completada = true;
-    await CuadernilloService.guardar(_data);
-    setState(() => _guardando = false);
+    setState(() => _guardando = true);
+    await _auto.guardarAhora(); // copia el día visible al modelo y guarda
+    if (mounted) setState(() => _guardando = false);
   }
 
   Future<void> _finalizar() async {
@@ -85,6 +93,9 @@ class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
 
   @override
   void dispose() {
+    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
+    // los controllers, porque la sincronización los lee).
+    _auto.dispose();
     _mananaController.dispose();
     _tardeController.dispose();
     _nocheController.dispose();
@@ -193,6 +204,7 @@ class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
           child: TextField(
             controller: controller,
             maxLines: 3,
+            onChanged: (_) => _auto.programar(), // guardado automático
             style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Qué harás en este bloque...',
