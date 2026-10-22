@@ -4,6 +4,7 @@ import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
 import '../services/cuadernillo_service.dart';
+import '../services/tasks_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -190,16 +191,71 @@ class _ChatScreenState extends State<ChatScreen> {
       bloques.add('Cómo usa su tiempo el usuario. ${tiempo.join(' | ')}');
     }
 
+    final partes = <String>[];
+
+    if (bloques.isNotEmpty) {
+      final estado = completa
+          ? 'Etapa 1 del Cuadernillo completada.'
+          : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES. Lo '
+              'que no aparece aquí aún no lo ha respondido; no lo des por '
+              'hecho ni asumas un valor.';
+      partes.add('$estado\n${bloques.join('\n')}');
+    }
+
+    // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
+    final tareas = await _construirContextoTareas();
+    if (tareas != null) partes.add(tareas);
+
     // Nada real todavía: no mandamos contexto.
-    if (bloques.isEmpty) return null;
+    if (partes.isEmpty) return null;
+    return partes.join('\n\n');
+  }
 
-    final estado = completa
-        ? 'Etapa 1 del Cuadernillo completada.'
-        : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES. Lo que '
-            'no aparece aquí aún no lo ha respondido; no lo des por hecho ni '
-            'asumas un valor.';
+  /// Resume las tareas PENDIENTES agrupadas por cuadrante, para que el
+  /// agente pueda ayudar a priorizar. Limita cantidad y largo para no
+  /// inflar el prompt. Devuelve null si no hay tareas.
+  Future<String?> _construirContextoTareas() async {
+    try {
+      await TasksService.instance.cargar();
+    } catch (_) {
+      return null;
+    }
+    final todas = TasksService.instance.tasks;
+    final pendientes = todas.where((t) => !t.done).toList();
+    if (pendientes.isEmpty) return null;
 
-    return '$estado\n${bloques.join('\n')}';
+    const grupos = <String, String>{
+      'urgenteImportante': 'Hazlo ya (urgente e importante)',
+      'importanteNoUrgente': 'Planifícalo (importante, no urgente)',
+      'urgenteNoImportante': 'Delégalo (urgente, no importante)',
+      'niUrgenteNiImportante': 'Elimínalo (ni urgente ni importante)',
+    };
+    const maxPorGrupo = 10;
+
+    String lista(List<String> titulos) {
+      final mostrados = titulos.take(maxPorGrupo).map((t) => _recortar(t, max: 80));
+      final resto = titulos.length - maxPorGrupo;
+      return mostrados.join('; ') + (resto > 0 ? ' (y $resto más)' : '');
+    }
+
+    final lineas = <String>[];
+    grupos.forEach((clave, etiqueta) {
+      final titulos =
+          pendientes.where((t) => t.cuadrante == clave).map((t) => t.title).toList();
+      if (titulos.isNotEmpty) lineas.add('$etiqueta: ${lista(titulos)}');
+    });
+    final sinClasificar = pendientes
+        .where((t) => !grupos.containsKey(t.cuadrante))
+        .map((t) => t.title)
+        .toList();
+    if (sinClasificar.isNotEmpty) {
+      lineas.add('Sin clasificar: ${lista(sinClasificar)}');
+    }
+
+    final hechas = todas.length - pendientes.length;
+    return 'Tareas pendientes del usuario (${pendientes.length}), por '
+        'cuadrante de la Matriz de Eisenhower (método NEUROPLAN). '
+        'Completadas: $hechas.\n${lineas.join('\n')}';
   }
 
   /// Limita el largo de textos libres para no inflar el prompt.
