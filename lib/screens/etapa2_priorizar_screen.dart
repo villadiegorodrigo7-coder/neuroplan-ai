@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
@@ -25,6 +26,12 @@ class _Etapa2PriorizarScreenState extends State<Etapa2PriorizarScreen> {
   final _controllerUNI = TextEditingController();
   final _controllerNN = TextEditingController();
 
+  /// Guardado automático con debounce (ver services/auto_guardado.dart).
+  late final AutoGuardado _auto = AutoGuardado(
+    obtenerDatos: () => _data,
+    sincronizar: _sincronizar,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -39,11 +46,40 @@ class _Etapa2PriorizarScreenState extends State<Etapa2PriorizarScreen> {
     });
   }
 
+  /// Se ejecuta justo antes de cada escritura. Las tareas ya viven en el
+  /// modelo (se agregan/eliminan directo sobre las listas), así que lo único
+  /// "suelto" son los textos escritos que el usuario aún no agregó con el
+  /// botón +. Esos se confirman solo cuando el usuario sale de la pantalla
+  /// o la app pasa a segundo plano, nunca mientras escribe (para no guardar
+  /// tareas a medias).
+  void _sincronizar(MotivoGuardado motivo) {
+    if (motivo == MotivoGuardado.debounce) return;
+    final m = _data.matrizEisenhower;
+    final refrescar = motivo != MotivoGuardado.cierre;
+    _confirmarBorrador(m.urgenteImportante, _controllerUI, refrescar);
+    _confirmarBorrador(m.importanteNoUrgente, _controllerINU, refrescar);
+    _confirmarBorrador(m.urgenteNoImportante, _controllerUNI, refrescar);
+    _confirmarBorrador(m.niUrgenteNiImportante, _controllerNN, refrescar);
+  }
+
+  void _confirmarBorrador(
+    List<String> lista,
+    TextEditingController controller,
+    bool refrescar,
+  ) {
+    final texto = controller.text.trim();
+    if (texto.isEmpty) return;
+    lista.add(texto);
+    controller.clear();
+    // No se puede llamar setState mientras la pantalla se está cerrando.
+    if (refrescar && mounted) setState(() {});
+  }
+
   Future<void> _guardar({bool completar = false}) async {
-    setState(() => _guardando = true);
     if (completar) _data.etapa2Completada = true;
-    await CuadernilloService.guardar(_data);
-    setState(() => _guardando = false);
+    setState(() => _guardando = true);
+    await _auto.guardarAhora();
+    if (mounted) setState(() => _guardando = false);
   }
 
   void _agregarTarea(List<String> lista, TextEditingController controller) {
@@ -53,10 +89,12 @@ class _Etapa2PriorizarScreenState extends State<Etapa2PriorizarScreen> {
       lista.add(texto);
       controller.clear();
     });
+    _auto.programar(); // cambio en el modelo => guardado automático
   }
 
   void _eliminarTarea(List<String> lista, int index) {
     setState(() => lista.removeAt(index));
+    _auto.programar();
   }
 
   Future<void> _finalizar() async {
@@ -74,6 +112,9 @@ class _Etapa2PriorizarScreenState extends State<Etapa2PriorizarScreen> {
 
   @override
   void dispose() {
+    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
+    // los controllers, porque _sincronizar los lee).
+    _auto.dispose();
     _controllerUI.dispose();
     _controllerINU.dispose();
     _controllerUNI.dispose();
