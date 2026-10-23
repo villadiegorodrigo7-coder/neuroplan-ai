@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/cuadernillo_data.dart';
 import '../models/task.dart';
+import 'coleccion_nube.dart';
 import 'cuadernillo_service.dart';
 
 /// Fuente única de verdad de las tareas.
@@ -20,7 +20,6 @@ class TasksService extends ChangeNotifier {
   TasksService._();
   static final TasksService instance = TasksService._();
 
-  static const String _storageKey = 'tasks_list';
   static const String origenMatriz = 'eisenhower';
 
   /// Los 4 cuadrantes de la matriz (en orden), con su etiqueta corta.
@@ -35,30 +34,63 @@ class TasksService extends ChangeNotifier {
 
   static const Uuid _uuid = Uuid();
 
+  /// Persistencia: copia local por cuenta + tabla "tareas" en Supabase.
+  /// (Las tareas antiguas guardadas sin cuenta en 'tasks_list' se importan
+  /// una sola vez a la primera cuenta que entre.)
+  static final ColeccionNube<Task> _col = ColeccionNube<Task>(
+    tabla: 'tareas',
+    claveLocal: 'tasks_cache',
+    claveLegacy: 'tasks_list',
+    idDe: (t) => t.id,
+    aJson: (t) => t.toJson(),
+    deJson: Task.fromJson,
+    aFila: (t, uid) => {
+      'id': t.id,
+      'user_id': uid,
+      'titulo': t.title,
+      'hecha': t.done,
+      'origen': t.origen,
+      'cuadrante': t.cuadrante,
+    },
+    deFila: (f) => Task(
+      id: f['id'] as String,
+      title: f['titulo'] as String,
+      done: (f['hecha'] as bool?) ?? false,
+      origen: f['origen'] as String?,
+      cuadrante: f['cuadrante'] as String?,
+    ),
+  );
+
   final List<Task> _tasks = [];
   Future<void>? _carga;
-  Future<void> _colaEscritura = Future.value();
+  String? _uidCargado;
   Future<void> _colaMatriz = Future.value();
 
   /// Lista actual (solo lectura). Llamar después de [cargar].
   List<Task> get tasks => List.unmodifiable(_tasks);
 
-  /// Carga las tareas guardadas (una sola vez; llamadas repetidas
-  /// reutilizan la misma carga).
-  Future<void> cargar() => _carga ??= _cargarInterno();
+  /// Carga las tareas de la cuenta actual. Se carga una vez por cuenta:
+  /// si cambia el usuario, se descarta lo anterior y se vuelve a cargar,
+  /// así una cuenta nunca ve las tareas de otra.
+  Future<void> cargar() {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (_carga == null || uid != _uidCargado) {
+      _uidCargado = uid;
+      _tasks.clear();
+      _carga = _cargarInterno();
+      _notificar();
+    }
+    return _carga!;
+  }
 
   Future<void> _cargarInterno() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw) as List<dynamic>;
-        _tasks
-          ..clear()
-          ..addAll(decoded.map((e) => Task.fromJson(e as Map<String, dynamic>)));
-      }
+      final lista = await _col.cargar();
+      _tasks
+        ..clear()
+        ..addAll(lista);
     } catch (e) {
-      // Dato corrupto: se arranca con lista vacía en vez de romper la app.
+      // Si algo falla se arranca con lista vacía en vez de romper la app.
       debugPrint('TasksService: error al cargar: $e');
     }
     _notificar();
@@ -223,18 +255,9 @@ class TasksService extends ChangeNotifier {
 
   String _norm(String s) => s.trim().toLowerCase();
 
-  /// Escrituras en orden: se toma una "foto" del JSON en el momento de la
-  /// llamada y se encolan, así una escritura vieja nunca pisa a una nueva.
-  Future<void> _guardar() {
-    final json = jsonEncode(_tasks.map((t) => t.toJson()).toList());
-    _colaEscritura = _colaEscritura.then((_) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, json);
-    }).catchError((Object e) {
-      debugPrint('TasksService: error al guardar: $e');
-    });
-    return _colaEscritura;
-  }
+  /// Guarda la lista completa: queda en el dispositivo al instante y se
+  /// sube a Supabase en segundo plano (solo lo que cambió).
+  Future<void> _guardar() => _col.guardar(List<Task>.of(_tasks));
 
   /// Se avisa en un microtask para no disparar reconstrucciones mientras
   /// el framework está cerrando una pantalla (p. ej. dentro de dispose()).
