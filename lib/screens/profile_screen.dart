@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/gemini_service.dart';
 import 'cuadernillo_home_screen.dart';
 
@@ -67,6 +68,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               child: const Icon(Icons.person, size: 44, color: Colors.white),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              Supabase.instance.client.auth.currentUser?.email ?? '',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -181,6 +192,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            // Al cerrar sesión, la puerta de acceso vuelve a la pantalla de
+            // ingreso. Los datos de esta cuenta quedan guardados en la nube.
+            onPressed: () => Supabase.instance.client.auth.signOut(),
+            icon: const Icon(Icons.logout),
+            label: const Text('Cerrar sesión'),
           ),
         ],
       ),
