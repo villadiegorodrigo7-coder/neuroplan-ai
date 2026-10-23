@@ -1,25 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-class AgendaEvent {
-  final String id;
-  String title;
-  DateTime date;
-
-  AgendaEvent({required this.id, required this.title, required this.date});
-
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'title': title, 'date': date.toIso8601String()};
-
-  factory AgendaEvent.fromJson(Map<String, dynamic> json) => AgendaEvent(
-        id: json['id'],
-        title: json['title'],
-        date: DateTime.parse(json['date']),
-      );
-}
+import '../models/agenda_event.dart';
+import '../services/agenda_service.dart';
 
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({super.key});
@@ -29,7 +13,6 @@ class AgendaScreen extends StatefulWidget {
 }
 
 class _AgendaScreenState extends State<AgendaScreen> {
-  static const String _storageKey = 'agenda_events';
   final List<AgendaEvent> _events = [];
   bool _loading = true;
 
@@ -40,24 +23,19 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   Future<void> _loadEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
-    if (raw != null) {
-      final List<dynamic> decoded = jsonDecode(raw);
-      setState(() {
-        _events.clear();
-        _events.addAll(decoded.map((e) => AgendaEvent.fromJson(e)));
-        _events.sort((a, b) => a.date.compareTo(b.date));
-      });
-    }
-    setState(() => _loading = false);
+    final lista = await AgendaService.cargar();
+    if (!mounted) return;
+    setState(() {
+      _events
+        ..clear()
+        ..addAll(lista);
+      _events.sort((a, b) => a.date.compareTo(b.date));
+      _loading = false;
+    });
   }
 
-  Future<void> _saveEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(_events.map((e) => e.toJson()).toList());
-    await prefs.setString(_storageKey, encoded);
-  }
+  /// Guarda en el dispositivo y sincroniza con Supabase en segundo plano.
+  Future<void> _saveEvents() => AgendaService.guardar(_events);
 
   Future<void> _addEvent() async {
     final titleController = TextEditingController();
