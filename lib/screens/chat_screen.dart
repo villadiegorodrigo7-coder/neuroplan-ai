@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_conversation.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
@@ -21,13 +22,78 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatConversation? _current;
 
   bool _isLoading = false;
-  bool _voiceReplyEnabled = true;
+  /// La voz de Ágora empieza apagada: solo habla si la persona activa la bocina.
+  /// La elección se recuerda en este dispositivo.
+  bool _voiceReplyEnabled = false;
+  bool _isListening = false;
+  String _textoAntesDeDictar = '';
+  static const String _prefVoz = 'chat_voz_activada';
   bool _loadingHistory = true;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    _loadVoicePreference();
+  }
+
+  Future<void> _loadVoicePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activada = prefs.getBool(_prefVoz) ?? false;
+      if (mounted) setState(() => _voiceReplyEnabled = activada);
+    } catch (_) {
+      // Si no se puede leer, la voz queda apagada.
+    }
+  }
+
+  Future<void> _toggleVoiceReply() async {
+    final nueva = !_voiceReplyEnabled;
+    setState(() => _voiceReplyEnabled = nueva);
+    if (!nueva) VoiceService.stopSpeaking();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefVoz, nueva);
+    } catch (_) {}
+  }
+
+  /// Dictado: pulsa el micrófono, habla con calma y pulsa de nuevo para
+  /// terminar. El texto queda en la caja para que lo revises antes de enviar.
+  Future<void> _toggleDictado() async {
+    if (_isListening) {
+      await VoiceService.stopListening();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    _textoAntesDeDictar = _controller.text.trim();
+    setState(() => _isListening = true);
+
+    final activado = await VoiceService.startListening(
+      onResult: (texto, esFinal) {
+        if (!mounted) return;
+        final base = _textoAntesDeDictar;
+        final unido = base.isEmpty ? texto : '$base $texto';
+        _controller.text = unido;
+        _controller.selection = TextSelection.collapsed(offset: unido.length);
+        if (esFinal) _textoAntesDeDictar = unido;
+      },
+      onDone: () {
+        if (mounted) setState(() => _isListening = false);
+      },
+      onError: (_) {},
+    );
+
+    if (!activado && mounted) {
+      setState(() => _isListening = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No pude activar el micrófono. Revisa el permiso del navegador, o prueba con Chrome o Edge.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -70,6 +136,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage([String? voiceText]) async {
+    if (_isListening) {
+      await VoiceService.stopListening();
+      if (mounted) setState(() => _isListening = false);
+    }
     final text = (voiceText ?? _controller.text).trim();
     if (text.isEmpty) return;
 
@@ -281,6 +351,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.dispose();
     _scrollController.dispose();
     VoiceService.stopSpeaking();
+    VoiceService.stopListening();
     super.dispose();
   }
 
@@ -397,11 +468,10 @@ class _ChatScreenState extends State<ChatScreen> {
               _voiceReplyEnabled ? Icons.volume_up : Icons.volume_off,
               color: _voiceReplyEnabled ? scheme.primary : Colors.white38,
             ),
-            tooltip: 'Respuesta por voz',
-            onPressed: () {
-              setState(() => _voiceReplyEnabled = !_voiceReplyEnabled);
-              if (!_voiceReplyEnabled) VoiceService.stopSpeaking();
-            },
+            tooltip: _voiceReplyEnabled
+                ? 'Ágora habla: toca para silenciar'
+                : 'Activar la voz de Ágora',
+            onPressed: _toggleVoiceReply,
           ),
         ],
       ),
@@ -552,7 +622,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         maxLines: 5,
                         style: const TextStyle(fontSize: 14.5),
                         decoration: InputDecoration(
-                          hintText: 'Escribe un mensaje...',
+                          hintText: _isListening ? 'Te escucho...' : 'Escribe un mensaje...',
                           hintStyle: TextStyle(
                             color: Colors.white.withValues(alpha: 0.4),
                           ),
@@ -564,7 +634,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
+                      onPressed: _isLoading ? null : _toggleDictado,
+                      icon: Icon(
+                        _isListening ? Icons.stop_circle_outlined : Icons.mic_none_rounded,
+                        color: _isListening ? Colors.redAccent : scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Container(
