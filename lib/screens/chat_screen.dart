@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_conversation.dart';
 import '../services/gemini_service.dart';
@@ -27,6 +29,11 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _voiceReplyEnabled = false;
   bool _isListening = false;
   String _textoAntesDeDictar = '';
+
+  /// Cada vez que se empieza a dictar sube este número. Lo que llegue del
+  /// micrófono con un número viejo se ignora: así un resultado tardío nunca
+  /// vuelve a escribir en la caja después de enviar o de editar a mano.
+  int _sesionDictado = 0;
   static const String _prefVoz = 'chat_voz_activada';
   bool _loadingHistory = true;
 
@@ -67,11 +74,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     _textoAntesDeDictar = _controller.text.trim();
+    final sesion = ++_sesionDictado;
     setState(() => _isListening = true);
 
     final activado = await VoiceService.startListening(
       onResult: (texto, esFinal) {
-        if (!mounted) return;
+        if (!mounted || sesion != _sesionDictado) return;
         final base = _textoAntesDeDictar;
         final unido = base.isEmpty ? texto : '$base $texto';
         _controller.text = unido;
@@ -79,7 +87,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if (esFinal) _textoAntesDeDictar = unido;
       },
       onDone: () {
-        if (mounted) setState(() => _isListening = false);
+        if (mounted && sesion == _sesionDictado) {
+          setState(() => _isListening = false);
+        }
       },
       onError: (_) {},
     );
@@ -136,9 +146,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage([String? voiceText]) async {
+    // Se cierra el dictado y se ignora lo que el micrófono todavía entregue.
+    _sesionDictado++;
     if (_isListening) {
-      await VoiceService.stopListening();
-      if (mounted) setState(() => _isListening = false);
+      setState(() => _isListening = false);
+      VoiceService.stopListening();
     }
     final text = (voiceText ?? _controller.text).trim();
     if (text.isEmpty) return;
@@ -616,7 +628,28 @@ class _ChatScreenState extends State<ChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: Focus(
+                        // En el computador, Enter envía y Shift+Enter baja de
+                        // línea. En el teléfono, Enter sigue siendo línea nueva.
+                        onKeyEvent: (node, event) {
+                          final esEnter =
+                              event.logicalKey == LogicalKeyboardKey.enter ||
+                                  event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                          final esTelefono =
+                              defaultTargetPlatform == TargetPlatform.android ||
+                                  defaultTargetPlatform == TargetPlatform.iOS;
+                          if (!esEnter ||
+                              esTelefono ||
+                              HardwareKeyboard.instance.isShiftPressed ||
+                              !_controller.value.composing.isCollapsed) {
+                            return KeyEventResult.ignored;
+                          }
+                          if (event is KeyDownEvent && !_isLoading) {
+                            _sendMessage();
+                          }
+                          return KeyEventResult.handled;
+                        },
+                        child: TextField(
                         controller: _controller,
                         minLines: 1,
                         maxLines: 5,
@@ -631,7 +664,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                         ),
+                        onChanged: (_) {
+                          // Si escribes o corriges a mano, el dictado se
+                          // detiene para no pisar tus cambios.
+                          if (_isListening) {
+                            _sesionDictado++;
+                            setState(() => _isListening = false);
+                            VoiceService.stopListening();
+                          }
+                        },
                         onSubmitted: (_) => _sendMessage(),
+                      ),
                       ),
                     ),
                     IconButton(
