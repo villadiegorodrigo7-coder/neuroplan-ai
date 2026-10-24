@@ -1,14 +1,19 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Ágora. La app ya NO habla con Gemini directamente ni guarda ninguna clave:
+/// le manda el mensaje a la función de servidor "agora-chat" (en Supabase),
+/// que es la única que tiene la clave de Gemini y la que cuenta el límite
+/// diario por persona. El modelo de Gemini también se elige allá.
 class GeminiService {
-  static const String _apiKeyPref = 'gemini_api_key';
+  /// Nombre de la función de servidor en Supabase.
+  static const String _funcionChat = 'agora-chat';
 
-  // ============================================================
-  // MODELO ACTUAL
-  // ============================================================
-
-  static const String _geminiModel = 'gemini-3.6-flash';
+  /// Clave que usaban las versiones anteriores para guardar la API key en el
+  /// dispositivo. Se borra para no dejarla guardada sin necesidad.
+  static const String _claveAntiguaPref = 'gemini_api_key';
 
   // ============================================================
   // IDENTIDAD DE ÁGORA (único modo: Arquitecto)
@@ -71,25 +76,6 @@ Mantén un tono estable, humano y contenedor.
 ''';
 
   // ============================================================
-  // API KEY
-  // ============================================================
-
-  static Future<String> getApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString(_apiKeyPref) ?? '';
-  }
-
-  static Future<void> saveApiKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(
-      _apiKeyPref,
-      key.trim(),
-    );
-  }
-
-  // ============================================================
   // CONSTRUCCIÓN DEL PROMPT
   // ============================================================
 
@@ -98,45 +84,18 @@ Mantén un tono estable, humano y contenedor.
   static String _construirPrompt() => '$_promptAgora\n\n$_protocoloCrisis';
 
   // ============================================================
-  // GENERACIÓN CON REINTENTOS
+  // LIMPIEZA DE LA CLAVE ANTIGUA
   // ============================================================
 
-  static Future<GenerateContentResponse> _generateWithRetry(
-    GenerativeModel model,
-    List<Content> conversation,
-  ) async {
-    const maxAttempts = 3;
-
-    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await model.generateContent(
-          conversation,
-        );
-      } catch (e) {
-        final error = e.toString().toLowerCase();
-
-        final temporaryError =
-            error.contains('503') ||
-            error.contains('unavailable') ||
-            error.contains('timeout') ||
-            error.contains('deadline') ||
-            error.contains('temporarily');
-
-        if (!temporaryError || attempt == maxAttempts) {
-          rethrow;
-        }
-
-        await Future.delayed(
-          Duration(
-            seconds: attempt * 3,
-          ),
-        );
+  static Future<void> _borrarClaveAntigua() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(_claveAntiguaPref)) {
+        await prefs.remove(_claveAntiguaPref);
       }
+    } catch (_) {
+      // No es importante: si falla, se intenta de nuevo la próxima vez.
     }
-
-    throw Exception(
-      'No fue posible obtener respuesta de Gemini.',
-    );
   }
 
   // ============================================================
@@ -148,11 +107,7 @@ Mantén un tono estable, humano y contenedor.
     List<Map<String, String>> history = const [],
     String? contextoUsuario,
   }) async {
-    final apiKey = await getApiKey();
-
-    if (apiKey.trim().isEmpty) {
-      return 'Configura primero tu API Key de Gemini desde el perfil.';
-    }
+    unawaited(_borrarClaveAntigua());
 
     final mensaje = userMessage.trim();
 
@@ -160,26 +115,22 @@ Mantén un tono estable, humano y contenedor.
       return 'Escribe un mensaje para continuar.';
     }
 
-    try {
-      // ----------------------------------------------------------
-      // DETERMINAR PROMPT
-      // ----------------------------------------------------------
+    final client = Supabase.instance.client;
 
-      final systemPromptConfigurado = _construirPrompt();
+    if (client.auth.currentSession == null) {
+      return 'Tu sesión terminó. Vuelve a iniciar sesión para hablar con Ágora.';
+    }
 
-      // ----------------------------------------------------------
-      // CONTEXTO DEL USUARIO
-      // ----------------------------------------------------------
+    // ----------------------------------------------------------
+    // INSTRUCCIONES DE ÁGORA + CONTEXTO DEL USUARIO
+    // ----------------------------------------------------------
 
-      String promptFinal =
-          systemPromptConfigurado;
+    final systemPromptConfigurado = _construirPrompt();
 
-      if (
-        contextoUsuario != null &&
-        contextoUsuario.trim().isNotEmpty
-      ) {
-        promptFinal =
-            '''
+    String promptFinal = systemPromptConfigurado;
+
+    if (contextoUsuario != null && contextoUsuario.trim().isNotEmpty) {
+      promptFinal = '''
 $systemPromptConfigurado
 
 --- CONTEXTO REAL DEL USUARIO ---
@@ -191,142 +142,87 @@ No repitas textualmente el contexto salvo que sea necesario.
 
 $contextoUsuario
 ''';
+    }
+
+    // ----------------------------------------------------------
+    // HISTORIAL (sin mensajes vacíos)
+    // ----------------------------------------------------------
+
+    final historialLimpio = <Map<String, String>>[];
+
+    for (final msg in history) {
+      final texto = msg['content']?.trim() ?? '';
+
+      if (texto.isEmpty) {
+        continue;
       }
 
-      // ----------------------------------------------------------
-      // CREAR MODELO
-      // ----------------------------------------------------------
+      historialLimpio.add({
+        'role': msg['role'] == 'user' ? 'user' : 'model',
+        'content': texto,
+      });
+    }
 
-      final model = GenerativeModel(
-        model: _geminiModel,
-        apiKey: apiKey.trim(),
-        systemInstruction: Content.system(
-          promptFinal,
-        ),
+    // ----------------------------------------------------------
+    // LLAMAR A LA FUNCIÓN DE SERVIDOR
+    // ----------------------------------------------------------
+
+    try {
+      final respuesta = await client.functions.invoke(
+        _funcionChat,
+        body: {
+          'mensaje': mensaje,
+          'sistema': promptFinal,
+          'historial': historialLimpio,
+        },
       );
 
-      // ----------------------------------------------------------
-      // CREAR CONVERSACIÓN
-      // ----------------------------------------------------------
+      final datos = respuesta.data;
 
-      final List<Content> conversation = [];
+      if (datos is Map && datos['texto'] is String) {
+        final texto = (datos['texto'] as String).trim();
 
-      for (final msg in history) {
-        final role =
-            msg['role'] == 'user'
-                ? 'user'
-                : 'model';
-
-        final contentText =
-            msg['content']?.trim() ?? '';
-
-        if (contentText.isEmpty) {
-          continue;
+        if (texto.isNotEmpty) {
+          return texto;
         }
-
-        conversation.add(
-          Content(
-            role,
-            [
-              TextPart(contentText),
-            ],
-          ),
-        );
-      }
-
-      // ----------------------------------------------------------
-      // MENSAJE ACTUAL
-      // ----------------------------------------------------------
-
-      conversation.add(
-        Content(
-          'user',
-          [
-            TextPart(mensaje),
-          ],
-        ),
-      );
-
-      // ----------------------------------------------------------
-      // GENERAR RESPUESTA
-      // ----------------------------------------------------------
-
-      final response =
-          await _generateWithRetry(
-        model,
-        conversation,
-      );
-
-      // ----------------------------------------------------------
-      // VALIDAR RESPUESTA
-      // ----------------------------------------------------------
-
-      final responseText =
-          response.text?.trim();
-
-      if (
-        responseText != null &&
-        responseText.isNotEmpty
-      ) {
-        return responseText;
       }
 
       return 'No fue posible generar una respuesta.';
-    } catch (e) {
-      final error = e.toString().toLowerCase();
-
-      // ----------------------------------------------------------
-      // 503
-      // ----------------------------------------------------------
-
-      if (
-        error.contains('503') ||
-        error.contains('unavailable')
-      ) {
-        return 'NEUROPLAN AI está experimentando alta demanda temporal. Intenta nuevamente en unos segundos.';
-      }
-
-      // ----------------------------------------------------------
-      // API KEY
-      // ----------------------------------------------------------
-
-      if (
-        error.contains('api key') ||
-        error.contains('apikey') ||
-        error.contains('invalid api key')
-      ) {
-        return 'La API Key de Gemini no es válida o no está configurada correctamente.';
-      }
-
-      // ----------------------------------------------------------
-      // AUTORIZACIÓN
-      // ----------------------------------------------------------
-
-      if (
-        error.contains('401') ||
-        error.contains('403') ||
-        error.contains('permission')
-      ) {
-        return 'La API Key no tiene autorización para utilizar este servicio de Gemini.';
-      }
-
-      // ----------------------------------------------------------
-      // CUOTA
-      // ----------------------------------------------------------
-
-      if (
-        error.contains('429') ||
-        error.contains('quota') ||
-        error.contains('resource_exhausted')
-      ) {
-        return 'Se alcanzó temporalmente el límite de solicitudes de Gemini. Intenta nuevamente más tarde.';
-      }
-
-      // ----------------------------------------------------------
-      // ERROR GENERAL
-      // ----------------------------------------------------------
-
+    } on FunctionException catch (e) {
+      return _mensajeDeError(e);
+    } catch (_) {
       return 'No fue posible conectar con la inteligencia artificial en este momento.';
+    }
+  }
+
+  // ============================================================
+  // MENSAJES DE ERROR PARA LA PERSONA
+  // ============================================================
+
+  static String _mensajeDeError(FunctionException e) {
+    final detalles = e.details;
+    final codigo = detalles is Map ? detalles['error'] : null;
+
+    switch (e.status) {
+      case 401:
+        return 'Tu sesión terminó. Vuelve a iniciar sesión para hablar con Ágora.';
+
+      case 429:
+        final limite =
+            (detalles is Map && detalles['limite'] is int) ? detalles['limite'] : 30;
+        return 'Llegaste al límite de $limite mensajes de hoy con Ágora. Se renueva mañana. Mientras tanto puedes seguir usando tus tareas, tu agenda y tu cuadernillo.';
+
+      case 400:
+        if (codigo == 'mensaje_largo') {
+          return 'Ese mensaje es demasiado largo. Intenta dividirlo en partes más cortas.';
+        }
+        return 'No pude entender ese mensaje. Intenta escribirlo de nuevo.';
+
+      case 503:
+        return 'NEUROPLAN AI está experimentando alta demanda temporal. Intenta nuevamente en unos segundos.';
+
+      default:
+        return 'No fue posible conectar con la inteligencia artificial en este momento.';
     }
   }
 
