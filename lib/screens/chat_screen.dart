@@ -466,7 +466,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                               const SizedBox(height: 14),
                               Text(
-                                'Si no has configurado tu API key,\nve a la pestaña Perfil.',
+                                'Puedes escribirme hasta 30 mensajes al día.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.45),
