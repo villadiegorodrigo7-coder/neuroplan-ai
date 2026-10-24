@@ -8,6 +8,33 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// que es la única que tiene la clave de Gemini y la que cuenta el límite
 /// diario por persona. El modelo de Gemini también se elige allá.
 class GeminiService {
+  /// Mensaje fijo para cuando la IA no puede responder y la persona escribió
+  /// algo que parece un riesgo para su vida. No depende de la IA ni de la
+  /// conexión con el servidor: siempre se puede mostrar.
+  static const String _mensajeCrisisSinIA =
+      'Lo que me cuentas es importante y quiero que estés a salvo. '
+      'Ahora mismo no puedo responderte como quisiera, así que no esperes a que lo haga: '
+      'si estás en peligro o pensando en quitarte la vida, busca ya a una persona de confianza '
+      'o llama a ayuda humana. En Colombia puedes llamar al 123 (emergencias) o a la Línea 192, '
+      'opción 4 (salud mental, atención las 24 horas). Si estás en otro país, llama al número '
+      'de emergencias de tu país. No tienes que pasar por esto a solas.';
+
+  /// Frases que suenan a riesgo para la vida. Solo se usa cuando la IA falla
+  /// (alta demanda, límite diario, sin conexión): en ese caso, en vez de un
+  /// aviso técnico, se muestra el mensaje fijo de arriba. Es mejor que se
+  /// active de más a que no se active.
+  static final RegExp _patronRiesgo = RegExp(
+    r'quitarme la vida|quitarse la vida|suicid|matarme|me mato|quiero morir|'
+    r'no quiero (seguir )?viv|acabar con todo|acabar con mi vida|hacerme da[ñn]o|'
+    r'lastimarme|cortarme las venas|tom[aá]rmelas|tomarme (todas )?las pastillas|'
+    r'no vale la pena vivir|ya no quiero estar aqu[ií]|mejor (estar )?muert[oa]',
+    caseSensitive: false,
+  );
+
+  /// Si la IA falló y el mensaje parece de riesgo, muestra el mensaje fijo.
+  static String _errorSeguro(String mensaje, String textoNormal) =>
+      _patronRiesgo.hasMatch(mensaje) ? _mensajeCrisisSinIA : textoNormal;
+
   /// Nombre de la función de servidor en Supabase.
   static const String _funcionChat = 'agora-chat';
 
@@ -94,8 +121,8 @@ Aplica cuando la persona dice, de forma que no sea coloquial, que quiere morir, 
 Cuando se active:
 1. Deja a un lado las tareas, los planes y los objetivos. Lo único importante ahora es la persona.
 2. Responde con calidez y toma en serio lo que dice. No lo minimices, no discutas, no des sermones ni soluciones rápidas.
-3. Pregunta de forma directa y tranquila si está pensando en quitarse la vida y si está a salvo en este momento. Una pregunta a la vez, con mensajes cortos.
-4. Anima a la persona a no quedarse sola: que se acerque ahora a alguien de confianza y que contacte a ayuda humana. Si está en Colombia, puede llamar al 123 (emergencias) o a la Línea 192, opción 4 (salud mental, atención las 24 horas). Si no sabes en qué país está, pregúntalo antes de dar números. Si está en otro país, anímala a llamar al número de emergencias de ese país o a buscar la línea de ayuda emocional de su localidad. No inventes números de teléfono: usa solo el 123 y la Línea 192, y solo para Colombia. Si la persona dice que el número no funciona, pídele que busque la línea de su localidad o que vaya al servicio de urgencias más cercano.
+3. Pregunta de forma directa y tranquila si está pensando en quitarse la vida y si está a salvo en este momento. Haz una sola pregunta por mensaje: no juntes dos preguntas en la misma frase. Usa mensajes cortos.
+4. Anima a la persona a no quedarse sola: que se acerque ahora a alguien de confianza y que contacte a ayuda humana. Si está en Colombia, puede llamar al 123 (emergencias) o a la Línea 192, opción 4 (salud mental, atención las 24 horas). Si no sabes en qué país está, pregúntalo antes de dar números. Si está en otro país, anímala a llamar al número de emergencias de ese país o a buscar la línea de ayuda emocional de su localidad. Fuera de Colombia, puedes dar el número nacional de emergencias y la línea nacional de prevención del suicidio de ese país solo si estás completamente seguro de que son correctos; si tienes la mínima duda, no des el número y anímala a buscar la línea de ayuda de su localidad. Nunca inventes números de teléfono. Si la persona dice que el número no funciona, pídele que busque la línea de su localidad o que vaya al servicio de urgencias más cercano.
 5. Si hay un plan, un método a la mano o intención de hacerlo pronto, la prioridad es su seguridad inmediata: pídele con claridad que llame ahora a emergencias o que vaya con alguien que pueda acompañarla, y que se aleje de lo que podría usar para hacerse daño.
 6. Ofrece los números con claridad una vez; no los repitas en cada mensaje. No termines la conversación de forma abrupta: sigue presente mientras la persona quiera.
 Nunca des información sobre métodos para hacerse daño. Nunca prometas guardar un secreto que ponga en riesgo su vida. Nunca digas que vas a avisar a alguien: no tienes esa capacidad. Acompaña y orienta hacia la ayuda humana; no afirmes que tú la vas a resolver.
@@ -150,7 +177,10 @@ Si la persona dice que está en peligro por la violencia de otra persona, o desc
     final client = Supabase.instance.client;
 
     if (client.auth.currentSession == null) {
-      return 'Tu sesión terminó. Vuelve a iniciar sesión para hablar con Ágora.';
+      return _errorSeguro(
+        mensaje,
+        'Tu sesión terminó. Vuelve a iniciar sesión para hablar con Ágora.',
+      );
     }
 
     // ----------------------------------------------------------
@@ -219,11 +249,14 @@ $contextoUsuario
         }
       }
 
-      return 'No fue posible generar una respuesta.';
+      return _errorSeguro(mensaje, 'No fue posible generar una respuesta.');
     } on FunctionException catch (e) {
-      return _mensajeDeError(e);
+      return _errorSeguro(mensaje, _mensajeDeError(e));
     } catch (_) {
-      return 'No fue posible conectar con la inteligencia artificial en este momento.';
+      return _errorSeguro(
+        mensaje,
+        'No fue posible conectar con la inteligencia artificial en este momento.',
+      );
     }
   }
 
