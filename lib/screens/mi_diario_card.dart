@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/entrada_diario.dart';
 import '../services/diario_service.dart';
+import '../services/recordatorio_diario.dart';
 import '../services/tasks_service.dart';
 import '../widgets/campo_dictado.dart';
 import 'mi_diario_screen.dart';
@@ -80,6 +81,10 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
       _reflexionCtrl.text = hoy.reflexion;
       _cargando = false;
     });
+    RecordatorioDiario.instance.informarSemaforo(
+      fecha: hoy.fecha,
+      marcado: hoy.semaforo.isNotEmpty,
+    );
   }
 
   /// Se llama después de cualquier cambio: actualiza la lista y programa el
@@ -127,6 +132,10 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
     final hoy = _hoy;
     if (hoy == null) return;
     hoy.semaforo = hoy.semaforo == clave ? '' : clave;
+    RecordatorioDiario.instance.informarSemaforo(
+      fecha: hoy.fecha,
+      marcado: hoy.semaforo.isNotEmpty,
+    );
     _cambio();
   }
 
@@ -453,6 +462,45 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
               icon: const Icon(Icons.calendar_month_rounded, size: 18),
               label: const Text('Ver mi mes y mis notas'),
             ),
+          ),
+
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          ListenableBuilder(
+            listenable: RecordatorioDiario.instance,
+            builder: (context, _) {
+              final r = RecordatorioDiario.instance;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Recordarme llenar mi diario'),
+                    subtitle: Text(
+                      r.activo
+                          ? 'Te invito a las ${r.hora.format(context)}, cuando tengas la app abierta.'
+                          : 'Sin recordatorio. Un día sin registrar no es un error.',
+                      style: TextStyle(fontSize: 12.5, color: apagado),
+                    ),
+                    value: r.activo,
+                    onChanged: (v) => r.activar(v),
+                  ),
+                  if (r.activo)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final t = await showTimePicker(
+                          context: context,
+                          initialTime: r.hora,
+                          helpText: 'Hora del recordatorio',
+                        );
+                        if (t != null) r.cambiarHora(t);
+                      },
+                      icon: const Icon(Icons.schedule, size: 18),
+                      label: const Text('Cambiar hora'),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
