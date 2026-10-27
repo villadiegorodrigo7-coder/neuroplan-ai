@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/entrada_diario.dart';
+import 'diario_store.dart';
 
 /// Recordatorio de Mi diario, dentro de la app.
 ///
@@ -22,10 +23,6 @@ class RecordatorioDiario extends ChangeNotifier {
   bool _activo = false;
   int _minutos = 18 * 60 + 30; // 6:30 p. m.
   String _descartado = '';
-
-  // Lo informa la tarjeta de Mi diario, que es quien conoce el día de hoy.
-  bool _diarioListo = false;
-  String _marcadoFecha = '';
 
   bool get activo => _activo;
   TimeOfDay get hora => TimeOfDay(hour: _minutos ~/ 60, minute: _minutos % 60);
@@ -65,25 +62,17 @@ class RecordatorioDiario extends ChangeNotifier {
     await _guardar();
   }
 
-  /// La tarjeta de Mi diario informa si el semáforo de [fecha] está marcado.
-  void informarSemaforo({required String fecha, required bool marcado}) {
-    _diarioListo = true;
-    if (marcado) {
-      _marcadoFecha = fecha;
-    } else if (_marcadoFecha == fecha) {
-      _marcadoFecha = '';
-    }
-    notifyListeners();
-  }
-
   /// ¿Toca mostrar la invitación ahora mismo?
   bool debeAvisar() {
-    if (!_cargado || !_activo || !_diarioListo) return false;
+    if (!_cargado || !_activo) return false;
+    final store = DiarioStore.instance;
+    if (!store.listo) return false;
     final ahora = DateTime.now();
     if (ahora.hour * 60 + ahora.minute < _minutos) return false;
     final hoy = EntradaDiario.claveFecha(ahora);
     if (_descartado == hoy) return false;
-    if (_marcadoFecha == hoy) return false;
+    final entrada = store.de(hoy);
+    if (entrada != null && entrada.semaforo.isNotEmpty) return false;
     return true;
   }
 
