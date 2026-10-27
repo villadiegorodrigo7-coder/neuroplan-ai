@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
-import '../services/diario_service.dart';
+import '../services/diario_store.dart';
 
 const List<String> _diasSemana = [
   'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo',
@@ -20,23 +20,35 @@ class MiDiarioScreen extends StatefulWidget {
 }
 
 class _MiDiarioScreenState extends State<MiDiarioScreen> {
-  List<EntradaDiario> _lista = [];
   bool _cargando = true;
   DateTime _mes = DateTime(DateTime.now().year, DateTime.now().month);
+
+  List<EntradaDiario> get _lista => DiarioStore.instance.entradas;
 
   @override
   void initState() {
     super.initState();
+    DiarioStore.instance.addListener(_alCambiar);
     _cargar();
   }
 
   Future<void> _cargar() async {
     try {
-      _lista = List<EntradaDiario>.of(await DiarioService.cargar());
+      await DiarioStore.instance.cargar();
     } catch (_) {
-      _lista = [];
+      // Se muestra lo que haya en el dispositivo.
     }
     if (mounted) setState(() => _cargando = false);
+  }
+
+  void _alCambiar() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    DiarioStore.instance.removeListener(_alCambiar);
+    super.dispose();
   }
 
   void _mover(int delta) {
