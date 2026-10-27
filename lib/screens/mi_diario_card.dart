@@ -1,11 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/entrada_diario.dart';
-import '../services/diario_service.dart';
+import '../services/diario_store.dart';
 import '../services/recordatorio_diario.dart';
+import '../services/reflexion_service.dart';
 import '../services/tasks_service.dart';
 import '../widgets/campo_dictado.dart';
 import 'mi_diario_screen.dart';
@@ -27,9 +25,16 @@ String _fechaLarga(DateTime d) {
 String _hora(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-/// Tarjeta "Mi diario" del Perfil: lo que se llena cada día.
+/// Tarjeta "Mi diario": lo que se llena cada día.
+///
+/// Sin parámetros muestra el día de hoy (así se usa en el Perfil). Con [fecha]
+/// muestra ese día, y con [compacto] oculta el encabezado, el enlace al mes y
+/// los ajustes del recordatorio (así se usa dentro de la Etapa 4).
 class MiDiarioCard extends StatefulWidget {
-  const MiDiarioCard({super.key});
+  const MiDiarioCard({super.key, this.fecha, this.compacto = false});
+
+  final DateTime? fecha;
+  final bool compacto;
 
   @override
   State<MiDiarioCard> createState() => _MiDiarioCardState();
@@ -40,84 +45,57 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   final TextEditingController _reflexionCtrl = TextEditingController();
   final TextEditingController _notaCtrl = TextEditingController();
 
-  List<EntradaDiario> _lista = [];
-  EntradaDiario? _hoy;
-  Timer? _debounce;
+  late final DateTime _dia;
+  late final String _fecha;
+  EntradaDiario? _entrada;
   bool _cargando = true;
 
   @override
   void initState() {
     super.initState();
+    final base = widget.fecha ?? DateTime.now();
+    _dia = DateTime(base.year, base.month, base.day);
+    _fecha = EntradaDiario.claveFecha(_dia);
+    DiarioStore.instance.addListener(_alCambiarStore);
     _cargar();
   }
 
   Future<void> _cargar() async {
-    final uid = Supabase.instance.client.auth.currentUser?.id ?? '';
-    if (uid.isEmpty) {
-      if (mounted) setState(() => _cargando = false);
-      return;
-    }
-
-    final fecha = EntradaDiario.claveFecha(DateTime.now());
-    final id = EntradaDiario.idPara(uid, fecha);
-
-    var lista = <EntradaDiario>[];
     try {
-      lista = List<EntradaDiario>.of(await DiarioService.cargar());
+      await DiarioStore.instance.cargar();
     } catch (_) {
       // Si algo falla, se empieza con el día en blanco.
     }
     if (!mounted) return;
-
-    final existentes = lista.where((e) => e.id == id);
-    final hoy = existentes.isNotEmpty
-        ? existentes.first
-        : EntradaDiario(id: id, fecha: fecha);
-
+    final e = DiarioStore.instance.obtenerOCrear(_fecha);
     setState(() {
-      _lista = lista;
-      _hoy = hoy;
-      _prioridadCtrl.text = hoy.prioridad;
-      _reflexionCtrl.text = hoy.reflexion;
+      _entrada = e;
+      _prioridadCtrl.text = e.prioridad;
+      _reflexionCtrl.text = e.reflexion;
       _cargando = false;
     });
-    RecordatorioDiario.instance.informarSemaforo(
-      fecha: hoy.fecha,
-      marcado: hoy.semaforo.isNotEmpty,
-    );
   }
 
-  /// Se llama después de cualquier cambio: actualiza la lista y programa el
-  /// guardado (queda en el dispositivo y se sube a la nube en segundo plano).
+  /// Otra pantalla pudo cambiar este día (por ejemplo, el chat al guardar una
+  /// reflexión). Se refleja aquí sin pisar lo que se esté escribiendo.
+  void _alCambiarStore() {
+    if (!mounted || _cargando) return;
+    final e = DiarioStore.instance.obtenerOCrear(_fecha);
+    _entrada = e;
+    if (_reflexionCtrl.text.trim() != e.reflexion) _reflexionCtrl.text = e.reflexion;
+    if (_prioridadCtrl.text.trim() != e.prioridad) _prioridadCtrl.text = e.prioridad;
+    setState(() {});
+  }
+
   void _cambio() {
-    final hoy = _hoy;
-    if (hoy == null) return;
-    if (!hoy.tieneAlgo) {
-      _lista.remove(hoy);
-    } else if (!_lista.contains(hoy)) {
-      _lista.add(hoy);
-    }
-    if (mounted) setState(() {});
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 700), _guardarYa);
-  }
-
-  Future<void> _guardarYa() async {
-    _debounce?.cancel();
-    _debounce = null;
-    try {
-      await DiarioService.guardar(List<EntradaDiario>.of(_lista));
-    } catch (_) {
-      // Queda guardado en el dispositivo; se reintenta más tarde.
-    }
+    final e = _entrada;
+    if (e == null) return;
+    DiarioStore.instance.cambio(e);
   }
 
   @override
   void dispose() {
-    if (_debounce?.isActive ?? false) {
-      _guardarYa();
-    }
-    _debounce?.cancel();
+    DiarioStore.instance.removeListener(_alCambiarStore);
     _prioridadCtrl.dispose();
     _reflexionCtrl.dispose();
     _notaCtrl.dispose();
@@ -129,35 +107,31 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   // ------------------------------------------------------------------
 
   void _setSemaforo(String clave) {
-    final hoy = _hoy;
-    if (hoy == null) return;
-    hoy.semaforo = hoy.semaforo == clave ? '' : clave;
-    RecordatorioDiario.instance.informarSemaforo(
-      fecha: hoy.fecha,
-      marcado: hoy.semaforo.isNotEmpty,
-    );
+    final e = _entrada;
+    if (e == null) return;
+    e.semaforo = e.semaforo == clave ? '' : clave;
     _cambio();
   }
 
   void _setEnergia(int nivel) {
-    final hoy = _hoy;
-    if (hoy == null) return;
-    hoy.energia = hoy.energia == nivel ? 0 : nivel;
+    final e = _entrada;
+    if (e == null) return;
+    e.energia = e.energia == nivel ? 0 : nivel;
     _cambio();
   }
 
   void _setEstado(int nivel) {
-    final hoy = _hoy;
-    if (hoy == null) return;
-    hoy.estado = hoy.estado == nivel ? 0 : nivel;
+    final e = _entrada;
+    if (e == null) return;
+    e.estado = e.estado == nivel ? 0 : nivel;
     _cambio();
   }
 
   void _agregarNota() {
-    final hoy = _hoy;
+    final e = _entrada;
     final texto = _notaCtrl.text.trim();
-    if (hoy == null || texto.isEmpty) return;
-    hoy.notas.add(NotaDiario(
+    if (e == null || texto.isEmpty) return;
+    e.notas.add(NotaDiario(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       texto: texto,
     ));
@@ -166,10 +140,18 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   }
 
   void _borrarNota(NotaDiario nota) {
-    final hoy = _hoy;
-    if (hoy == null) return;
-    hoy.notas.remove(nota);
+    final e = _entrada;
+    if (e == null) return;
+    e.notas.remove(nota);
     _cambio();
+  }
+
+  /// Abre el chat con Ágora para hacer la reflexión de este día.
+  void _reflexionarConAgora() {
+    // Si estamos dentro de otra pantalla (como la Etapa 4), se vuelve al inicio
+    // para que se vea el chat.
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    ReflexionService.instance.solicitar(_fecha);
   }
 
   Future<void> _elegirTarea() async {
@@ -202,10 +184,10 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
       ),
     );
 
-    final hoy = _hoy;
-    if (elegida != null && hoy != null) {
+    final e = _entrada;
+    if (elegida != null && e != null) {
       _prioridadCtrl.text = elegida;
-      hoy.prioridad = elegida;
+      e.prioridad = elegida;
       _cambio();
     }
   }
@@ -222,10 +204,10 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
         ),
       );
 
-  Widget _botonSemaforo(int i, EntradaDiario hoy) {
+  Widget _botonSemaforo(int i, EntradaDiario e) {
     final clave = kSemaforos[i];
     final color = colorDeSemaforo(clave) ?? Colors.grey;
-    final seleccionado = hoy.semaforo == clave;
+    final seleccionado = e.semaforo == clave;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () => _setSemaforo(clave),
@@ -260,13 +242,13 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
     );
   }
 
-  Widget _barraEnergia(EntradaDiario hoy, ColorScheme scheme) {
+  Widget _barraEnergia(EntradaDiario e, ColorScheme scheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: List.generate(5, (i) {
-            final lleno = i < hoy.energia;
+            final lleno = i < e.energia;
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(right: i < 4 ? 6 : 0),
@@ -289,11 +271,11 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             );
           }),
         ),
-        if (hoy.energia > 0)
+        if (e.energia > 0)
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              kNivelesEnergia[hoy.energia - 1],
+              kNivelesEnergia[e.energia - 1],
               style: TextStyle(
                 fontSize: 12.5,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -308,7 +290,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final apagado = Colors.white.withValues(alpha: 0.6);
-    final hoy = _hoy;
+    final e = _entrada;
 
     if (_cargando) {
       return const Padding(
@@ -316,9 +298,21 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    if (hoy == null) return const SizedBox.shrink();
+    if (e == null) return const SizedBox.shrink();
 
-    final indiceSemaforo = kSemaforos.indexOf(hoy.semaforo);
+    // Un día que todavía no llega no se puede llenar.
+    if (_fecha.compareTo(EntradaDiario.claveFecha(DateTime.now())) > 0) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Text('Este día todavía no llega.', style: TextStyle(color: apagado)),
+      );
+    }
+
+    final indiceSemaforo = kSemaforos.indexOf(e.semaforo);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -330,26 +324,29 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.menu_book_rounded, color: scheme.primary, size: 22),
-              const SizedBox(width: 8),
-              const Text(
-                'Mi diario',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(_fechaLarga(DateTime.now()), style: TextStyle(color: apagado)),
+          if (!widget.compacto) ...[
+            Row(
+              children: [
+                Icon(Icons.menu_book_rounded, color: scheme.primary, size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  'Mi diario',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(_fechaLarga(_dia), style: TextStyle(color: apagado)),
+          ] else
+            Text(_fechaLarga(_dia), style: TextStyle(color: apagado)),
 
-          _titulo('Mi prioridad de hoy'),
+          _titulo('Mi prioridad del día'),
           CampoDictado(
             controller: _prioridadCtrl,
-            hint: '¿Qué es lo más importante hoy?',
+            hint: '¿Qué es lo más importante?',
             maxLines: 2,
             onChanged: (v) {
-              hoy.prioridad = v.trim();
+              e.prioridad = v.trim();
               _cambio();
             },
           ),
@@ -362,11 +359,11 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             ),
           ),
 
-          _titulo('¿Cómo te fue hoy con tu ritmo?'),
+          _titulo('¿Cómo te fue con tu ritmo?'),
           Row(
             children: [
               for (var i = 0; i < 3; i++) ...[
-                Expanded(child: _botonSemaforo(i, hoy)),
+                Expanded(child: _botonSemaforo(i, e)),
                 if (i < 2) const SizedBox(width: 8),
               ],
             ],
@@ -381,7 +378,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             ),
 
           _titulo('Energía'),
-          _barraEnergia(hoy, scheme),
+          _barraEnergia(e, scheme),
 
           _titulo('Estado emocional'),
           Wrap(
@@ -391,7 +388,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
               for (var i = 0; i < 5; i++)
                 ChoiceChip(
                   label: Text(kNivelesEstado[i]),
-                  selected: hoy.estado == i + 1,
+                  selected: e.estado == i + 1,
                   onSelected: (_) => _setEstado(i + 1),
                 ),
             ],
@@ -404,13 +401,21 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             minLines: 2,
             maxLines: 6,
             onChanged: (v) {
-              hoy.reflexion = v.trim();
+              e.reflexion = v.trim();
               _cambio();
             },
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _reflexionarConAgora,
+              icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+              label: const Text('Reflexionar con Ágora'),
+            ),
+          ),
 
-          _titulo('Notas de hoy'),
-          for (final nota in hoy.notas)
+          _titulo('Notas'),
+          for (final nota in e.notas)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
@@ -450,58 +455,59 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             ],
           ),
 
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MiDiarioScreen()),
+          if (!widget.compacto) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MiDiarioScreen()),
+                  );
+                },
+                icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                label: const Text('Ver mi mes y mis notas'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            ListenableBuilder(
+              listenable: RecordatorioDiario.instance,
+              builder: (context, _) {
+                final r = RecordatorioDiario.instance;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Recordarme llenar mi diario'),
+                      subtitle: Text(
+                        r.activo
+                            ? 'Te invito a las ${r.hora.format(context)}, cuando tengas la app abierta.'
+                            : 'Sin recordatorio. Un día sin registrar no es un error.',
+                        style: TextStyle(fontSize: 12.5, color: apagado),
+                      ),
+                      value: r.activo,
+                      onChanged: (v) => r.activar(v),
+                    ),
+                    if (r.activo)
+                      TextButton.icon(
+                        onPressed: () async {
+                          final t = await showTimePicker(
+                            context: context,
+                            initialTime: r.hora,
+                            helpText: 'Hora del recordatorio',
+                          );
+                          if (t != null) r.cambiarHora(t);
+                        },
+                        icon: const Icon(Icons.schedule, size: 18),
+                        label: const Text('Cambiar hora'),
+                      ),
+                  ],
                 );
               },
-              icon: const Icon(Icons.calendar_month_rounded, size: 18),
-              label: const Text('Ver mi mes y mis notas'),
             ),
-          ),
-
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          ListenableBuilder(
-            listenable: RecordatorioDiario.instance,
-            builder: (context, _) {
-              final r = RecordatorioDiario.instance;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Recordarme llenar mi diario'),
-                    subtitle: Text(
-                      r.activo
-                          ? 'Te invito a las ${r.hora.format(context)}, cuando tengas la app abierta.'
-                          : 'Sin recordatorio. Un día sin registrar no es un error.',
-                      style: TextStyle(fontSize: 12.5, color: apagado),
-                    ),
-                    value: r.activo,
-                    onChanged: (v) => r.activar(v),
-                  ),
-                  if (r.activo)
-                    TextButton.icon(
-                      onPressed: () async {
-                        final t = await showTimePicker(
-                          context: context,
-                          initialTime: r.hora,
-                          helpText: 'Hora del recordatorio',
-                        );
-                        if (t != null) r.cambiarHora(t);
-                      },
-                      icon: const Icon(Icons.schedule, size: 18),
-                      label: const Text('Cambiar hora'),
-                    ),
-                ],
-              );
-            },
-          ),
+          ],
         ],
       ),
     );
