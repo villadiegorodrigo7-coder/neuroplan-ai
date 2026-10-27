@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
+import '../models/entrada_diario.dart';
+import '../services/diario_store.dart';
 import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
+import 'mi_diario_card.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
 const Color kFondo = Color(0xFF12121E);
 const Color kTarjeta = Color(0xFF1C1C2E);
 const Color kTextoSecundario = Color(0xFFB0AEC5);
+
+const List<String> _mesesCorto = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
 
 class Etapa4SeguimientoScreen extends StatefulWidget {
   const Etapa4SeguimientoScreen({super.key});
@@ -34,16 +42,66 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
   @override
   void initState() {
     super.initState();
+    DiarioStore.instance.addListener(_alCambiarDiario);
     _cargarDatos();
+  }
+
+  /// Mi diario cambió (desde esta pantalla u otra): se repintan los colores.
+  void _alCambiarDiario() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _cargarDatos() async {
     final data = await CuadernilloService.cargar();
+    try {
+      await DiarioStore.instance.cargar();
+    } catch (_) {
+      // Sin diario cargado, los días salen sin color.
+    }
+
+    // Si el ciclo no tiene fecha de inicio, se toma el primer día en que hay
+    // algo escrito en Mi diario o, si no hay nada, hoy. Se puede cambiar.
+    var guardarInicio = false;
+    if (data.seguimiento30Dias.fechaInicio.isEmpty) {
+      final fechas = DiarioStore.instance.entradas.map((e) => e.fecha).toList()
+        ..sort();
+      data.seguimiento30Dias.fechaInicio =
+          fechas.isNotEmpty ? fechas.first : EntradaDiario.claveFecha(DateTime.now());
+      guardarInicio = true;
+    }
+
+    if (!mounted) return;
     setState(() {
       _data = data;
       _cargando = false;
       _notaController.text = _data.seguimiento30Dias.registros[_diaSeleccionado].nota;
     });
+    if (guardarInicio) _auto.programar();
+  }
+
+  /// Fecha de calendario que corresponde al día [index] (0 a 29) del ciclo.
+  DateTime _fechaDelDia(int index) {
+    final inicio = DateTime.tryParse(_data.seguimiento30Dias.fechaInicio) ??
+        DateTime.now();
+    return DateTime(inicio.year, inicio.month, inicio.day + index);
+  }
+
+  String _fechaCorta(DateTime d) => '${d.day} de ${_mesesCorto[d.month - 1]}';
+
+  Future<void> _cambiarInicio() async {
+    final actual = _fechaDelDia(0);
+    final elegida = await showDatePicker(
+      context: context,
+      initialDate: actual,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      helpText: '¿Qué día empezó tu ciclo?',
+    );
+    if (elegida == null || !mounted) return;
+    setState(() {
+      _data.seguimiento30Dias.fechaInicio = EntradaDiario.claveFecha(elegida);
+    });
+    _auto.programar();
   }
 
   RegistroDiario get _registroActual => _data.seguimiento30Dias.registros[_diaSeleccionado];
@@ -118,6 +176,7 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
   void dispose() {
     // Primero: cancela el timer y guarda lo pendiente (antes de liberar
     // los controllers, porque la sincronización los lee).
+    DiarioStore.instance.removeListener(_alCambiarDiario);
     _auto.dispose();
     _nuevaTareaController.dispose();
     _notaController.dispose();
@@ -157,6 +216,24 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tu ciclo empezó el ${_fechaCorta(_fechaDelDia(0))}.',
+                      style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 12.5),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _cambiarInicio,
+                    child: Text('Cambiar',
+                        style: GoogleFonts.inter(color: kMorado, fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
             SizedBox(
               height: 44,
               child: ListView.builder(
@@ -167,6 +244,11 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                   final activo = index == _diaSeleccionado;
                   final registrado = _data.seguimiento30Dias.registros[index].nivelCumplimiento > 0 ||
                       _data.seguimiento30Dias.registros[index].tareas.isNotEmpty;
+                  // Color del semáforo de Mi diario para la fecha de este día.
+                  final entradaDia = DiarioStore.instance
+                      .de(EntradaDiario.claveFecha(_fechaDelDia(index)));
+                  final colorDia =
+                      entradaDia == null ? null : colorDeSemaforo(entradaDia.semaforo);
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
@@ -175,9 +257,17 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                         width: 44,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: activo ? kMorado : kTarjeta,
+                          color: activo
+                              ? kMorado
+                              : (colorDia != null
+                                  ? colorDia.withValues(alpha: 0.35)
+                                  : kTarjeta),
                           borderRadius: BorderRadius.circular(12),
-                          border: registrado && !activo ? Border.all(color: kMorado, width: 1) : null,
+                          border: colorDia != null
+                              ? Border.all(color: colorDia, width: activo ? 2.5 : 1.5)
+                              : (registrado && !activo
+                                  ? Border.all(color: kMorado, width: 1)
+                                  : null),
                         ),
                         child: Text(
                           '${index + 1}',
@@ -199,21 +289,20 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 children: [
                   Text(
-                    'Día ${_diaSeleccionado + 1}',
+                    'Día ${_diaSeleccionado + 1} · ${_fechaCorta(_fechaDelDia(_diaSeleccionado))}',
                     style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 16),
                   _buildChecklist(registro),
                   const SizedBox(height: 20),
-                  _buildSlider('Estado de ánimo', registro.estadoAnimo, (v) {
-                    setState(() => registro.estadoAnimo = v);
-                    _auto.programar();
-                  }),
-                  _buildSlider('Nivel de cumplimiento (%)', registro.nivelCumplimiento, (v) {
-                    setState(() => registro.nivelCumplimiento = v);
-                    _auto.programar();
-                  }, max: 100, divisions: 10, sufijo: '%'),
-                  const SizedBox(height: 8),
+                  // El ánimo y el cumplimiento de antes se reemplazan por Mi
+                  // diario: semáforo, energía y estado emocional de este día.
+                  MiDiarioCard(
+                    key: ValueKey(EntradaDiario.claveFecha(_fechaDelDia(_diaSeleccionado))),
+                    fecha: _fechaDelDia(_diaSeleccionado),
+                    compacto: true,
+                  ),
+                  const SizedBox(height: 16),
                   _buildCampoTexto(_notaController, 'Nota del día', '¿Cómo te fue hoy?'),
                 ],
               ),
