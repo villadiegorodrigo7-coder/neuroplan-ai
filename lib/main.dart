@@ -8,7 +8,9 @@ import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/profile_screen.dart';
+import 'services/diario_store.dart';
 import 'services/recordatorio_diario.dart';
+import 'services/reflexion_service.dart';
 
 // NUEVO: main ahora es async e inicia Supabase
 Future<void> main() async {
@@ -149,6 +151,9 @@ class _MainNavigationState extends State<MainNavigation>
     WidgetsBinding.instance.addObserver(this);
     RecordatorioDiario.instance.addListener(_evaluarAviso);
     RecordatorioDiario.instance.cargar();
+    DiarioStore.instance.addListener(_evaluarAviso);
+    DiarioStore.instance.cargar();
+    ReflexionService.instance.senal.addListener(_irAlChat);
     // Revisa cada 30 segundos mientras la app está abierta (es una
     // comparación local, no gasta datos).
     _vigilante = Timer.periodic(
@@ -161,6 +166,8 @@ class _MainNavigationState extends State<MainNavigation>
   void dispose() {
     _vigilante?.cancel();
     RecordatorioDiario.instance.removeListener(_evaluarAviso);
+    DiarioStore.instance.removeListener(_evaluarAviso);
+    ReflexionService.instance.senal.removeListener(_irAlChat);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -168,6 +175,11 @@ class _MainNavigationState extends State<MainNavigation>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _evaluarAviso();
+  }
+
+  /// "Reflexionar con Ágora": se pasa a la pestaña del chat.
+  void _irAlChat() {
+    if (mounted) setState(() => _currentIndex = 0);
   }
 
   /// Invitación amable a marcar el semáforo del día, a la hora elegida.
