@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/entrada_diario.dart';
+import '../services/diario_store.dart';
+import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
@@ -35,6 +39,15 @@ class _ChatScreenState extends State<ChatScreen> {
   /// vuelve a escribir en la caja después de enviar o de editar a mano.
   int _sesionDictado = 0;
   static const String _prefVoz = 'chat_voz_activada';
+
+  /// Si no es null, esta conversación es la "reflexión del día" de esa fecha
+  /// (por ejemplo "2026-10-24") y se muestra el botón para guardarla en el diario.
+  String? _reflexionFecha;
+
+  static const List<String> _mesesNombre = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ];
   bool _loadingHistory = true;
 
   @override
@@ -42,6 +55,121 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _loadHistory();
     _loadVoicePreference();
+    ReflexionService.instance.senal.addListener(_alSolicitarReflexion);
+  }
+
+  // ------------------------------------------------------------------
+  // Reflexión del día con Ágora
+  // ------------------------------------------------------------------
+
+  String _nombreFecha(String fecha) {
+    final d = DateTime.tryParse(fecha);
+    if (d == null) return fecha;
+    return '${d.day} de ${_mesesNombre[d.month - 1]}';
+  }
+
+  /// Mi diario pidió una reflexión: se abre una conversación nueva.
+  void _alSolicitarReflexion() {
+    final fecha = ReflexionService.instance.consumir();
+    if (fecha != null) _iniciarReflexion(fecha);
+  }
+
+  /// Primer mensaje de Ágora: lo arma la app (no gasta mensajes de la IA).
+  String _aperturaReflexion(EntradaDiario? e) {
+    final partes = <String>['Vamos a mirar tu día con calma.'];
+    if (e != null && e.semaforo.isNotEmpty) {
+      partes.add('Marcaste ${nombreDeSemaforo(e.semaforo).toLowerCase()}.');
+    }
+    if (e != null && e.prioridad.isNotEmpty) {
+      partes.add('Tu prioridad era: ${e.prioridad}.');
+    }
+    partes.add('Cuéntame, hablando o escribiendo: ¿por qué crees que el día salió así?');
+    return partes.join(' ');
+  }
+
+  Future<void> _iniciarReflexion(String fecha) async {
+    try {
+      await DiarioStore.instance.cargar();
+    } catch (_) {}
+    final entrada = DiarioStore.instance.de(fecha);
+    final conv = await ChatHistoryService.createConversation();
+    conv.title = 'Reflexión del ${_nombreFecha(fecha)}';
+    conv.messages.add(
+      ChatMessageData(role: 'model', content: _aperturaReflexion(entrada)),
+    );
+    if (!mounted) return;
+    setState(() {
+      _conversations.insert(0, conv);
+      _current = conv;
+      _reflexionFecha = fecha;
+    });
+    await _persist();
+    _scrollToBottom();
+  }
+
+  /// Guarda en Mi diario lo que la persona dijo en esta conversación, con sus
+  /// propias palabras. Se agrega a la reflexión que ya hubiera ese día.
+  Future<void> _guardarReflexion() async {
+    final fecha = _reflexionFecha;
+    final conv = _current;
+    if (fecha == null || conv == null) return;
+
+    final texto = conv.messages
+        .where((m) => m.role == 'user')
+        .map((m) => m.content.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
+    if (texto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Todavía no has dicho nada para guardar.')),
+      );
+      return;
+    }
+
+    final store = DiarioStore.instance;
+    try {
+      await store.cargar();
+    } catch (_) {}
+    final entrada = store.obtenerOCrear(fecha);
+    entrada.reflexion =
+        entrada.reflexion.isEmpty ? texto : '${entrada.reflexion}\n\n$texto';
+    store.cambio(entrada);
+    await store.guardarYa();
+
+    if (!mounted) return;
+    setState(() => _reflexionFecha = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Guardado en tu diario.')),
+    );
+  }
+
+  Widget _bannerReflexion(ColorScheme scheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
+      color: scheme.primary.withValues(alpha: 0.14),
+      child: Row(
+        children: [
+          Icon(Icons.menu_book_rounded, size: 18, color: scheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Reflexión del día · ${_nombreFecha(_reflexionFecha ?? '')}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: _guardarReflexion,
+            child: const Text('Guardar en mi diario'),
+          ),
+          IconButton(
+            tooltip: 'Terminar sin guardar',
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () => setState(() => _reflexionFecha = null),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadVoicePreference() async {
@@ -184,6 +312,13 @@ class _ChatScreenState extends State<ChatScreen> {
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
+    // Una conversación que empieza con un mensaje de Ágora (como la reflexión
+    // del día) se envía con un primer turno de la persona, porque el servicio
+    // de IA exige que la conversación empiece por ella.
+    if (history.isNotEmpty && history.first['role'] == 'model') {
+      history.insert(0, {'role': 'user', 'content': 'Quiero hacer mi reflexión del día.'});
+    }
+
     final contexto = await _construirContextoUsuario();
 
     final response = await GeminiService.sendMessage(
@@ -288,9 +423,74 @@ class _ChatScreenState extends State<ChatScreen> {
     final tareas = await _construirContextoTareas();
     if (tareas != null) partes.add(tareas);
 
+    // --- Mi diario ---
+    final diario = await _construirContextoDiario();
+    if (diario != null) partes.add(diario);
+
+    // --- Modo reflexión del día ---
+    if (_reflexionFecha != null) {
+      partes.insert(
+        0,
+        'MODO REFLEXIÓN DEL DÍA. La persona está haciendo su reflexión diaria '
+        'del método. Tu papel es ayudarla a escucharse, no a resolver su día. '
+        'Parte de la pregunta "¿por qué crees que el día salió así?". Haz UNA '
+        'sola pregunta a la vez, con frases cortas y fáciles de escuchar. '
+        'Cuando ella responda, devuélvele en una frase lo que escuchaste y haz '
+        'una sola pregunta para profundizar. No des planes ni listas salvo que '
+        'los pida. Un día en rojo no es un fracaso: es información. Cuando '
+        'sientas que ya dijo lo esencial, invítala con calidez a pulsar '
+        '"Guardar en mi diario" si quiere conservar lo que dijo.',
+      );
+    }
+
     // Nada real todavía: no mandamos contexto.
     if (partes.isEmpty) return null;
     return partes.join('\n\n');
+  }
+
+  /// Resume Mi diario: el día de hoy, los últimos semáforos y las últimas
+  /// reflexiones. Devuelve null si el diario está vacío.
+  Future<String?> _construirContextoDiario() async {
+    final store = DiarioStore.instance;
+    try {
+      await store.cargar();
+    } catch (_) {
+      return null;
+    }
+
+    final hoy = EntradaDiario.claveFecha(DateTime.now());
+    final lineas = <String>[];
+
+    final h = store.de(hoy);
+    if (h != null && h.tieneAlgo) {
+      final p = <String>[];
+      if (h.prioridad.isNotEmpty) p.add('prioridad: ${_recortar(h.prioridad, max: 120)}');
+      if (h.semaforo.isNotEmpty) p.add('semáforo: ${nombreDeSemaforo(h.semaforo)}');
+      if (h.energia > 0) p.add('energía: ${kNivelesEnergia[h.energia - 1]}');
+      if (h.estado > 0) p.add('estado emocional: ${kNivelesEstado[h.estado - 1]}');
+      if (h.reflexion.isNotEmpty) p.add('reflexión: ${_recortar(h.reflexion, max: 250)}');
+      if (p.isNotEmpty) lineas.add('Hoy: ${p.join('; ')}.');
+    }
+
+    final anteriores = store.entradas.where((e) => e.fecha.compareTo(hoy) < 0).toList()
+      ..sort((a, b) => b.fecha.compareTo(a.fecha));
+
+    final semaforos = anteriores.where((e) => e.semaforo.isNotEmpty).take(7).toList();
+    if (semaforos.isNotEmpty) {
+      lineas.add(
+        'Semáforos de días anteriores (del más reciente): '
+        '${semaforos.map((e) => '${e.fecha} ${nombreDeSemaforo(e.semaforo)}').join(', ')}.',
+      );
+    }
+
+    for (final e in anteriores.where((e) => e.reflexion.isNotEmpty).take(3)) {
+      lineas.add('Reflexión del ${e.fecha}: ${_recortar(e.reflexion, max: 200)}');
+    }
+
+    if (lineas.isEmpty) return null;
+    return 'Mi diario del usuario (el método usa un semáforo diario: Bien, '
+        'Atención y Riesgo; un día en rojo no es un fracaso). Úsalo como '
+        'contexto, sin repetirlo textualmente.\n${lineas.join('\n')}';
   }
 
   /// Resume las tareas PENDIENTES agrupadas por cuadrante, para que el
@@ -362,6 +562,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    ReflexionService.instance.senal.removeListener(_alSolicitarReflexion);
     VoiceService.stopSpeaking();
     VoiceService.stopListening();
     super.dispose();
@@ -489,6 +690,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (_reflexionFecha != null) _bannerReflexion(scheme),
           Expanded(
             child: _loadingHistory
                 ? const Center(child: CircularProgressIndicator())
