@@ -287,23 +287,30 @@ class RegistroDiario {
 class Seguimiento30Dias {
   List<RegistroDiario> registros;
 
-  Seguimiento30Dias({List<RegistroDiario>? registros})
+  /// Día en que empezó el ciclo, como "2026-10-24". Permite saber qué fecha
+  /// corresponde a cada uno de los 30 días. Vacío = todavía no se definió.
+  String fechaInicio;
+
+  Seguimiento30Dias({List<RegistroDiario>? registros, this.fechaInicio = ''})
       : registros =
             registros ?? List.generate(30, (i) => RegistroDiario(dia: i + 1));
 
   Map<String, dynamic> toJson() => {
         'registros': registros.map((r) => r.toJson()).toList(),
+        'fechaInicio': fechaInicio,
       };
 
   factory Seguimiento30Dias.fromJson(Map<String, dynamic> json) {
+    final inicio = (json['fechaInicio'] ?? '').toString();
     final lista = json['registros'] as List<dynamic>?;
     if (lista == null || lista.isEmpty) {
-      return Seguimiento30Dias();
+      return Seguimiento30Dias(fechaInicio: inicio);
     }
     return Seguimiento30Dias(
       registros: lista
           .map((r) => RegistroDiario.fromJson(r as Map<String, dynamic>))
           .toList(),
+      fechaInicio: inicio,
     );
   }
 }
