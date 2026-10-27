@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // NUEVO
@@ -6,6 +8,7 @@ import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/profile_screen.dart';
+import 'services/recordatorio_diario.dart';
 
 // NUEVO: main ahora es async e inicia Supabase
 Future<void> main() async {
@@ -127,8 +130,11 @@ class MainNavigation extends StatefulWidget {
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _MainNavigationState extends State<MainNavigation>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
+  Timer? _vigilante;
+  bool _avisoVisible = false;
 
   final List<Widget> _screens = [
     const ChatScreen(),
@@ -136,6 +142,74 @@ class _MainNavigationState extends State<MainNavigation> {
     const AgendaScreen(),
     const ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    RecordatorioDiario.instance.addListener(_evaluarAviso);
+    RecordatorioDiario.instance.cargar();
+    // Revisa cada 30 segundos mientras la app está abierta (es una
+    // comparación local, no gasta datos).
+    _vigilante = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _evaluarAviso(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _vigilante?.cancel();
+    RecordatorioDiario.instance.removeListener(_evaluarAviso);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _evaluarAviso();
+  }
+
+  /// Invitación amable a marcar el semáforo del día, a la hora elegida.
+  void _evaluarAviso() {
+    if (!mounted) return;
+    final debe = RecordatorioDiario.instance.debeAvisar();
+    if (debe && !_avisoVisible) {
+      _avisoVisible = true;
+      ScaffoldMessenger.of(context).showMaterialBanner(
+        MaterialBanner(
+          leading: const Icon(Icons.menu_book_rounded),
+          content: const Text(
+            '¿Cómo fue tu día? Marca tu semáforo en Mi diario cuando quieras.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _ocultarAviso();
+                RecordatorioDiario.instance.descartarHoy();
+                setState(() => _currentIndex = 3);
+              },
+              child: const Text('Abrir Mi diario'),
+            ),
+            TextButton(
+              onPressed: () {
+                _ocultarAviso();
+                RecordatorioDiario.instance.descartarHoy();
+              },
+              child: const Text('Ahora no'),
+            ),
+          ],
+        ),
+      );
+    } else if (!debe && _avisoVisible) {
+      _ocultarAviso();
+    }
+  }
+
+  void _ocultarAviso() {
+    _avisoVisible = false;
+    if (mounted) ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+  }
 
   @override
   Widget build(BuildContext context) {
