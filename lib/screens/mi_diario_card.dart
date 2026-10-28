@@ -434,7 +434,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
               kNivelesEnergia[e.energia - 1],
               style: TextStyle(
                 fontSize: 12.5,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.76),
               ),
             ),
           ),
@@ -445,7 +445,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final apagado = Colors.white.withValues(alpha: 0.6);
+    final apagado = Colors.white.withValues(alpha: 0.76);
     final e = _entrada;
 
     if (_cargando) {
@@ -475,7 +475,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

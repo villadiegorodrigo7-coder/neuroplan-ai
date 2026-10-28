@@ -130,7 +130,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         child: Text(
                           '$pending pendientes',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -184,7 +184,7 @@ class _TasksScreenState extends State<TasksScreen> {
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           Text(c.subtitulo,
               style: TextStyle(
-                  fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+                  fontSize: 12, color: Colors.white.withValues(alpha: 0.72))),
           const SizedBox(height: 12),
           for (final task in ordenadas) _buildFila(task, scheme),
           Row(
@@ -196,7 +196,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   decoration: InputDecoration(
                     hintText: 'Agregar tarea...',
                     hintStyle: TextStyle(
-                        fontSize: 13, color: Colors.white.withValues(alpha: 0.4)),
+                        fontSize: 13, color: Colors.white.withValues(alpha: 0.62)),
                     border: InputBorder.none,
                     isDense: true,
                   ),
@@ -230,7 +230,7 @@ class _TasksScreenState extends State<TasksScreen> {
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           Text('Toca la etiqueta para elegir su cuadrante',
               style: TextStyle(
-                  fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+                  fontSize: 12, color: Colors.white.withValues(alpha: 0.72))),
           const SizedBox(height: 12),
           for (final task in tareas)
             _buildFila(
@@ -267,7 +267,7 @@ class _TasksScreenState extends State<TasksScreen> {
               task.done ? Icons.check_circle : Icons.circle_outlined,
               color: task.done
                   ? scheme.primary
-                  : Colors.white.withValues(alpha: 0.35),
+                  : Colors.white.withValues(alpha: 0.55),
               size: 22,
             ),
           ),
@@ -281,7 +281,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   fontSize: 14,
                   decoration: task.done ? TextDecoration.lineThrough : null,
                   color: task.done
-                      ? Colors.white.withValues(alpha: 0.4)
+                      ? Colors.white.withValues(alpha: 0.62)
                       : Colors.white.withValues(alpha: 0.9),
                 ),
               ),
@@ -291,7 +291,7 @@ class _TasksScreenState extends State<TasksScreen> {
           GestureDetector(
             onTap: () => _confirmDeleteTask(task),
             child: Icon(Icons.close,
-                color: Colors.white.withValues(alpha: 0.4), size: 18),
+                color: Colors.white.withValues(alpha: 0.62), size: 18),
           ),
         ],
       ),

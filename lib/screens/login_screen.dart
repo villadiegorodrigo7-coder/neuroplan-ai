@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         : 'Ingresa para continuar tu plan',
                     textAlign: TextAlign.center,
                     style: tema.textTheme.bodyMedium
-                        ?.copyWith(color: Colors.white60),
+                        ?.copyWith(color: const Color(0xFFA9A7C4)),
                   ),
                   const SizedBox(height: 32),
                   TextField(

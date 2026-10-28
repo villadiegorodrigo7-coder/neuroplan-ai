@@ -71,7 +71,7 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
       decoration: BoxDecoration(
         color: color != null
             ? color.withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.05),
+            : Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: esHoy ? Border.all(color: scheme.primary, width: 2) : null,
       ),
@@ -80,7 +80,7 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
         style: TextStyle(
           fontSize: 13,
           fontWeight: entrada != null ? FontWeight.w700 : FontWeight.w400,
-          color: color != null ? Colors.black87 : Colors.white70,
+          color: color != null ? Colors.black87 : const Color(0xFFC4C2DA),
         ),
       ),
     );
@@ -100,7 +100,7 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
   }
 
   Widget _detalle(EntradaDiario e) {
-    final apagado = Colors.white.withValues(alpha: 0.6);
+    final apagado = Colors.white.withValues(alpha: 0.76);
     final lineas = <Widget>[];
 
     void campo(String nombre, String valor) {
@@ -142,7 +142,7 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final apagado = Colors.white.withValues(alpha: 0.6);
+    final apagado = Colors.white.withValues(alpha: 0.76);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mi diario')),

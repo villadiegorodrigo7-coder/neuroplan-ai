@@ -8,9 +8,9 @@ import '../services/cuadernillo_service.dart';
 import 'mi_diario_card.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
-const Color kFondo = Color(0xFF12121E);
-const Color kTarjeta = Color(0xFF1C1C2E);
-const Color kTextoSecundario = Color(0xFFB0AEC5);
+const Color kFondo = Color(0xFF0F0F1B);
+const Color kTarjeta = Color(0xFF1B1B2F);
+const Color kTextoSecundario = Color(0xFFBDBBD6);
 
 const List<String> _mesesCorto = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

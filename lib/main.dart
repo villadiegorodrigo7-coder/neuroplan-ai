@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // NUEVO
 import 'auth_gate.dart'; // NUEVO
+import 'theme/app_theme.dart';
 import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
@@ -30,100 +30,36 @@ class NeuroplanApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF7C6CF0),
-      brightness: Brightness.dark,
-    );
-
-    final colorScheme = baseScheme.copyWith(
-      surface: const Color(0xFF121218),
-      surfaceContainerHighest: const Color(0xFF1C1C26),
-      surfaceContainer: const Color(0xFF1A1A22),
-      primary: const Color(0xFF8C7CFF),
-    );
-
-    final textTheme = GoogleFonts.interTextTheme(
-      ThemeData(brightness: Brightness.dark).textTheme,
-    );
-
     return MaterialApp(
       title: 'NEUROPLAN AI',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: const Color(0xFF0D0D12),
-        textTheme: textTheme,
-        appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF0D0D12),
-          elevation: 0,
-          centerTitle: false,
-          titleTextStyle: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF1A1A22),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.06),
+      darkTheme: AppTheme.dark(),
+      // En pantallas anchas (computador) la app se centra en una columna, en
+      // vez de estirarse de lado a lado. En el teléfono no cambia nada.
+      builder: (context, child) {
+        final contenido = child ?? const SizedBox.shrink();
+        if (MediaQuery.sizeOf(context).width <= AppTheme.anchoMaximo) {
+          return contenido;
+        }
+        return ColoredBox(
+          color: AppColors.fondoExterior,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppTheme.anchoMaximo),
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  border: Border.symmetric(
+                    vertical: BorderSide(color: AppColors.borde),
+                  ),
+                ),
+                child: contenido,
+              ),
             ),
           ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF1A1A22),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.06),
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: Color(0xFF8C7CFF),
-              width: 1.5,
-            ),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF8C7CFF),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: const Color(0xFF121218),
-          indicatorColor: const Color(0xFF8C7CFF).withValues(alpha: 0.2),
-          elevation: 0,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            final selected = states.contains(WidgetState.selected);
-
-            return GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight:
-                  selected ? FontWeight.w600 : FontWeight.w400,
-              color:
-                  selected ? const Color(0xFF8C7CFF) : Colors.white60,
-            );
-          }),
-        ),
-      ),
-      home: const AuthGate(), // NUEVO: antes era MainNavigation()
+        );
+      },
+      home: const AuthGate(),
     );
   }
 }

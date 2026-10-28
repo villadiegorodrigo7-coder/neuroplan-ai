@@ -679,7 +679,7 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: Icon(
               _voiceReplyEnabled ? Icons.volume_up : Icons.volume_off,
-              color: _voiceReplyEnabled ? scheme.primary : Colors.white38,
+              color: _voiceReplyEnabled ? scheme.primary : const Color(0xFF8F8DAA),
             ),
             tooltip: _voiceReplyEnabled
                 ? 'Ágora habla: toca para silenciar'
@@ -743,7 +743,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 'Soy una IA y puedo equivocarme. No soy psicólogo ni otro profesional de la salud: si estás pasando por algo difícil, busca también a una persona de confianza o a un profesional.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.5),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 12.5,
                                   height: 1.4,
                                 ),
@@ -753,7 +753,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 'Puedes escribirme hasta 30 mensajes al día.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.45),
+                                  color: Colors.white.withValues(alpha: 0.66),
                                   fontSize: 13,
                                   height: 1.4,
                                 ),
@@ -859,7 +859,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         decoration: InputDecoration(
                           hintText: _isListening ? 'Te escucho...' : 'Escribe un mensaje...',
                           hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
+                            color: Colors.white.withValues(alpha: 0.62),
                           ),
                           border: InputBorder.none,
                           isDense: true,

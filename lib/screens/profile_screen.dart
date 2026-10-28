@@ -35,7 +35,7 @@ class ProfileScreen extends StatelessWidget {
               Supabase.instance.client.auth.currentUser?.email ?? '',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.76),
               ),
             ),
           ),
@@ -56,7 +56,7 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
                 ),
                 child: Row(
                   children: [
@@ -81,12 +81,12 @@ class ProfileScreen extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             'Tu método de organización personal de 30 días',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.4)),
+                    Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.62)),
                   ],
                 ),
               ),
@@ -98,7 +98,7 @@ class ProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +116,7 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Tu asistente ya está listo: no necesitas configurar nada. Puedes escribirle hasta 30 mensajes al día; el contador se renueva cada día.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 13),
                 ),
               ],
             ),

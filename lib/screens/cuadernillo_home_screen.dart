@@ -9,9 +9,9 @@ import 'etapa4_seguimiento_screen.dart';
 import 'etapa5_evaluar_screen.dart';
 
 const Color kMorado = Color(0xFF8C7CFF);
-const Color kFondo = Color(0xFF12121E);
-const Color kTarjeta = Color(0xFF1C1C2E);
-const Color kTextoSecundario = Color(0xFFB0AEC5);
+const Color kFondo = Color(0xFF0F0F1B);
+const Color kTarjeta = Color(0xFF1B1B2F);
+const Color kTextoSecundario = Color(0xFFBDBBD6);
 
 class CuadernilloHomeScreen extends StatefulWidget {
   const CuadernilloHomeScreen({super.key});

@@ -175,7 +175,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   child: Text(
                     'No tienes eventos todavía.\nToca + para agregar uno',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
                   ),
                 )
               : ListView.builder(
@@ -191,7 +191,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                         color: scheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.05)),
+                            color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: ListTile(
                         leading: Container(
@@ -212,7 +212,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                           DateFormat('dd/MM/yyyy · HH:mm').format(event.date),
                           style: TextStyle(
                               fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.5)),
+                              color: Colors.white.withValues(alpha: 0.7)),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -227,7 +227,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                                     : Icons.notifications_none,
                                 color: event.aviso
                                     ? scheme.primary
-                                    : Colors.white.withValues(alpha: 0.4),
+                                    : Colors.white.withValues(alpha: 0.62),
                                 size: 20,
                               ),
                               onPressed: () =>
@@ -235,7 +235,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                             ),
                             IconButton(
                               icon: Icon(Icons.delete_outline,
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: Colors.white.withValues(alpha: 0.62),
                                   size: 20),
                               onPressed: () => _confirmDeleteEvent(event),
                             ),
