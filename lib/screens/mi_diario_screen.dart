@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
+import '../theme/app_theme.dart';
 import '../services/diario_store.dart';
 
 const List<String> _diasSemana = [
@@ -80,7 +81,7 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
         style: TextStyle(
           fontSize: 13,
           fontWeight: entrada != null ? FontWeight.w700 : FontWeight.w400,
-          color: color != null ? Colors.black87 : const Color(0xFFC4C2DA),
+          color: color != null ? Colors.black87 : AppColors.textoSecundario,
         ),
       ),
     );

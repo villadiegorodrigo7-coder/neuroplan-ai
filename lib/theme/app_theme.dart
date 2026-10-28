@@ -6,26 +6,34 @@ class AppColors {
   AppColors._();
 
   /// Fondo de las pantallas.
-  static const Color fondo = Color(0xFF0F0F1B);
+  static const Color fondo = Color(0xFF0A0F22);
 
   /// Fondo que se ve a los lados cuando la app se abre en una pantalla ancha.
-  static const Color fondoExterior = Color(0xFF0A0A13);
+  static const Color fondoExterior = Color(0xFF060A18);
 
   /// Tarjetas y barras.
-  static const Color superficie = Color(0xFF1B1B2F);
+  static const Color superficie = Color(0xFF131C3D);
 
   /// Elementos que deben destacar sobre una tarjeta: avisos, diálogos, chips.
-  static const Color superficieAlta = Color(0xFF26264A);
+  static const Color superficieAlta = Color(0xFF1D2A5C);
 
   /// Líneas y bordes.
-  static const Color borde = Color(0xFF2E2E4F);
+  static const Color borde = Color(0xFF2F4084);
 
   /// Color de la marca.
   static const Color primario = Color(0xFF8C7CFF);
 
-  static const Color textoPrincipal = Color(0xFFF2F1FA);
-  static const Color textoSecundario = Color(0xFFBDBBD6);
-  static const Color textoTenue = Color(0xFF8F8DAA);
+  /// Segundo color de la paleta (celeste), para degradados y detalles.
+  static const Color secundario = Color(0xFF38BDF8);
+
+  /// Degradado de la marca: del violeta al celeste.
+  static const LinearGradient degradado = LinearGradient(
+    colors: [primario, secundario],
+  );
+
+  static const Color textoPrincipal = Color(0xFFF1F5FF);
+  static const Color textoSecundario = Color(0xFFC5CFF0);
+  static const Color textoTenue = Color(0xFF8D9BC8);
 }
 
 class AppTheme {
@@ -46,6 +54,7 @@ class AppTheme {
       surfaceContainerHigh: AppColors.superficieAlta,
       surfaceContainerHighest: AppColors.superficie,
       primary: AppColors.primario,
+      secondary: AppColors.secundario,
       onSurface: AppColors.textoPrincipal,
       onSurfaceVariant: AppColors.textoSecundario,
       outline: AppColors.borde,

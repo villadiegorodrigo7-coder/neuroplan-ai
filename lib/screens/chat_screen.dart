@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/entrada_diario.dart';
+import '../theme/app_theme.dart';
 import '../services/diario_store.dart';
 import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
@@ -679,7 +680,7 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: Icon(
               _voiceReplyEnabled ? Icons.volume_up : Icons.volume_off,
-              color: _voiceReplyEnabled ? scheme.primary : const Color(0xFF8F8DAA),
+              color: _voiceReplyEnabled ? scheme.primary : AppColors.textoTenue,
             ),
             tooltip: _voiceReplyEnabled
                 ? 'Ágora habla: toca para silenciar'

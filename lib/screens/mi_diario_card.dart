@@ -8,6 +8,7 @@ import '../services/diario_store.dart';
 import '../services/recordatorio_diario.dart';
 import '../services/reflexion_service.dart';
 import '../services/tasks_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/campo_dictado.dart';
 import 'mi_diario_screen.dart';
 
@@ -413,11 +414,11 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
                   child: Container(
                     height: 30,
                     decoration: BoxDecoration(
-                      color: lleno ? scheme.primary : Colors.transparent,
+                      gradient: lleno ? AppColors.degradado : null,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: lleno
-                            ? scheme.primary
+                            ? Colors.transparent
                             : Colors.white.withValues(alpha: 0.2),
                       ),
                     ),

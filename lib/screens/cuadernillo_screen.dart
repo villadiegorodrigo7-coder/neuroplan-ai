@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/cuadernillo_data.dart';
 import '../services/auto_guardado.dart';
 import '../services/cuadernillo_service.dart';
 
 // Colores del tema (mismo morado/azul del resto de la app)
-const Color kMorado = Color(0xFF8C7CFF);
-const Color kFondo = Color(0xFF0F0F1B);
-const Color kTarjeta = Color(0xFF1B1B2F);
-const Color kTextoSecundario = Color(0xFFBDBBD6);
+const Color kMorado = AppColors.primario;
+const Color kFondo = AppColors.fondo;
+const Color kTarjeta = AppColors.superficie;
+const Color kTextoSecundario = AppColors.textoSecundario;
 
 class CuadernilloScreen extends StatefulWidget {
   const CuadernilloScreen({super.key});

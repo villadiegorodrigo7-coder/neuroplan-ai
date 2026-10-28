@@ -5,9 +5,9 @@ import 'dart:ui' show Color;
 // escribe el cuadernillo del método.
 // ---------------------------------------------------------------------
 
-const Color kColorBien = Color(0xFF34C28B);
-const Color kColorAtencion = Color(0xFFF2B53E);
-const Color kColorRiesgo = Color(0xFFE5566D);
+const Color kColorBien = Color(0xFF34D399);
+const Color kColorAtencion = Color(0xFFFBBF24);
+const Color kColorRiesgo = Color(0xFFFB7185);
 
 const List<String> kSemaforos = ['bien', 'atencion', 'riesgo'];
 const List<String> kNombresSemaforo = ['Bien', 'Atención', 'Riesgo'];

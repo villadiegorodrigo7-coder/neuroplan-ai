@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -89,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         : 'Ingresa para continuar tu plan',
                     textAlign: TextAlign.center,
                     style: tema.textTheme.bodyMedium
-                        ?.copyWith(color: const Color(0xFFA9A7C4)),
+                        ?.copyWith(color: AppColors.textoSecundario),
                   ),
                   const SizedBox(height: 32),
                   TextField(
