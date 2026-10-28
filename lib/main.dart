@@ -8,6 +8,9 @@ import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/profile_screen.dart';
+import 'models/agenda_event.dart';
+import 'services/agenda_avisos.dart';
+import 'services/agenda_store.dart';
 import 'services/diario_store.dart';
 import 'services/recordatorio_diario.dart';
 import 'services/reflexion_service.dart';
@@ -136,7 +139,7 @@ class _MainNavigationState extends State<MainNavigation>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
   Timer? _vigilante;
-  bool _avisoVisible = false;
+  String? _avisoClave; // qué invitación está a la vista ('diario' o 'agenda:id')
 
   final List<Widget> _screens = [
     const ChatScreen(),
@@ -153,6 +156,10 @@ class _MainNavigationState extends State<MainNavigation>
     RecordatorioDiario.instance.cargar();
     DiarioStore.instance.addListener(_evaluarAviso);
     DiarioStore.instance.cargar();
+    AgendaStore.instance.addListener(_evaluarAviso);
+    AgendaStore.instance.cargar();
+    AgendaAvisos.instance.addListener(_evaluarAviso);
+    AgendaAvisos.instance.cargar();
     ReflexionService.instance.senal.addListener(_irAlChat);
     // Revisa cada 30 segundos mientras la app está abierta (es una
     // comparación local, no gasta datos).
@@ -167,6 +174,8 @@ class _MainNavigationState extends State<MainNavigation>
     _vigilante?.cancel();
     RecordatorioDiario.instance.removeListener(_evaluarAviso);
     DiarioStore.instance.removeListener(_evaluarAviso);
+    AgendaStore.instance.removeListener(_evaluarAviso);
+    AgendaAvisos.instance.removeListener(_evaluarAviso);
     ReflexionService.instance.senal.removeListener(_irAlChat);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -182,45 +191,94 @@ class _MainNavigationState extends State<MainNavigation>
     if (mounted) setState(() => _currentIndex = 0);
   }
 
-  /// Invitación amable a marcar el semáforo del día, a la hora elegida.
+  /// Decide qué invitación mostrar: primero los recordatorios de la Agenda
+  /// que ya llegaron a su hora; si no hay, la invitación a llenar Mi diario.
   void _evaluarAviso() {
     if (!mounted) return;
-    final debe = RecordatorioDiario.instance.debeAvisar();
-    if (debe && !_avisoVisible) {
-      _avisoVisible = true;
-      ScaffoldMessenger.of(context).showMaterialBanner(
-        MaterialBanner(
-          leading: const Icon(Icons.menu_book_rounded),
-          content: const Text(
-            '¿Cómo fue tu día? Marca tu semáforo en Mi diario cuando quieras.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _ocultarAviso();
-                RecordatorioDiario.instance.descartarHoy();
-                setState(() => _currentIndex = 3);
-              },
-              child: const Text('Abrir Mi diario'),
-            ),
-            TextButton(
-              onPressed: () {
-                _ocultarAviso();
-                RecordatorioDiario.instance.descartarHoy();
-              },
-              child: const Text('Ahora no'),
-            ),
-          ],
-        ),
-      );
-    } else if (!debe && _avisoVisible) {
-      _ocultarAviso();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final evento = AgendaAvisos.instance.proximoVencido();
+    String? clave;
+    if (evento != null) {
+      clave = 'agenda:${evento.id}';
+    } else if (RecordatorioDiario.instance.debeAvisar()) {
+      clave = 'diario';
     }
+
+    if (clave == null) {
+      if (_avisoClave != null) _ocultarAviso();
+      return;
+    }
+    if (clave == _avisoClave) return;
+
+    messenger.removeCurrentMaterialBanner();
+    _avisoClave = clave;
+    messenger.showMaterialBanner(
+      evento != null ? _bannerAgenda(evento) : _bannerDiario(),
+    );
+  }
+
+  MaterialBanner _bannerDiario() {
+    return MaterialBanner(
+      leading: const Icon(Icons.menu_book_rounded),
+      content: const Text(
+        '¿Cómo fue tu día? Marca tu semáforo en Mi diario cuando quieras.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _ocultarAviso();
+            RecordatorioDiario.instance.descartarHoy();
+            setState(() => _currentIndex = 3);
+          },
+          child: const Text('Abrir Mi diario'),
+        ),
+        TextButton(
+          onPressed: () {
+            _ocultarAviso();
+            RecordatorioDiario.instance.descartarHoy();
+          },
+          child: const Text('Ahora no'),
+        ),
+      ],
+    );
+  }
+
+  MaterialBanner _bannerAgenda(AgendaEvent evento) {
+    final hora = TimeOfDay.fromDateTime(evento.date).format(context);
+    return MaterialBanner(
+      leading: const Icon(Icons.notifications_active_outlined),
+      content: Text('Recordatorio: ${evento.title} · $hora'),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _ocultarAviso();
+            AgendaAvisos.instance.marcarVisto(evento);
+          },
+          child: const Text('Listo'),
+        ),
+        TextButton(
+          onPressed: () {
+            _ocultarAviso();
+            AgendaAvisos.instance.aplazar(evento, 10);
+          },
+          child: const Text('Aplazar 10 min'),
+        ),
+        TextButton(
+          onPressed: () {
+            _ocultarAviso();
+            AgendaAvisos.instance.marcarVisto(evento);
+            setState(() => _currentIndex = 2);
+          },
+          child: const Text('Ver agenda'),
+        ),
+      ],
+    );
   }
 
   void _ocultarAviso() {
-    _avisoVisible = false;
-    if (mounted) ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+    _avisoClave = null;
+    if (mounted) ScaffoldMessenger.of(context).removeCurrentMaterialBanner();
   }
 
   @override

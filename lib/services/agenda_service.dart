@@ -19,11 +19,13 @@ class AgendaService {
       'titulo': e.title,
       // Se guarda en UTC para que la hora sea la misma en cualquier dispositivo.
       'fecha': e.date.toUtc().toIso8601String(),
+      'aviso': e.aviso,
     },
     deFila: (f) => AgendaEvent(
       id: f['id'] as String,
       title: f['titulo'] as String,
       date: DateTime.parse(f['fecha'] as String).toLocal(),
+      aviso: (f['aviso'] as bool?) ?? false,
     ),
   );
 

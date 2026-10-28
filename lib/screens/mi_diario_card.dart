@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
+import '../models/agenda_event.dart';
 import '../models/entrada_diario.dart';
+import '../services/agenda_store.dart';
 import '../services/diario_store.dart';
 import '../services/recordatorio_diario.dart';
 import '../services/reflexion_service.dart';
@@ -57,7 +60,14 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
     _dia = DateTime(base.year, base.month, base.day);
     _fecha = EntradaDiario.claveFecha(_dia);
     DiarioStore.instance.addListener(_alCambiarStore);
+    AgendaStore.instance.addListener(_alCambiarAgenda);
+    AgendaStore.instance.cargar();
     _cargar();
+  }
+
+  /// La Agenda cambió (por ejemplo, borraste un evento allá): se repinta.
+  void _alCambiarAgenda() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _cargar() async {
@@ -96,6 +106,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   @override
   void dispose() {
     DiarioStore.instance.removeListener(_alCambiarStore);
+    AgendaStore.instance.removeListener(_alCambiarAgenda);
     _prioridadCtrl.dispose();
     _reflexionCtrl.dispose();
     _notaCtrl.dispose();
@@ -142,8 +153,153 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
   void _borrarNota(NotaDiario nota) {
     final e = _entrada;
     if (e == null) return;
+    // Si la nota tenía recordatorio, se quita también de la Agenda.
+    if (nota.agendaId.isNotEmpty) {
+      AgendaStore.instance.eliminar(nota.agendaId);
+    }
     e.notas.remove(nota);
     _cambio();
+  }
+
+  String _cuando(DateTime d) =>
+      '${d.day} de ${_meses[d.month - 1]}, ${TimeOfDay.fromDateTime(d).format(context)}';
+
+  /// Programa un recordatorio para la nota: queda como evento de la Agenda
+  /// con aviso.
+  Future<void> _programarNota(NotaDiario nota) async {
+    final ahora = DateTime.now();
+    final dia = await showDatePicker(
+      context: context,
+      initialDate: ahora,
+      firstDate: DateTime(ahora.year, ahora.month, ahora.day),
+      lastDate: ahora.add(const Duration(days: 365 * 2)),
+      helpText: '¿Qué día te lo recuerdo?',
+    );
+    if (dia == null || !mounted) return;
+
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(ahora.add(const Duration(hours: 1))),
+      helpText: '¿A qué hora?',
+    );
+    if (hora == null || !mounted) return;
+
+    final cuando = DateTime(dia.year, dia.month, dia.day, hora.hour, hora.minute);
+    if (!cuando.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esa hora ya pasó. Elige una más adelante.')),
+      );
+      return;
+    }
+
+    try {
+      await AgendaStore.instance.cargar();
+    } catch (_) {}
+    final evento = AgendaEvent(
+      id: const Uuid().v4(),
+      title: nota.texto,
+      date: cuando,
+      aviso: true,
+    );
+    AgendaStore.instance.agregar(evento);
+    nota.agendaId = evento.id;
+    _cambio();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Listo: te lo recuerdo el ${_cuando(cuando)}, cuando tengas la app abierta. También quedó en tu Agenda.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _quitarProgramacion(NotaDiario nota) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitar recordatorio'),
+        content: const Text(
+          'Se quitará el recordatorio y el evento de la Agenda. La nota se queda en tu diario.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    AgendaStore.instance.eliminar(nota.agendaId);
+    nota.agendaId = '';
+    _cambio();
+  }
+
+  Widget _filaNota(NotaDiario nota, Color apagado, ColorScheme scheme) {
+    final evento = nota.agendaId.isEmpty
+        ? null
+        : AgendaStore.instance.porId(nota.agendaId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_hora(nota.creada),
+              style: TextStyle(fontSize: 12.5, color: apagado)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nota.texto),
+                if (evento != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'Recordatorio: ${_cuando(evento.date)}',
+                      style: TextStyle(fontSize: 12, color: scheme.primary),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Tooltip(
+            message: evento == null
+                ? 'Programar un recordatorio'
+                : 'Quitar el recordatorio',
+            child: InkWell(
+              onTap: () => evento == null
+                  ? _programarNota(nota)
+                  : _quitarProgramacion(nota),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Icon(
+                  evento == null
+                      ? Icons.notifications_none
+                      : Icons.notifications_active,
+                  size: 19,
+                  color: evento == null ? apagado : scheme.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: () => _borrarNota(nota),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(Icons.close, size: 18, color: apagado),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Abre el chat con Ágora para hacer la reflexión de este día.
@@ -415,26 +571,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
           ),
 
           _titulo('Notas'),
-          for (final nota in e.notas)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_hora(nota.creada),
-                      style: TextStyle(fontSize: 12.5, color: apagado)),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(nota.texto)),
-                  InkWell(
-                    onTap: () => _borrarNota(nota),
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: Icon(Icons.close, size: 18, color: apagado),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          for (final nota in e.notas) _filaNota(nota, apagado, scheme),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

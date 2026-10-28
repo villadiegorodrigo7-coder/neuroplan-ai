@@ -46,19 +46,29 @@ class NotaDiario {
   String texto;
   final DateTime creada;
 
-  NotaDiario({required this.id, required this.texto, DateTime? creada})
-      : creada = creada ?? DateTime.now();
+  /// Si la nota tiene un recordatorio, es el identificador del evento de la
+  /// Agenda donde está programado. Vacío = sin recordatorio.
+  String agendaId;
+
+  NotaDiario({
+    required this.id,
+    required this.texto,
+    DateTime? creada,
+    this.agendaId = '',
+  }) : creada = creada ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'texto': texto,
         'creada': creada.toUtc().toIso8601String(),
+        'agendaId': agendaId,
       };
 
   factory NotaDiario.fromJson(Map<String, dynamic> j) => NotaDiario(
         id: (j['id'] ?? '').toString(),
         texto: (j['texto'] ?? '').toString(),
         creada: DateTime.tryParse((j['creada'] ?? '').toString())?.toLocal(),
+        agendaId: (j['agendaId'] ?? '').toString(),
       );
 }
 

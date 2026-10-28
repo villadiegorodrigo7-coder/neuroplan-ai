@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/agenda_event.dart';
-import '../services/agenda_service.dart';
+import '../services/agenda_store.dart';
 
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({super.key});
@@ -13,34 +13,39 @@ class AgendaScreen extends StatefulWidget {
 }
 
 class _AgendaScreenState extends State<AgendaScreen> {
-  final List<AgendaEvent> _events = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    AgendaStore.instance.addListener(_alCambiar);
     _loadEvents();
   }
 
   Future<void> _loadEvents() async {
-    final lista = await AgendaService.cargar();
-    if (!mounted) return;
-    setState(() {
-      _events
-        ..clear()
-        ..addAll(lista);
-      _events.sort((a, b) => a.date.compareTo(b.date));
-      _loading = false;
-    });
+    try {
+      await AgendaStore.instance.cargar();
+    } catch (_) {
+      // Se muestra lo que haya en el dispositivo.
+    }
+    if (mounted) setState(() => _loading = false);
   }
 
-  /// Guarda en el dispositivo y sincroniza con Supabase en segundo plano.
-  Future<void> _saveEvents() => AgendaService.guardar(_events);
+  void _alCambiar() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    AgendaStore.instance.removeListener(_alCambiar);
+    super.dispose();
+  }
 
   Future<void> _addEvent() async {
     final titleController = TextEditingController();
     DateTime selectedDate = DateTime.now();
     TimeOfDay selectedTime = TimeOfDay.now();
+    bool conAviso = true;
 
     final result = await showDialog<bool>(
       context: context,
@@ -85,6 +90,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   }
                 },
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Avisarme cuando llegue la hora'),
+                subtitle: const Text(
+                  'Solo cuando tengas la app abierta.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                value: conAviso,
+                onChanged: (v) => setDialogState(() => conAviso = v),
+              ),
             ],
           ),
           actions: [
@@ -109,15 +124,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
         selectedTime.hour,
         selectedTime.minute,
       );
-      setState(() {
-        _events.add(AgendaEvent(
-          id: const Uuid().v4(),
-          title: titleController.text.trim(),
-          date: fullDate,
-        ));
-        _events.sort((a, b) => a.date.compareTo(b.date));
-      });
-      _saveEvents();
+      AgendaStore.instance.agregar(AgendaEvent(
+        id: const Uuid().v4(),
+        title: titleController.text.trim(),
+        date: fullDate,
+        aviso: conAviso,
+      ));
     }
   }
 
@@ -141,14 +153,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
       ),
     );
     if (confirm == true) {
-      setState(() => _events.removeWhere((e) => e.id == event.id));
-      _saveEvents();
+      AgendaStore.instance.eliminar(event.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final events = AgendaStore.instance.eventos;
     return Scaffold(
       appBar: AppBar(title: const Text('Agenda')),
       floatingActionButton: FloatingActionButton(
@@ -158,7 +170,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _events.isEmpty
+          : events.isEmpty
               ? Center(
                   child: Text(
                     'No tienes eventos todavía.\nToca + para agregar uno',
@@ -168,9 +180,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _events.length,
+                  itemCount: events.length,
                   itemBuilder: (context, index) {
-                    final event = _events[index];
+                    final event = events[index];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(
@@ -202,11 +214,32 @@ class _AgendaScreenState extends State<AgendaScreen> {
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.5)),
                         ),
-                        trailing: IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              color: Colors.white.withValues(alpha: 0.4),
-                              size: 20),
-                          onPressed: () => _confirmDeleteEvent(event),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: event.aviso
+                                  ? 'Con aviso: toca para quitarlo'
+                                  : 'Sin aviso: toca para activarlo',
+                              icon: Icon(
+                                event.aviso
+                                    ? Icons.notifications_active
+                                    : Icons.notifications_none,
+                                color: event.aviso
+                                    ? scheme.primary
+                                    : Colors.white.withValues(alpha: 0.4),
+                                size: 20,
+                              ),
+                              onPressed: () =>
+                                  AgendaStore.instance.alternarAviso(event.id),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  size: 20),
+                              onPressed: () => _confirmDeleteEvent(event),
+                            ),
+                          ],
                         ),
                       ),
                     );
