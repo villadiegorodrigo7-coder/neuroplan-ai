@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/cuadernillo_data.dart';
+import '../models/entrada_diario.dart';
 import '../models/task.dart';
 import 'coleccion_nube.dart';
 import 'cuadernillo_service.dart';
@@ -51,6 +52,8 @@ class TasksService extends ChangeNotifier {
       'hecha': t.done,
       'origen': t.origen,
       'cuadrante': t.cuadrante,
+      'fecha': t.fecha.isEmpty ? null : t.fecha,
+      'bloque': t.bloque.isEmpty ? null : t.bloque,
     },
     deFila: (f) => Task(
       id: f['id'] as String,
@@ -58,6 +61,8 @@ class TasksService extends ChangeNotifier {
       done: (f['hecha'] as bool?) ?? false,
       origen: f['origen'] as String?,
       cuadrante: f['cuadrante'] as String?,
+      fecha: (f['fecha'] ?? '').toString(),
+      bloque: (f['bloque'] ?? '').toString(),
     ),
   );
 
@@ -127,6 +132,22 @@ class TasksService extends ChangeNotifier {
     _notificar();
     unawaited(_guardar());
     unawaited(_modificarMatriz((m) => _listaDe(m, cuadrante).add(task.title)));
+  }
+
+  /// Lleva una tarea a un bloque del día de hoy ('manana', 'tarde' o 'noche').
+  void llevarAHoy(Task task, String bloque) {
+    task.fecha = EntradaDiario.claveFecha(DateTime.now());
+    task.bloque = bloque;
+    _notificar();
+    unawaited(_guardar());
+  }
+
+  /// Quita la tarea del día (sigue existiendo en su cuadrante).
+  void quitarDeHoy(Task task) {
+    task.fecha = '';
+    task.bloque = '';
+    _notificar();
+    unawaited(_guardar());
   }
 
   void alternar(Task task) {

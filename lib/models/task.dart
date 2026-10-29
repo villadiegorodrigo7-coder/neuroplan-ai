@@ -16,12 +16,20 @@ class Task {
   /// Clave del cuadrante de la matriz (ej. 'urgenteImportante'), o null.
   String? cuadrante;
 
+  /// Día al que se llevó la tarea, como "2026-10-28". Vacío = sin día.
+  String fecha;
+
+  /// Bloque de ese día: 'manana', 'tarde' o 'noche'. Vacío = sin bloque.
+  String bloque;
+
   Task({
     required this.id,
     required this.title,
     this.done = false,
     this.origen,
     this.cuadrante,
+    this.fecha = '',
+    this.bloque = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +38,8 @@ class Task {
         'done': done,
         if (origen != null) 'origen': origen,
         if (cuadrante != null) 'cuadrante': cuadrante,
+        if (fecha.isNotEmpty) 'fecha': fecha,
+        if (bloque.isNotEmpty) 'bloque': bloque,
       };
 
   factory Task.fromJson(Map<String, dynamic> json) => Task(
@@ -38,5 +48,7 @@ class Task {
         done: json['done'] ?? false,
         origen: json['origen'],
         cuadrante: json['cuadrante'],
+        fecha: (json['fecha'] ?? '').toString(),
+        bloque: (json['bloque'] ?? '').toString(),
       );
 }
