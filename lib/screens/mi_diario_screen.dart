@@ -119,13 +119,19 @@ class _MiDiarioScreenState extends State<MiDiarioScreen> {
       ));
     }
 
-    campo('Prioridad', e.prioridad);
+    // La prioridad ya se ve como subtítulo del día: aquí no se repite.
+    if (e.notas.isNotEmpty) {
+      campo('Notas rápidas', e.notas.map((n) => '• ${n.texto}').join('\n'));
+    }
     if (e.semaforo.isNotEmpty) campo('Semáforo', nombreDeSemaforo(e.semaforo));
     if (e.energia > 0) campo('Energía', kNivelesEnergia[e.energia - 1]);
     if (e.estado > 0) campo('Estado emocional', kNivelesEstado[e.estado - 1]);
     campo('Reflexión', e.reflexion);
-    if (e.notas.isNotEmpty) {
-      campo('Notas', e.notas.map((n) => '• ${n.texto}').join('\n'));
+    if (lineas.isEmpty) {
+      lineas.add(Text(
+        'Ese día solo tiene prioridad.',
+        style: TextStyle(fontSize: 12.5, color: apagado),
+      ));
     }
 
     return Padding(

@@ -443,6 +443,37 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
     );
   }
 
+  /// Encabezado de cada momento del día (empezar, durante, terminar).
+  Widget _momento(String titulo, String ayuda, ColorScheme scheme, Color apagado) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: scheme.secondary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                titulo,
+                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(ayuda, style: TextStyle(fontSize: 12.5, color: apagado)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -497,7 +528,7 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
           ] else
             Text(_fechaLarga(_dia), style: TextStyle(color: apagado)),
 
-          _titulo('Mi prioridad del día'),
+          _momento('Al empezar el día', 'Elige lo más importante de hoy.', scheme, apagado),
           CampoDictado(
             controller: _prioridadCtrl,
             hint: '¿Qué es lo más importante?',
@@ -516,6 +547,29 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
             ),
           ),
 
+          _momento('Durante el día', 'Notas rápidas: lo que no quieres olvidar. Toca la campana para que te lo recuerde.', scheme, apagado),
+          for (final nota in e.notas) _filaNota(nota, apagado, scheme),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: CampoDictado(
+                  controller: _notaCtrl,
+                  hint: 'Una nota rápida...',
+                  maxLines: 1,
+                  onSubmitted: _agregarNota,
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton.filledTonal(
+                tooltip: 'Agregar nota',
+                onPressed: _agregarNota,
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+
+          _momento('Al terminar el día', 'Mira cómo te fue y por qué salió así.', scheme, apagado),
           _titulo('¿Cómo te fue con tu ritmo?'),
           Row(
             children: [
@@ -569,28 +623,6 @@ class _MiDiarioCardState extends State<MiDiarioCard> {
               icon: const Icon(Icons.record_voice_over_outlined, size: 18),
               label: const Text('Reflexionar con Ágora'),
             ),
-          ),
-
-          _titulo('Notas'),
-          for (final nota in e.notas) _filaNota(nota, apagado, scheme),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: CampoDictado(
-                  controller: _notaCtrl,
-                  hint: 'Una nota rápida...',
-                  maxLines: 1,
-                  onSubmitted: _agregarNota,
-                ),
-              ),
-              const SizedBox(width: 6),
-              IconButton.filledTonal(
-                tooltip: 'Agregar nota',
-                onPressed: _agregarNota,
-                icon: const Icon(Icons.add),
-              ),
-            ],
           ),
 
           if (!widget.compacto) ...[

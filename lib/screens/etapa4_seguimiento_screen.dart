@@ -304,13 +304,47 @@ class _Etapa4SeguimientoScreenState extends State<Etapa4SeguimientoScreen> {
                     compacto: true,
                   ),
                   const SizedBox(height: 16),
-                  _buildCampoTexto(_notaController, 'Nota del día', '¿Cómo te fue hoy?'),
+                  // La reflexión y las notas ahora viven en Mi diario (arriba). Si este
+                  // día ya tenía una nota de antes, se conserva a la vista.
+                  if (_notaController.text.trim().isNotEmpty) _buildNotaAnterior(),
                 ],
               ),
             ),
             _buildBarraInferior(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotaAnterior() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: kTarjeta, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Nota guardada antes',
+            style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 12.5),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _notaController.text,
+            style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                setState(() => _notaController.clear());
+                _auto.programar();
+              },
+              child: const Text('Quitar esta nota'),
+            ),
+          ),
+        ],
       ),
     );
   }
