@@ -276,12 +276,12 @@ class _ChatScreenState extends State<ChatScreen> {
         final lectura = h.tipo == 'incorporar'
             ? '$favorables de $observados registros realizados'
             : '$favorables de $observados registros en los que lograste evitarlo';
-        lineas.add('- \${h.nombre} ($etiqueta): $lectura.');
+        lineas.add('- ${h.nombre} ($etiqueta): $lectura.');
       }
       if (lineas.isEmpty) return;
 
       final conv = await ChatHistoryService.createConversation();
-      conv.title = 'Seguimiento de hábitos · \${EntradaDiario.claveFecha(hoy)}';
+      conv.title = 'Seguimiento de hábitos · ${EntradaDiario.claveFecha(hoy)}';
       conv.messages.add(ChatMessageData(
         role: 'model',
 content: """Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.
