@@ -242,6 +242,61 @@ class _ChatScreenState extends State<ChatScreen> {
       _current = list.isNotEmpty ? list.first : null;
       _loadingHistory = false;
     });
+    await _generarInformeHabitosSiCorresponde();
+  }
+
+  Future<void> _generarInformeHabitosSiCorresponde() async {
+    try {
+      final data = await CuadernilloService.cargar();
+      if (data.habitos.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      const claveUltimoInforme = 'agora_ultimo_informe_habitos';
+      final ultimo = DateTime.tryParse(prefs.getString(claveUltimoInforme) ?? '');
+      final hoy = DateTime.now();
+      final fechas = data.habitos.expand((h) => h.registros.keys)
+          .map(DateTime.tryParse).whereType<DateTime>().toList()..sort();
+      if (fechas.isEmpty) return;
+      final primerRegistro = fechas.first;
+      final desde = ultimo ?? primerRegistro;
+      if (hoy.difference(DateTime(desde.year, desde.month, desde.day)).inDays < 3) return;
+
+      final inicioVentana = hoy.subtract(const Duration(days: 3));
+      final lineas = <String>[];
+      for (final h in data.habitos) {
+        final registros = h.registros.entries.where((e) {
+          final fecha = DateTime.tryParse(e.key);
+          return fecha != null &&
+              !fecha.isBefore(DateTime(inicioVentana.year, inicioVentana.month, inicioVentana.day)) &&
+              !fecha.isAfter(DateTime(hoy.year, hoy.month, hoy.day));
+        }).toList()..sort((a, b) => a.key.compareTo(b.key));
+        if (registros.isEmpty) continue;
+        final favorables = registros.where((e) => e.value).length;
+        final observados = registros.length;
+        final etiqueta = h.tipo == 'incorporar' ? 'por incorporar' : 'por alejar';
+        final lectura = h.tipo == 'incorporar'
+            ? '$favorables de $observados registros realizados'
+            : '$favorables de $observados registros en los que lograste evitarlo';
+        lineas.add('- \${h.nombre} ($etiqueta): $lectura.');
+      }
+      if (lineas.isEmpty) return;
+
+      final conv = await ChatHistoryService.createConversation();
+      conv.title = 'Seguimiento de hábitos · \${EntradaDiario.claveFecha(hoy)}';
+      conv.messages.add(ChatMessageData(
+        role: 'model',
+        content: 'Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.\n\n\${lineas.join('\n')}\n\n¿Qué has notado en estos días? ¿Qué te ha ayudado o dificultado mantener estos cambios?\n\nSi algún día no registraste, lo dejamos como información ausente, no como incumplimiento.',
+      ));
+      if (!mounted) return;
+      setState(() {
+        _conversations.insert(0, conv);
+        _current = conv;
+      });
+      await _persist();
+      await prefs.setString(claveUltimoInforme, EntradaDiario.claveFecha(hoy));
+      _scrollToBottom();
+    } catch (_) {
+      // Un informe fallido no debe impedir abrir ni usar el chat.
+    }
   }
 
   Future<void> _persist() async {
