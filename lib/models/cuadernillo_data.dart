@@ -224,6 +224,74 @@ class RutinaSemanal {
   }
 }
 
+/// Evaluación cualitativa de un bloque completo de la agenda.
+class EvaluacionBloque {
+  String fecha;
+  String bloque;
+  String porQueDiaSalioAsi;
+  String comoSalieronActividades;
+  int satisfaccion;
+  String porQueSatisfaccion;
+
+  EvaluacionBloque({
+    required this.fecha,
+    required this.bloque,
+    this.porQueDiaSalioAsi = '',
+    this.comoSalieronActividades = '',
+    this.satisfaccion = 0,
+    this.porQueSatisfaccion = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+        'fecha': fecha,
+        'bloque': bloque,
+        'porQueDiaSalioAsi': porQueDiaSalioAsi,
+        'comoSalieronActividades': comoSalieronActividades,
+        'satisfaccion': satisfaccion,
+        'porQueSatisfaccion': porQueSatisfaccion,
+      };
+
+  factory EvaluacionBloque.fromJson(Map<String, dynamic> json) =>
+      EvaluacionBloque(
+        fecha: (json['fecha'] ?? '').toString(),
+        bloque: (json['bloque'] ?? '').toString(),
+        porQueDiaSalioAsi: (json['porQueDiaSalioAsi'] ?? '').toString(),
+        comoSalieronActividades: (json['comoSalieronActividades'] ?? '').toString(),
+        satisfaccion: (json['satisfaccion'] as num?)?.toInt() ?? 0,
+        porQueSatisfaccion: (json['porQueSatisfaccion'] ?? '').toString(),
+      );
+}
+
+/// Hábito independiente de las tareas y compromisos de la agenda.
+class HabitoSeguimiento {
+  String id;
+  String nombre;
+  String tipo; // 'incorporar' o 'alejar'
+  Map<String, bool> registros; // fecha local -> conducta observada
+
+  HabitoSeguimiento({
+    required this.id,
+    required this.nombre,
+    required this.tipo,
+    Map<String, bool>? registros,
+  }) : registros = registros ?? {};
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nombre': nombre,
+        'tipo': tipo,
+        'registros': registros,
+      };
+
+  factory HabitoSeguimiento.fromJson(Map<String, dynamic> json) =>
+      HabitoSeguimiento(
+        id: (json['id'] ?? '').toString(),
+        nombre: (json['nombre'] ?? '').toString(),
+        tipo: (json['tipo'] ?? 'incorporar').toString(),
+        registros: Map<String, bool>.from(json['registros'] ?? {}),
+      );
+}
+
 /// ================== ETAPA 4: HACER SEGUIMIENTO (30 días) ==================
 
 class TareaChecklist {
@@ -353,6 +421,8 @@ class CuadernilloData {
   RutinaSemanal rutinaSemanal;
   Seguimiento30Dias seguimiento30Dias;
   EvaluacionFinal evaluacionFinal;
+  List<EvaluacionBloque> evaluacionesBloques;
+  List<HabitoSeguimiento> habitos;
 
   bool etapa1Completada;
   bool etapa2Completada;
@@ -368,6 +438,8 @@ class CuadernilloData {
     RutinaSemanal? rutinaSemanal,
     Seguimiento30Dias? seguimiento30Dias,
     EvaluacionFinal? evaluacionFinal,
+    List<EvaluacionBloque>? evaluacionesBloques,
+    List<HabitoSeguimiento>? habitos,
     this.etapa1Completada = false,
     this.etapa2Completada = false,
     this.etapa3Completada = false,
@@ -379,7 +451,9 @@ class CuadernilloData {
         matrizEisenhower = matrizEisenhower ?? MatrizEisenhower(),
         rutinaSemanal = rutinaSemanal ?? RutinaSemanal(),
         seguimiento30Dias = seguimiento30Dias ?? Seguimiento30Dias(),
-        evaluacionFinal = evaluacionFinal ?? EvaluacionFinal();
+        evaluacionFinal = evaluacionFinal ?? EvaluacionFinal(),
+        evaluacionesBloques = evaluacionesBloques ?? [],
+        habitos = habitos ?? [];
 
   Map<String, dynamic> toJson() => {
         'diagnosticoInicial': diagnosticoInicial.toJson(),
@@ -389,6 +463,8 @@ class CuadernilloData {
         'rutinaSemanal': rutinaSemanal.toJson(),
         'seguimiento30Dias': seguimiento30Dias.toJson(),
         'evaluacionFinal': evaluacionFinal.toJson(),
+        'evaluacionesBloques': evaluacionesBloques.map((e) => e.toJson()).toList(),
+        'habitos': habitos.map((h) => h.toJson()).toList(),
         'etapa1Completada': etapa1Completada,
         'etapa2Completada': etapa2Completada,
         'etapa3Completada': etapa3Completada,
@@ -418,6 +494,12 @@ class CuadernilloData {
       evaluacionFinal: json['evaluacionFinal'] != null
           ? EvaluacionFinal.fromJson(json['evaluacionFinal'])
           : null,
+      evaluacionesBloques: ((json['evaluacionesBloques'] as List?) ?? const [])
+          .map((e) => EvaluacionBloque.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      habitos: ((json['habitos'] as List?) ?? const [])
+          .map((h) => HabitoSeguimiento.fromJson(Map<String, dynamic>.from(h as Map)))
+          .toList(),
       etapa1Completada: json['etapa1Completada'] ?? false,
       etapa2Completada: json['etapa2Completada'] ?? false,
       etapa3Completada: json['etapa3Completada'] ?? false,
