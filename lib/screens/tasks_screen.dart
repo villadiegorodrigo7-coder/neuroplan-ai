@@ -447,11 +447,25 @@ class _TasksScreenState extends State<TasksScreen> {
     return null;
   }
 
-  /// Elige una tarea pendiente para llevarla a un bloque de hoy.
+  /// Elige una tarea pendiente y la fecha en la que quiere ubicarla.
+  /// El bloque se conserva según el botón + que abrió este selector.
   Future<void> _llevarTarea(_Bloque bloque) async {
-    final hoy = EntradaDiario.claveFecha(DateTime.now());
-    final candidatas =
-        _service.tasks.where((t) => !t.done && t.fecha != hoy).toList();
+    final ahora = DateTime.now();
+    final fechaElegida = await showDatePicker(
+      context: context,
+      initialDate: DateTime(ahora.year, ahora.month, ahora.day),
+      firstDate: DateTime(ahora.year, ahora.month, ahora.day),
+      lastDate: DateTime(ahora.year + 5, ahora.month, ahora.day),
+      helpText: '¿Qué día quieres realizar esta tarea?',
+      cancelText: 'Cancelar',
+      confirmText: 'Continuar',
+    );
+    if (fechaElegida == null || !mounted) return;
+
+    final claveFecha = EntradaDiario.claveFecha(fechaElegida);
+    final candidatas = _service.tasks
+        .where((t) => !t.done && !(t.fecha == claveFecha && t.bloque == bloque.clave))
+        .toList();
 
     final elegida = await showModalBottomSheet<Task>(
       context: context,
@@ -461,12 +475,19 @@ class _TasksScreenState extends State<TasksScreen> {
             ? const Padding(
                 padding: EdgeInsets.fromLTRB(24, 8, 24, 28),
                 child: Text(
-                  'No tienes tareas pendientes por llevar a hoy. Crea una en la Matriz de abajo.',
+                  'No tienes tareas pendientes para asignar. Crea una en la Matriz de abajo.',
                 ),
               )
             : ListView(
                 shrinkWrap: true,
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Text(
+                      'Tareas para ${fechaElegida.day}/${fechaElegida.month}/${fechaElegida.year} · ${bloque.titulo}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
                   for (final t in candidatas)
                     ListTile(
                       leading: Container(
@@ -478,14 +499,20 @@ class _TasksScreenState extends State<TasksScreen> {
                         ),
                       ),
                       title: Text(t.title),
-                      subtitle: Text(_etiquetaCuadrante(t)),
+                      subtitle: Text(
+                        t.fecha.isEmpty
+                            ? _etiquetaCuadrante(t)
+                            : '${_etiquetaCuadrante(t)} · ${t.fecha}',
+                      ),
                       onTap: () => Navigator.of(ctx).pop(t),
                     ),
                 ],
               ),
       ),
     );
-    if (elegida != null) _service.llevarAHoy(elegida, bloque.clave);
+    if (elegida != null) {
+      _service.llevarAFecha(elegida, claveFecha, bloque.clave);
+    }
   }
 
   /// El día se compone de compromisos con hora fija y tareas en los espacios disponibles.
