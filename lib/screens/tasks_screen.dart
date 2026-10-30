@@ -50,9 +50,6 @@ const List<_Bloque> _bloques = [
   _Bloque('noche', 'Noche', 'desde las 6 p. m.', Icons.nights_stay_outlined),
 ];
 
-String _bloqueDeHora(DateTime d) =>
-    d.hour < 12 ? 'manana' : (d.hour < 18 ? 'tarde' : 'noche');
-
 String _tituloBloque(String clave) {
   for (final b in _bloques) {
     if (b.clave == clave) return b.titulo;
@@ -122,91 +119,6 @@ class _TasksScreenState extends State<TasksScreen> {
       await _service.sincronizarMatriz(data.matrizEisenhower);
       if (mounted) setState(() => _cuaderno = data);
     }
-  }
-
-  EvaluacionBloque? _evaluacion(String fecha, String bloque) {
-    final lista = _cuaderno?.evaluacionesBloques ?? [];
-    for (final e in lista) {
-      if (e.fecha == fecha && e.bloque == bloque) return e;
-    }
-    return null;
-  }
-
-  Future<void> _evaluarBloque(_Bloque bloque) async {
-    final fecha = EntradaDiario.claveFecha(DateTime.now());
-    final anterior = _evaluacion(fecha, bloque.clave);
-    final causa = TextEditingController(text: anterior?.porQueDiaSalioAsi ?? '');
-    final actividades = TextEditingController(text: anterior?.comoSalieronActividades ?? '');
-    final motivoSatisfaccion = TextEditingController(text: anterior?.porQueSatisfaccion ?? '');
-    var satisfaccion = anterior?.satisfaccion ?? 0;
-
-    final guardar = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refrescar) => AlertDialog(
-          title: Text('Evaluar \${bloque.titulo.toLowerCase()}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('¿Por qué crees que el bloque salió así?'),
-                const SizedBox(height: 8),
-                TextField(controller: causa, minLines: 2, maxLines: 4,
-                  decoration: const InputDecoration(hintText: 'Cuéntanos qué influyó...')),
-                const SizedBox(height: 18),
-                const Text('¿Cómo salieron las actividades que tenías previstas?'),
-                const SizedBox(height: 8),
-                TextField(controller: actividades, minLines: 2, maxLines: 4,
-                  decoration: const InputDecoration(hintText: 'Qué lograste, qué cambió y por qué...')),
-                const SizedBox(height: 18),
-                const Text('¿Qué tan satisfecho te sientes con este bloque?'),
-                Slider(
-                  value: satisfaccion.toDouble(), min: 0, max: 5, divisions: 5,
-                  label: satisfaccion == 0 ? 'Sin respuesta' : '$satisfaccion de 5',
-                  onChanged: (v) => refrescar(() => satisfaccion = v.round()),
-                ),
-                TextField(controller: motivoSatisfaccion, minLines: 2, maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: '¿Por qué te sientes así?',
-                    labelText: 'Cuéntanos por qué (opcional)')),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Guardar evaluación')),
-          ],
-        ),
-      ),
-    );
-
-    if (guardar == true) {
-      final data = await CuadernilloService.cargar();
-      final anteriores = data.evaluacionesBloques.where(
-        (e) => e.fecha == fecha && e.bloque == bloque.clave,
-      ).toList();
-      final registro = EvaluacionBloque(
-        fecha: fecha, bloque: bloque.clave,
-        porQueDiaSalioAsi: causa.text.trim(),
-        comoSalieronActividades: actividades.text.trim(),
-        satisfaccion: satisfaccion,
-        porQueSatisfaccion: motivoSatisfaccion.text.trim(),
-      );
-      if (anteriores.isEmpty) {
-        data.evaluacionesBloques.add(registro);
-      } else {
-        final indice = data.evaluacionesBloques.indexOf(anteriores.first);
-        data.evaluacionesBloques[indice] = registro;
-      }
-      await CuadernilloService.guardar(data);
-      if (mounted) setState(() => _cuaderno = data);
-    }
-    causa.dispose();
-    actividades.dispose();
-    motivoSatisfaccion.dispose();
   }
 
   Future<void> _agregarHabito(String tipo) async {
@@ -402,9 +314,9 @@ class _TasksScreenState extends State<TasksScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
-                          _buildMiDia(tasks, scheme),
-                          const SizedBox(height: 18),
                           _buildHabitos(scheme),
+                          const SizedBox(height: 18),
+                          _buildMiDia(tasks, scheme),
                           const SizedBox(height: 18),
                           for (final c in _cuadrantes) ...[
 
@@ -576,17 +488,16 @@ class _TasksScreenState extends State<TasksScreen> {
     if (elegida != null) _service.llevarAHoy(elegida, bloque.clave);
   }
 
-  /// Mi día: hoy dividido en tres bloques, con el plan de la Etapa 3, los
-  /// eventos de la Agenda y las tareas que se llevaron a cada bloque.
+  /// El día se compone de compromisos con hora fija y tareas en los espacios disponibles.
   Widget _buildMiDia(List<Task> tasks, ColorScheme scheme) {
     final hoy = DateTime.now();
     final fechaHoy = EntradaDiario.claveFecha(hoy);
-    final dias = _cuaderno?.rutinaSemanal.dias;
-    final plan = (dias != null && dias.length >= hoy.weekday) ? dias[hoy.weekday - 1] : null;
-    final eventosHoy = AgendaStore.instance.eventosEnDia(hoy);
+    final eventosHoy = AgendaStore.instance.eventosEnDia(hoy)
+      ..sort((a, b) => a.date.compareTo(b.date));
     final deHoy = tasks.where((t) => t.fecha == fechaHoy).toList();
     final fechaTexto =
         '${hoy.day.toString().padLeft(2, '0')}/${hoy.month.toString().padLeft(2, '0')}/${hoy.year}';
+    final apagado = Colors.white.withValues(alpha: 0.72);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -612,18 +523,40 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tu día en tres bloques. El plan viene de la Etapa 3 de tu cuadernillo.',
-            style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.72)),
+            'Tus compromisos reservan el tiempo indicado. Las tareas ocupan los espacios que decidas; el resto queda libre.',
+            style: TextStyle(fontSize: 12.5, color: apagado),
           ),
-          const SizedBox(height: 12),
+          if (eventosHoy.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('COMPROMISOS DE AGENDA',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: scheme.secondary)),
+            for (final e in eventosHoy)
+              Padding(
+                padding: const EdgeInsets.only(top: 9),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.schedule, size: 16, color: apagado),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 112,
+                      child: Text(
+                        '${TimeOfDay.fromDateTime(e.date).format(context)}–${TimeOfDay.fromDateTime(e.endDate).format(context)}',
+                        style: TextStyle(fontSize: 12, color: apagado),
+                      ),
+                    ),
+                    Expanded(child: Text(e.title, style: const TextStyle(fontSize: 14))),
+                    if (e.aviso) Icon(Icons.notifications_active, size: 14, color: scheme.primary),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 14),
+          Text('TAREAS DEL DÍA',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: scheme.secondary)),
+          const SizedBox(height: 8),
           for (final b in _bloques) ...[
-            _buildBloque(
-              b,
-              plan,
-              deHoy.where((t) => t.bloque == b.clave).toList(),
-              eventosHoy.where((e) => _bloqueDeHora(e.date) == b.clave).toList(),
-              scheme,
-            ),
+            _buildBloque(b, deHoy.where((t) => t.bloque == b.clave).toList(), scheme),
             const SizedBox(height: 10),
           ],
         ],
@@ -631,24 +564,8 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  Widget _buildBloque(
-    _Bloque b,
-    DiaRutina? plan,
-    List<Task> tareas,
-    List<AgendaEvent> eventos,
-    ColorScheme scheme,
-  ) {
+  Widget _buildBloque(_Bloque b, List<Task> tareas, ColorScheme scheme) {
     final apagado = Colors.white.withValues(alpha: 0.72);
-    final textoPlan = plan == null
-        ? ''
-        : (b.clave == 'manana' ? plan.manana : (b.clave == 'tarde' ? plan.tarde : plan.noche)).trim();
-    final vacio = textoPlan.isEmpty && tareas.isEmpty && eventos.isEmpty;
-    final ahora = DateTime.now();
-    final disponible = b.clave == 'manana'
-        ? ahora.hour >= 12
-        : (b.clave == 'tarde' ? ahora.hour >= 18 : ahora.hour >= 21);
-    final evaluacion = _evaluacion(EntradaDiario.claveFecha(ahora), b.clave);
-
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
       decoration: BoxDecoration(
@@ -663,12 +580,9 @@ class _TasksScreenState extends State<TasksScreen> {
             children: [
               Icon(b.icono, size: 18, color: scheme.secondary),
               const SizedBox(width: 8),
-              Text(b.titulo,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              Text(b.titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(b.rango, style: TextStyle(fontSize: 12, color: apagado)),
-              ),
+              Expanded(child: Text(b.rango, style: TextStyle(fontSize: 12, color: apagado))),
               TextButton.icon(
                 onPressed: () => _llevarTarea(b),
                 icon: const Icon(Icons.add, size: 16),
@@ -676,33 +590,6 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
             ],
           ),
-          if (textoPlan.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, right: 8),
-              child: Text(
-                'Tu plan: $textoPlan',
-                style: TextStyle(fontSize: 13.5, color: scheme.secondary),
-              ),
-            ),
-          for (final e in eventos)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, right: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.schedule, size: 16, color: apagado),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${TimeOfDay.fromDateTime(e.date).format(context)}–'
-                    '${TimeOfDay.fromDateTime(e.endDate).format(context)}',
-                    style: TextStyle(fontSize: 12.5, color: apagado),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(e.title, style: const TextStyle(fontSize: 14))),
-                  if (e.aviso)
-                    Icon(Icons.notifications_active, size: 14, color: scheme.primary),
-                ],
-              ),
-            ),
           for (final t in tareas)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -746,32 +633,11 @@ class _TasksScreenState extends State<TasksScreen> {
                 ],
               ),
             ),
-          if (disponible)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => _evaluarBloque(b),
-                icon: Icon(evaluacion == null ? Icons.rate_review_outlined : Icons.edit_note, size: 18),
-                label: Text(evaluacion == null ? 'Evaluar bloque' : 'Editar evaluación'),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                b.clave == 'manana'
-                    ? 'La evaluación estará disponible después de las 12.'
-                    : (b.clave == 'tarde'
-                        ? 'La evaluación estará disponible después de las 18.'
-                        : 'La reflexión final estará disponible al terminar el día.'),
-                style: TextStyle(fontSize: 11.5, color: apagado),
-              ),
-            ),
-          if (vacio)
+          if (tareas.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('Nada en este bloque todavía.',
-                  style: TextStyle(fontSize: 12.5, color: apagado)),
+              child: Text('Espacio disponible para organizar tareas.',
+                style: TextStyle(fontSize: 12, color: apagado)),
             ),
         ],
       ),
