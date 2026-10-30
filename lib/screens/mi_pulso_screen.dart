@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
+import '../models/cuadernillo_data.dart';
 import '../services/cuadernillo_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
@@ -22,6 +23,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   DateTime _seleccionado = DateTime.now();
   bool _cargando = true;
   late DateTime _inicioCiclo;
+  CuadernilloData? _cuaderno;
 
   DateTime get _hoy => DateTime.now();
   DateTime get _inicio => _inicioCiclo;
@@ -148,6 +150,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 const SizedBox(height: 18),
                 _leyenda(),
                 const SizedBox(height: 24),
+                _resumenEvaluaciones(scheme),
+                const SizedBox(height: 16),
                 _detalleDia(scheme),
                 const SizedBox(height: 20),
                 _notaMetodo(scheme),
@@ -260,6 +264,89 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
+  List<EvaluacionBloque> _evaluacionesDeFecha(DateTime fecha) {
+    final clave = _clave(fecha);
+    return (_cuaderno?.evaluacionesBloques ?? [])
+        .where((e) => e.fecha == clave)
+        .toList();
+  }
+
+  Widget _resumenEvaluaciones(ColorScheme scheme) {
+    final evaluaciones = (_cuaderno?.evaluacionesBloques ?? [])
+        .where((e) => _dias.any((d) => _clave(d) == e.fecha))
+        .toList();
+    final conSatisfaccion = evaluaciones.where((e) => e.satisfaccion > 0).toList();
+    final promedio = conSatisfaccion.isEmpty
+        ? null
+        : conSatisfaccion.map((e) => e.satisfaccion).reduce((a, b) => a + b) /
+            conSatisfaccion.length;
+    final porBloque = <String, int>{
+      'manana': evaluaciones.where((e) => e.bloque == 'manana').length,
+      'tarde': evaluaciones.where((e) => e.bloque == 'tarde').length,
+      'noche': evaluaciones.where((e) => e.bloque == 'noche').length,
+    };
+    final apagado = Colors.white.withValues(alpha: 0.68);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.insights_outlined, color: scheme.primary),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Evaluación de mi recorrido',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+          ]),
+          const SizedBox(height: 5),
+          Text('Evaluaciones de bloques registradas en este ciclo de 30 días.',
+            style: TextStyle(fontSize: 12, color: apagado)),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _datoIndicador('Bloques evaluados', '\${evaluaciones.length} de 90'),
+              _datoIndicador('Satisfacción media',
+                promedio == null ? 'Sin datos' : '\${promedio.toStringAsFixed(1)} / 5'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final item in [
+            ('Mañana', porBloque['manana']!),
+            ('Tarde', porBloque['tarde']!),
+            ('Noche', porBloque['noche']!),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(children: [
+                Expanded(child: Text(item.$1, style: TextStyle(fontSize: 12, color: apagado))),
+                Text('\${item.$2} evaluaciones', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          Text('Los bloques sin evaluación no se cuentan como incumplidos ni como satisfacción baja.',
+            style: TextStyle(fontSize: 11.5, height: 1.35, color: apagado)),
+        ],
+      ),
+    );
+  }
+
+  Widget _datoIndicador(String titulo, String valor) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titulo, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.68))),
+        const SizedBox(height: 4),
+        Text(valor, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+      ],
+    ),
+  );
+
   Widget _detalleDia(ColorScheme scheme) {
     final e = _entrada(_seleccionado);
     final tareas = _tareas(_seleccionado);
@@ -335,6 +422,37 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         ),
         const SizedBox(height: 14),
 
+        // Evaluación cualitativa de los bloques del día seleccionado.
+        if (_evaluacionesDeFecha(_seleccionado).isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(17),
+            decoration: decoracion(scheme.tertiary),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                encabezado('Evaluación de la agenda', 'Lo que reconociste en cada momento del día',
+                  Icons.rate_review_outlined),
+                const SizedBox(height: 14),
+                for (final ev in _evaluacionesDeFecha(_seleccionado)) ...[
+                  Text(
+                    ev.bloque == 'manana' ? 'Mañana' : (ev.bloque == 'tarde' ? 'Tarde' : 'Noche'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (ev.porQueDiaSalioAsi.trim().isNotEmpty)
+                    dato('¿Por qué salió así?', ev.porQueDiaSalioAsi),
+                  if (ev.comoSalieronActividades.trim().isNotEmpty)
+                    dato('¿Cómo salieron las actividades?', ev.comoSalieronActividades),
+                  if (ev.satisfaccion > 0)
+                    dato('Satisfacción', '\${ev.satisfaccion} de 5\${ev.porQueSatisfaccion.trim().isEmpty ? '' : ' · \${ev.porQueSatisfaccion}'}'),
+                  const Divider(height: 14),
+                ],
+              ],
+            ),
+          ),
+        ],
+        
         // Dimensión 2: aquello a lo que decidiste dar importancia.
         Container(
           width: double.infinity,
