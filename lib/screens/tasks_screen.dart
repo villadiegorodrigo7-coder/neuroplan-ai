@@ -209,6 +209,114 @@ class _TasksScreenState extends State<TasksScreen> {
     motivoSatisfaccion.dispose();
   }
 
+  Future<void> _agregarHabito(String tipo) async {
+    final controlador = TextEditingController();
+    final nombre = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tipo == 'incorporar' ? 'Hábito por incorporar' : 'Hábito por alejar'),
+        content: TextField(
+          controller: controlador,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Escribe el comportamiento...'),
+          onSubmitted: (_) => Navigator.pop(ctx, controlador.text.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controlador.text.trim()),
+            child: const Text('Agregar')),
+        ],
+      ),
+    );
+    controlador.dispose();
+    if (nombre == null || nombre.trim().isEmpty) return;
+    final data = await CuadernilloService.cargar();
+    final cantidad = data.habitos.where((h) => h.tipo == tipo).length;
+    if (cantidad >= 3) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Puedes llevar hasta tres hábitos en cada categoría.')),
+      );
+      return;
+    }
+    data.habitos.add(HabitoSeguimiento(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      nombre: nombre.trim(),
+      tipo: tipo,
+    ));
+    await CuadernilloService.guardar(data);
+    if (mounted) setState(() => _cuaderno = data);
+  }
+
+  Future<void> _registrarHabito(HabitoSeguimiento habito, bool valor) async {
+    final data = await CuadernilloService.cargar();
+    final actual = data.habitos.where((h) => h.id == habito.id).toList();
+    if (actual.isEmpty) return;
+    actual.first.registros[EntradaDiario.claveFecha(DateTime.now())] = valor;
+    await CuadernilloService.guardar(data);
+    if (mounted) setState(() => _cuaderno = data);
+  }
+
+  Widget _buildHabitos(ColorScheme scheme) {
+    final habitos = _cuaderno?.habitos ?? [];
+    final hoy = EntradaDiario.claveFecha(DateTime.now());
+    Widget grupo(String tipo, String titulo, String ayuda) {
+      final lista = habitos.where((h) => h.tipo == tipo).toList();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600))),
+              TextButton.icon(
+                onPressed: lista.length >= 3 ? null : () => _agregarHabito(tipo),
+                icon: const Icon(Icons.add, size: 17),
+                label: const Text('Agregar'),
+              ),
+            ],
+          ),
+          Text(ayuda, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
+          for (final h in lista)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: h.registros[hoy] ?? false,
+              onChanged: (v) => _registrarHabito(h, v ?? false),
+              title: Text(h.nombre),
+              subtitle: Text(h.tipo == 'incorporar' ? 'Lo hice hoy' : 'Hoy logré evitarlo'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          if (lista.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Text('Todavía no agregas hábitos aquí.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Seguimiento de hábitos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Un hábito no es una tarea. Observa su evolución sin convertirla en una calificación.',
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+          const SizedBox(height: 12),
+          grupo('incorporar', 'Hábitos por incorporar', 'Empieza con uno o dos; máximo tres.'),
+          const Divider(height: 22),
+          grupo('alejar', 'Hábitos por alejar', 'Elige comportamientos que quieres reducir o dejar; máximo tres.'),
+        ],
+      ),
+    );
+  }
+
   void _addTask(String cuadrante) {
     final controller = _controllers[cuadrante]!;
     _service.agregar(controller.text, cuadrante);
@@ -295,6 +403,8 @@ class _TasksScreenState extends State<TasksScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           _buildMiDia(tasks, scheme),
+                          const SizedBox(height: 18),
+                          _buildHabitos(scheme),
                           const SizedBox(height: 18),
                           for (final c in _cuadrantes) ...[
 
