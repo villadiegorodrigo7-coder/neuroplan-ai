@@ -1,7 +1,6 @@
-name: NEUROPLAN AI - Android APK
+name: NEUROPLAN AI - Android + Web
 
-# Se ejecuta en cada push a main, y también a mano desde la pestaña Actions
-# (botón "Run workflow"). Los repos públicos no consumen minutos de pago.
+# Ambas plataformas se compilan desde el mismo commit y en paralelo.
 on:
   push:
     branches: [main, feature/agenda-intervalos-recurrencias]
@@ -9,6 +8,7 @@ on:
 
 jobs:
   build-apk:
+    name: Compilar Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -41,3 +41,33 @@ jobs:
         with:
           name: neuroplan-ai-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-web:
+    name: Compilar aplicación Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Descargar el mismo commit
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Habilitar plataforma Web
+        run: flutter create . --platforms=web --project-name neuroplan_ai
+
+      - name: Build Web
+        run: flutter build web --release
+
+      - name: Guardar la Web como descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuroplan-ai-web
+          path: build/web/**
+          if-no-files-found: error
