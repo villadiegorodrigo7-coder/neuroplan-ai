@@ -47,6 +47,20 @@ class AgendaEvent {
     return inicio?.add(duracion);
   }
 
+  AgendaEvent? ocurrenciaEn(DateTime dia) {
+    final inicio = inicioEn(dia);
+    if (inicio == null) return null;
+    return AgendaEvent(
+      id: id,
+      title: title,
+      date: inicio,
+      endDate: inicio.add(duracion),
+      aviso: aviso,
+      frecuencia: frecuencia,
+      diasSemana: diasSemana,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
