@@ -151,12 +151,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Horario ocupado'),
-            content: Text(
-              'Este horario se cruza con "${conflicto.title}", que ocupa '
-              '${DateFormat('HH:mm').format(conflicto.date)}–'
-              '${DateFormat('HH:mm').format(conflicto.endDate)}. '
-              'No puedes reservar el tramo ocupado. Ajusta la hora o elige otro día.',
-            ),
+            content: Text(_mensajeConflicto(evento, conflicto)),
             actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Entendido'))],
           ),
         );
@@ -204,6 +199,32 @@ class _AgendaScreenState extends State<AgendaScreen> {
       }
     }
     return null;
+  }
+
+  String _mensajeConflicto(AgendaEvent nuevo, AgendaEvent conflicto) {
+    final inicioPedido = nuevo.date;
+    final finPedido = nuevo.endDate;
+    final inicioOcupado = DateTime(
+      inicioPedido.year, inicioPedido.month, inicioPedido.day,
+      conflicto.date.hour, conflicto.date.minute,
+    );
+    final finOcupado = inicioOcupado.add(conflicto.duracion);
+    final libreAntes = inicioOcupado.difference(inicioPedido).inMinutes;
+    final cruceInicio = inicioPedido.isAfter(inicioOcupado)
+        ? inicioPedido
+        : inicioOcupado;
+    final cruceFin = finPedido.isBefore(finOcupado) ? finPedido : finOcupado;
+    final minutosCruce = cruceFin.difference(cruceInicio).inMinutes;
+
+    final detalle = libreAntes > 0
+        ? 'Puedes utilizar el tramo de ${DateFormat('HH:mm').format(inicioPedido)} '
+          'a ${DateFormat('HH:mm').format(inicioOcupado)}: son $libreAntes minutos libres. '
+          'El resto se cruza con el compromiso existente.'
+        : 'El horario solicitado coincide con un periodo que ya está ocupado.';
+    return 'Se cruza con "${conflicto.title}", de '
+        '${DateFormat('HH:mm').format(inicioOcupado)} a '
+        '${DateFormat('HH:mm').format(finOcupado)}. '
+        '$detalle (solapamiento: $minutosCruce minutos).';
   }
 
   Future<void> _confirmDeleteEvent(AgendaEvent event) async {
