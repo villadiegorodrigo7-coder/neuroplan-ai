@@ -7,14 +7,16 @@ import 'dart:ui' show Color;
 
 const Color kColorBien = Color(0xFF34D399);
 const Color kColorAtencion = Color(0xFFFBBF24);
-const Color kColorRiesgo = Color(0xFFFB7185);
+const Color kColorDesafio = Color(0xFFFB7185);
+// Alias de compatibilidad: conserva el nombre interno para no romper datos existentes.
+const Color kColorRiesgo = kColorDesafio;
 
 const List<String> kSemaforos = ['bien', 'atencion', 'riesgo'];
-const List<String> kNombresSemaforo = ['Bien', 'Atención', 'Riesgo'];
+const List<String> kNombresSemaforo = ['Bien', 'Atención', 'Desafío'];
 const List<String> kDefinicionesSemaforo = [
   'Cumpliste tu prioridad del día y te sentiste con energía razonable.',
   'Avanzaste parcialmente o el día se sintió más difícil de lo normal.',
-  'El día se desorganizó. No pasa nada: regístralo y sigue.',
+  'Identificaste un área que quieres transformar. Reconocer el desafío es un paso valioso; registra lo que pasó y avanza a tu ritmo.',
 ];
 
 const List<String> kNivelesEnergia = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta'];
@@ -27,7 +29,8 @@ Color? colorDeSemaforo(String s) {
     case 'atencion':
       return kColorAtencion;
     case 'riesgo':
-      return kColorRiesgo;
+    case 'desafio':
+      return kColorDesafio;
   }
   return null;
 }
@@ -82,7 +85,7 @@ class EntradaDiario {
 
   String prioridad;
 
-  /// '' (sin marcar), 'bien', 'atencion' o 'riesgo'.
+  /// '' (sin marcar), 'bien', 'atencion' o 'riesgo'. La clave 'riesgo' se conserva por compatibilidad; en pantalla se muestra 'Desafío'.
   String semaforo;
 
   /// 0 = sin marcar; 1 a 5.
