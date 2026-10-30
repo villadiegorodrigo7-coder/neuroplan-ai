@@ -4,7 +4,7 @@ name: NEUROPLAN AI - Android APK
 # (botón "Run workflow"). Los repos públicos no consumen minutos de pago.
 on:
   push:
-    branches: [main]
+    branches: [main, feature/agenda-intervalos-recurrencias]
   workflow_dispatch:
 
 jobs:
