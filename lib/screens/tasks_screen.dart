@@ -691,8 +691,11 @@ class _TasksScreenState extends State<TasksScreen> {
                 children: [
                   Icon(Icons.schedule, size: 16, color: apagado),
                   const SizedBox(width: 6),
-                  Text(TimeOfDay.fromDateTime(e.date).format(context),
-                      style: TextStyle(fontSize: 12.5, color: apagado)),
+                  Text(
+                    '${TimeOfDay.fromDateTime(e.date).format(context)}–'
+                    '${TimeOfDay.fromDateTime(e.endDate).format(context)}',
+                    style: TextStyle(fontSize: 12.5, color: apagado),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(e.title, style: const TextStyle(fontSize: 14))),
                   if (e.aviso)
