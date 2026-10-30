@@ -313,7 +313,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             children: [
               _datoIndicador('Bloques evaluados', '\${evaluaciones.length} de 90'),
               _datoIndicador('Satisfacción media',
-                promedio == null ? 'Sin datos' : '\${promedio.toStringAsFixed(1)} / 5'),
+                promedio == null ? 'Sin datos' : '${promedio.toStringAsFixed(1)} / 5'),
             ],
           ),
           const SizedBox(height: 14),
