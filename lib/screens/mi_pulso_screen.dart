@@ -311,7 +311,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _datoIndicador('Bloques evaluados', '\${evaluaciones.length} de 90'),
+              _datoIndicador('Bloques evaluados', '${evaluaciones.length} de 90'),
               _datoIndicador('Satisfacción media',
                 promedio == null ? 'Sin datos' : '${promedio.toStringAsFixed(1)} / 5'),
             ],
@@ -326,7 +326,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               padding: const EdgeInsets.only(bottom: 7),
               child: Row(children: [
                 Expanded(child: Text(item.$1, style: TextStyle(fontSize: 12, color: apagado))),
-                Text('\${item.$2} evaluaciones', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                Text('${item.$2} evaluaciones', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               ]),
             ),
           Text('Los bloques sin evaluación no se cuentan como incumplidos ni como satisfacción baja.',
@@ -445,7 +445,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                   if (ev.comoSalieronActividades.trim().isNotEmpty)
                     dato('¿Cómo salieron las actividades?', ev.comoSalieronActividades),
                   if (ev.satisfaccion > 0)
-                    dato('Satisfacción', '\${ev.satisfaccion} de 5\${ev.porQueSatisfaccion.trim().isEmpty ? '' : ' · \${ev.porQueSatisfaccion}'}'),
+                    dato('Satisfacción', '${ev.satisfaccion} de 5${ev.porQueSatisfaccion.trim().isEmpty ? '' : ' · ${ev.porQueSatisfaccion}'}'),
                   const Divider(height: 14),
                 ],
               ],
