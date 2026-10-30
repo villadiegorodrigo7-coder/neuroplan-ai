@@ -73,7 +73,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Fecha de inicio'),
-                  subtitle: Text(DateFormat('EEEE d MMMM yyyy', 'es').format(dia)),
+                  subtitle: Text(DateFormat('dd/MM/yyyy').format(dia)),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final p = await showDatePicker(
@@ -151,8 +151,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Horario ocupado'),
-            content: Text('Este horario se cruza con "${conflicto.title}". '
-              'Revisa la disponibilidad antes de guardar el compromiso.'),
+            content: Text(
+              'Este horario se cruza con "${conflicto.title}", que ocupa '
+              '${DateFormat('HH:mm').format(conflicto.date)}–'
+              '${DateFormat('HH:mm').format(conflicto.endDate)}. '
+              'No puedes reservar el tramo ocupado. Ajusta la hora o elige otro día.',
+            ),
             actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Entendido'))],
           ),
         );
