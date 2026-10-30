@@ -124,6 +124,91 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
+  EvaluacionBloque? _evaluacion(String fecha, String bloque) {
+    final lista = _cuaderno?.evaluacionesBloques ?? [];
+    for (final e in lista) {
+      if (e.fecha == fecha && e.bloque == bloque) return e;
+    }
+    return null;
+  }
+
+  Future<void> _evaluarBloque(_Bloque bloque) async {
+    final fecha = EntradaDiario.claveFecha(DateTime.now());
+    final anterior = _evaluacion(fecha, bloque.clave);
+    final causa = TextEditingController(text: anterior?.porQueDiaSalioAsi ?? '');
+    final actividades = TextEditingController(text: anterior?.comoSalieronActividades ?? '');
+    final motivoSatisfaccion = TextEditingController(text: anterior?.porQueSatisfaccion ?? '');
+    var satisfaccion = anterior?.satisfaccion ?? 0;
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refrescar) => AlertDialog(
+          title: Text('Evaluar \${bloque.titulo.toLowerCase()}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('¿Por qué crees que el bloque salió así?'),
+                const SizedBox(height: 8),
+                TextField(controller: causa, minLines: 2, maxLines: 4,
+                  decoration: const InputDecoration(hintText: 'Cuéntanos qué influyó...')),
+                const SizedBox(height: 18),
+                const Text('¿Cómo salieron las actividades que tenías previstas?'),
+                const SizedBox(height: 8),
+                TextField(controller: actividades, minLines: 2, maxLines: 4,
+                  decoration: const InputDecoration(hintText: 'Qué lograste, qué cambió y por qué...')),
+                const SizedBox(height: 18),
+                const Text('¿Qué tan satisfecho te sientes con este bloque?'),
+                Slider(
+                  value: satisfaccion.toDouble(), min: 0, max: 5, divisions: 5,
+                  label: satisfaccion == 0 ? 'Sin respuesta' : '$satisfaccion de 5',
+                  onChanged: (v) => refrescar(() => satisfaccion = v.round()),
+                ),
+                TextField(controller: motivoSatisfaccion, minLines: 2, maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: '¿Por qué te sientes así?',
+                    labelText: 'Cuéntanos por qué (opcional)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Guardar evaluación')),
+          ],
+        ),
+      ),
+    );
+
+    if (guardar == true) {
+      final data = await CuadernilloService.cargar();
+      final anteriores = data.evaluacionesBloques.where(
+        (e) => e.fecha == fecha && e.bloque == bloque.clave,
+      ).toList();
+      final registro = EvaluacionBloque(
+        fecha: fecha, bloque: bloque.clave,
+        porQueDiaSalioAsi: causa.text.trim(),
+        comoSalieronActividades: actividades.text.trim(),
+        satisfaccion: satisfaccion,
+        porQueSatisfaccion: motivoSatisfaccion.text.trim(),
+      );
+      if (anteriores.isEmpty) {
+        data.evaluacionesBloques.add(registro);
+      } else {
+        final indice = data.evaluacionesBloques.indexOf(anteriores.first);
+        data.evaluacionesBloques[indice] = registro;
+      }
+      await CuadernilloService.guardar(data);
+      if (mounted) setState(() => _cuaderno = data);
+    }
+    causa.dispose();
+    actividades.dispose();
+    motivoSatisfaccion.dispose();
+  }
+
   void _addTask(String cuadrante) {
     final controller = _controllers[cuadrante]!;
     _service.agregar(controller.text, cuadrante);
@@ -450,6 +535,11 @@ class _TasksScreenState extends State<TasksScreen> {
         ? ''
         : (b.clave == 'manana' ? plan.manana : (b.clave == 'tarde' ? plan.tarde : plan.noche)).trim();
     final vacio = textoPlan.isEmpty && tareas.isEmpty && eventos.isEmpty;
+    final ahora = DateTime.now();
+    final disponible = b.clave == 'manana'
+        ? ahora.hour >= 12
+        : (b.clave == 'tarde' ? ahora.hour >= 18 : ahora.hour >= 21);
+    final evaluacion = _evaluacion(EntradaDiario.claveFecha(ahora), b.clave);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
@@ -543,6 +633,27 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          if (disponible)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _evaluarBloque(b),
+                icon: Icon(evaluacion == null ? Icons.rate_review_outlined : Icons.edit_note, size: 18),
+                label: Text(evaluacion == null ? 'Evaluar bloque' : 'Editar evaluación'),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                b.clave == 'manana'
+                    ? 'La evaluación estará disponible después de las 12.'
+                    : (b.clave == 'tarde'
+                        ? 'La evaluación estará disponible después de las 18.'
+                        : 'La reflexión final estará disponible al terminar el día.'),
+                style: TextStyle(fontSize: 11.5, color: apagado),
               ),
             ),
           if (vacio)
