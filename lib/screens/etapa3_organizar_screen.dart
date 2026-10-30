@@ -68,8 +68,8 @@ class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
   @override
   Widget build(BuildContext context) {
     final domingo = _lunes.add(const Duration(days: 6));
-    final rango = '${DateFormat('dd MMM', 'es').format(_lunes)} – '
-        '${DateFormat('dd MMM yyyy', 'es').format(domingo)}';
+    final rango = '${DateFormat('dd/MM').format(_lunes)} – '
+        '${DateFormat('dd/MM/yyyy').format(domingo)}';
 
     return Scaffold(
       backgroundColor: kFondo,
