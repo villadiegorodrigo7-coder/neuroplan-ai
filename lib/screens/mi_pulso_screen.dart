@@ -8,8 +8,8 @@ import '../models/task.dart';
 import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
 
-/// Primera versión de Mi pulso: reúne el registro consciente del diario y
-/// las tareas que realmente fueron marcadas como realizadas.
+/// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
+/// (Mi ritmo) y las intenciones elegidas (Mis intenciones).
 class MiPulsoScreen extends StatefulWidget {
   const MiPulsoScreen({super.key});
 
@@ -264,7 +264,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final e = _entrada(_seleccionado);
     final tareas = _tareas(_seleccionado);
     final hechas = tareas.where((t) => t.done).length;
-    final pendientes = tareas.length - hechas;
     final color = _colorDia(_seleccionado);
     final apagado = Colors.white.withValues(alpha: 0.68);
 
@@ -280,56 +279,113 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           ),
         );
 
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.65)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 10, height: 10,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 9),
-            Expanded(child: Text(_fechaLarga(_seleccionado),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-          ]),
-          const SizedBox(height: 16),
-          dato('Estado del día',
-              e == null || e.semaforo.isEmpty ? 'Sin registro' : nombreDeSemaforo(e.semaforo)),
-          if ((e?.prioridad ?? '').isNotEmpty) dato('Prioridad del día', e!.prioridad),
-          dato('Energía', _energia(e?.energia ?? 0)),
-          dato('Estado emocional', _estado(e?.estado ?? 0)),
-          dato('Tareas asignadas a este día', '${tareas.length}'),
-          dato('Tareas realizadas', '$hechas'),
-          if (pendientes > 0) dato('Tareas pendientes', '$pendientes'),
-          if ((e?.reflexion ?? '').trim().isNotEmpty)
-            dato('Reflexión', e!.reflexion),
-          if (tareas.isNotEmpty) ...[
-            const Divider(height: 12),
-            const Text('Actividad registrada',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            for (final t in tareas)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  Icon(t.done ? Icons.check_circle : Icons.radio_button_unchecked,
-                    size: 17, color: t.done ? kColorBien : apagado),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(t.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      decoration: t.done ? TextDecoration.lineThrough : null,
-                    ))),
-                ]),
+    Widget encabezado(String titulo, String subtitulo, IconData icono) => Row(
+          children: [
+            Icon(icono, color: scheme.primary, size: 19),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(titulo, style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(subtitulo, style: TextStyle(fontSize: 12, color: apagado)),
+                ],
               ),
+            ),
           ],
-        ],
-      ),
+        );
+
+    BoxDecoration decoracion(Color borde) => BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borde.withValues(alpha: 0.55)),
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_fechaLarga(_seleccionado), style: TextStyle(
+          fontSize: 17, fontWeight: FontWeight.w700,
+          color: Colors.white.withValues(alpha: 0.92))),
+        const SizedBox(height: 14),
+
+        // Dimensión 1: cómo viviste el día. No es una nota de rendimiento.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(17),
+          decoration: decoracion(color),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              encabezado('Mi ritmo', 'Cómo viviste este día', Icons.graphic_eq),
+              const SizedBox(height: 17),
+              dato('Semáforo personal',
+                e == null || e.semaforo.isEmpty
+                    ? 'Sin registro'
+                    : nombreDeSemaforo(e.semaforo)),
+              dato('Energía percibida', _energia(e?.energia ?? 0)),
+              dato('Estado emocional', _estado(e?.estado ?? 0)),
+              Text(
+                'Este registro describe tu experiencia, no determina cuánto vales ni cuánto lograste.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: apagado),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Dimensión 2: aquello a lo que decidiste dar importancia.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(17),
+          decoration: decoracion(scheme.primary),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              encabezado('Mis intenciones',
+                'Lo que elegiste atender o poner en movimiento',
+                Icons.explore_outlined),
+              const SizedBox(height: 17),
+              dato('Prioridad que elegiste',
+                (e?.prioridad ?? '').trim().isEmpty
+                    ? 'No registraste una prioridad'
+                    : e!.prioridad),
+              if (tareas.isNotEmpty) ...[
+                const Divider(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Acciones registradas',
+                      style: TextStyle(fontSize: 12, color: apagado)),
+                    Text('$hechas de ${tareas.length}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (final t in tareas)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(children: [
+                      Icon(t.done ? Icons.check_circle : Icons.circle_outlined,
+                        size: 17, color: t.done ? kColorBien : apagado),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(t.title, style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        decoration: t.done ? TextDecoration.lineThrough : null,
+                      ))),
+                    ]),
+                  ),
+              ] else
+                Text(
+                  'No hay acciones asociadas a este día. Tu intención sigue teniendo valor aunque no se haya convertido en una tarea.',
+                  style: TextStyle(fontSize: 12, height: 1.4, color: apagado),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
