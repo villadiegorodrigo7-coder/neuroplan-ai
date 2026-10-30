@@ -177,18 +177,25 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   AgendaEvent? _buscarConflicto(AgendaEvent nuevo) {
     final existentes = AgendaStore.instance.eventos.where((e) => e.id != nuevo.id);
-    final dias = <DateTime>[];
-    for (var i = 0; i <= 366; i++) {
-      dias.add(DateTime(nuevo.date.year, nuevo.date.month, nuevo.date.day).add(Duration(days: i)));
-    }
-    for (final dia in dias) {
-      final ni = nuevo.inicioEn(dia);
-      final nf = nuevo.finEn(dia);
-      if (ni == null || nf == null) continue;
-      for (final actual in existentes) {
+    for (final actual in existentes) {
+      late final List<DateTime> diasARevisar;
+      if (nuevo.frecuencia == 'unica') {
+        diasARevisar = [DateTime(nuevo.date.year, nuevo.date.month, nuevo.date.day)];
+      } else if (actual.frecuencia == 'unica') {
+        diasARevisar = [DateTime(actual.date.year, actual.date.month, actual.date.day)];
+      } else {
+        final desde = nuevo.date.isAfter(actual.date) ? nuevo.date : actual.date;
+        final primerDia = DateTime(desde.year, desde.month, desde.day);
+        // Los patrones de repetición se repiten en un ciclo de siete días.
+        diasARevisar = List.generate(7, (i) => primerDia.add(Duration(days: i)));
+      }
+
+      for (final dia in diasARevisar) {
+        final ni = nuevo.inicioEn(dia);
+        final nf = nuevo.finEn(dia);
         final ai = actual.inicioEn(dia);
         final af = actual.finEn(dia);
-        if (ai == null || af == null) continue;
+        if (ni == null || nf == null || ai == null || af == null) continue;
         if (ni.isBefore(af) && ai.isBefore(nf)) return actual;
       }
     }
