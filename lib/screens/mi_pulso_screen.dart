@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
@@ -175,8 +177,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     const center = 145.0;
     const radius = 118.0;
     final angle = (index * 2 * 3.141592653589793 / 30) - 3.141592653589793 / 2;
-    final x = center + radius * _cos(angle) - 13;
-    final y = center + radius * _sin(angle) - 13;
+    final x = center + radius * math.cos(angle) - 13;
+    final y = center + radius * math.sin(angle) - 13;
     final seleccionado = _clave(_dias[index]) == _clave(_seleccionado);
     return Positioned(
       left: x,
@@ -210,12 +212,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
-  double _cos(double x) {
-    // El ángulo solo se usa para ubicar los 30 selectores del anillo.
-    return _Trig.cos(x);
-  }
-
-  double _sin(double x) => _Trig.sin(x);
 
   Widget _leyenda() {
     Widget item(Color color, String texto, int cantidad) => Row(
@@ -365,33 +361,3 @@ class _PulsoPainter extends CustomPainter {
       oldDelegate.colores != colores || oldDelegate.seleccionado != seleccionado;
 }
 
-/// Funciones trigonométricas encapsuladas para el posicionamiento del anillo.
-class _Trig {
-  static double cos(double x) => _TaylorTrig.cos(x);
-  static double sin(double x) => _TaylorTrig.sin(x);
-}
-
-class _TaylorTrig {
-  static double cos(double x) => _cosSeries(x);
-  static double sin(double x) => _sinSeries(x);
-
-  static double _cosSeries(double x) {
-    var term = 1.0;
-    var sum = 1.0;
-    for (var n = 1; n <= 10; n++) {
-      term *= -x * x / ((2 * n - 1) * (2 * n));
-      sum += term;
-    }
-    return sum;
-  }
-
-  static double _sinSeries(double x) {
-    var term = x;
-    var sum = x;
-    for (var n = 1; n <= 10; n++) {
-      term *= -x * x / ((2 * n) * (2 * n + 1));
-      sum += term;
-    }
-    return sum;
-  }
-}
