@@ -284,7 +284,13 @@ class _ChatScreenState extends State<ChatScreen> {
       conv.title = 'Seguimiento de hábitos · \${EntradaDiario.claveFecha(hoy)}';
       conv.messages.add(ChatMessageData(
         role: 'model',
-        content: 'Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.\n\n\${lineas.join('\n')}\n\n¿Qué has notado en estos días? ¿Qué te ha ayudado o dificultado mantener estos cambios?\n\nSi algún día no registraste, lo dejamos como información ausente, no como incumplimiento.',
+content: """Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.
+
+${lineas.join('\n')}
+
+¿Qué has notado en estos días? ¿Qué te ha ayudado o dificultado mantener estos cambios?
+
+Si algún día no registraste, lo dejamos como información ausente, no como incumplimiento.""",
       ));
       if (!mounted) return;
       setState(() {
