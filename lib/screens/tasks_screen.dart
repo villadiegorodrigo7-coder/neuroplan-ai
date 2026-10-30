@@ -583,9 +583,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final fechaHoy = EntradaDiario.claveFecha(hoy);
     final dias = _cuaderno?.rutinaSemanal.dias;
     final plan = (dias != null && dias.length >= hoy.weekday) ? dias[hoy.weekday - 1] : null;
-    final eventosHoy = AgendaStore.instance.eventos
-        .where((e) => EntradaDiario.claveFecha(e.date) == fechaHoy)
-        .toList();
+    final eventosHoy = AgendaStore.instance.eventosEnDia(hoy);
     final deHoy = tasks.where((t) => t.fecha == fechaHoy).toList();
     final fechaTexto =
         '${hoy.day.toString().padLeft(2, '0')}/${hoy.month.toString().padLeft(2, '0')}/${hoy.year}';
