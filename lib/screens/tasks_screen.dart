@@ -124,6 +124,199 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
+  EvaluacionBloque? _evaluacion(String fecha, String bloque) {
+    final lista = _cuaderno?.evaluacionesBloques ?? [];
+    for (final e in lista) {
+      if (e.fecha == fecha && e.bloque == bloque) return e;
+    }
+    return null;
+  }
+
+  Future<void> _evaluarBloque(_Bloque bloque) async {
+    final fecha = EntradaDiario.claveFecha(DateTime.now());
+    final anterior = _evaluacion(fecha, bloque.clave);
+    final causa = TextEditingController(text: anterior?.porQueDiaSalioAsi ?? '');
+    final actividades = TextEditingController(text: anterior?.comoSalieronActividades ?? '');
+    final motivoSatisfaccion = TextEditingController(text: anterior?.porQueSatisfaccion ?? '');
+    var satisfaccion = anterior?.satisfaccion ?? 0;
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refrescar) => AlertDialog(
+          title: Text('Evaluar \${bloque.titulo.toLowerCase()}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('¿Por qué crees que el bloque salió así?'),
+                const SizedBox(height: 8),
+                TextField(controller: causa, minLines: 2, maxLines: 4,
+                  decoration: const InputDecoration(hintText: 'Cuéntanos qué influyó...')),
+                const SizedBox(height: 18),
+                const Text('¿Cómo salieron las actividades que tenías previstas?'),
+                const SizedBox(height: 8),
+                TextField(controller: actividades, minLines: 2, maxLines: 4,
+                  decoration: const InputDecoration(hintText: 'Qué lograste, qué cambió y por qué...')),
+                const SizedBox(height: 18),
+                const Text('¿Qué tan satisfecho te sientes con este bloque?'),
+                Slider(
+                  value: satisfaccion.toDouble(), min: 0, max: 5, divisions: 5,
+                  label: satisfaccion == 0 ? 'Sin respuesta' : '$satisfaccion de 5',
+                  onChanged: (v) => refrescar(() => satisfaccion = v.round()),
+                ),
+                TextField(controller: motivoSatisfaccion, minLines: 2, maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: '¿Por qué te sientes así?',
+                    labelText: 'Cuéntanos por qué (opcional)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Guardar evaluación')),
+          ],
+        ),
+      ),
+    );
+
+    if (guardar == true) {
+      final data = await CuadernilloService.cargar();
+      final anteriores = data.evaluacionesBloques.where(
+        (e) => e.fecha == fecha && e.bloque == bloque.clave,
+      ).toList();
+      final registro = EvaluacionBloque(
+        fecha: fecha, bloque: bloque.clave,
+        porQueDiaSalioAsi: causa.text.trim(),
+        comoSalieronActividades: actividades.text.trim(),
+        satisfaccion: satisfaccion,
+        porQueSatisfaccion: motivoSatisfaccion.text.trim(),
+      );
+      if (anteriores.isEmpty) {
+        data.evaluacionesBloques.add(registro);
+      } else {
+        final indice = data.evaluacionesBloques.indexOf(anteriores.first);
+        data.evaluacionesBloques[indice] = registro;
+      }
+      await CuadernilloService.guardar(data);
+      if (mounted) setState(() => _cuaderno = data);
+    }
+    causa.dispose();
+    actividades.dispose();
+    motivoSatisfaccion.dispose();
+  }
+
+  Future<void> _agregarHabito(String tipo) async {
+    final controlador = TextEditingController();
+    final nombre = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tipo == 'incorporar' ? 'Hábito por incorporar' : 'Hábito por alejar'),
+        content: TextField(
+          controller: controlador,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Escribe el comportamiento...'),
+          onSubmitted: (_) => Navigator.pop(ctx, controlador.text.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controlador.text.trim()),
+            child: const Text('Agregar')),
+        ],
+      ),
+    );
+    controlador.dispose();
+    if (nombre == null || nombre.trim().isEmpty) return;
+    final data = await CuadernilloService.cargar();
+    final cantidad = data.habitos.where((h) => h.tipo == tipo).length;
+    if (cantidad >= 3) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Puedes llevar hasta tres hábitos en cada categoría.')),
+      );
+      return;
+    }
+    data.habitos.add(HabitoSeguimiento(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      nombre: nombre.trim(),
+      tipo: tipo,
+    ));
+    await CuadernilloService.guardar(data);
+    if (mounted) setState(() => _cuaderno = data);
+  }
+
+  Future<void> _registrarHabito(HabitoSeguimiento habito, bool valor) async {
+    final data = await CuadernilloService.cargar();
+    final actual = data.habitos.where((h) => h.id == habito.id).toList();
+    if (actual.isEmpty) return;
+    actual.first.registros[EntradaDiario.claveFecha(DateTime.now())] = valor;
+    await CuadernilloService.guardar(data);
+    if (mounted) setState(() => _cuaderno = data);
+  }
+
+  Widget _buildHabitos(ColorScheme scheme) {
+    final habitos = _cuaderno?.habitos ?? [];
+    final hoy = EntradaDiario.claveFecha(DateTime.now());
+    Widget grupo(String tipo, String titulo, String ayuda) {
+      final lista = habitos.where((h) => h.tipo == tipo).toList();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600))),
+              TextButton.icon(
+                onPressed: lista.length >= 3 ? null : () => _agregarHabito(tipo),
+                icon: const Icon(Icons.add, size: 17),
+                label: const Text('Agregar'),
+              ),
+            ],
+          ),
+          Text(ayuda, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
+          for (final h in lista)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: h.registros[hoy] ?? false,
+              onChanged: (v) => _registrarHabito(h, v ?? false),
+              title: Text(h.nombre),
+              subtitle: Text(h.tipo == 'incorporar' ? 'Lo hice hoy' : 'Hoy logré evitarlo'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          if (lista.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Text('Todavía no agregas hábitos aquí.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Seguimiento de hábitos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Un hábito no es una tarea. Observa su evolución sin convertirla en una calificación.',
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+          const SizedBox(height: 12),
+          grupo('incorporar', 'Hábitos por incorporar', 'Empieza con uno o dos; máximo tres.'),
+          const Divider(height: 22),
+          grupo('alejar', 'Hábitos por alejar', 'Elige comportamientos que quieres reducir o dejar; máximo tres.'),
+        ],
+      ),
+    );
+  }
+
   void _addTask(String cuadrante) {
     final controller = _controllers[cuadrante]!;
     _service.agregar(controller.text, cuadrante);
@@ -210,6 +403,8 @@ class _TasksScreenState extends State<TasksScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           _buildMiDia(tasks, scheme),
+                          const SizedBox(height: 18),
+                          _buildHabitos(scheme),
                           const SizedBox(height: 18),
                           for (final c in _cuadrantes) ...[
 
@@ -450,6 +645,11 @@ class _TasksScreenState extends State<TasksScreen> {
         ? ''
         : (b.clave == 'manana' ? plan.manana : (b.clave == 'tarde' ? plan.tarde : plan.noche)).trim();
     final vacio = textoPlan.isEmpty && tareas.isEmpty && eventos.isEmpty;
+    final ahora = DateTime.now();
+    final disponible = b.clave == 'manana'
+        ? ahora.hour >= 12
+        : (b.clave == 'tarde' ? ahora.hour >= 18 : ahora.hour >= 21);
+    final evaluacion = _evaluacion(EntradaDiario.claveFecha(ahora), b.clave);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
@@ -543,6 +743,27 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          if (disponible)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _evaluarBloque(b),
+                icon: Icon(evaluacion == null ? Icons.rate_review_outlined : Icons.edit_note, size: 18),
+                label: Text(evaluacion == null ? 'Evaluar bloque' : 'Editar evaluación'),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                b.clave == 'manana'
+                    ? 'La evaluación estará disponible después de las 12.'
+                    : (b.clave == 'tarde'
+                        ? 'La evaluación estará disponible después de las 18.'
+                        : 'La reflexión final estará disponible al terminar el día.'),
+                style: TextStyle(fontSize: 11.5, color: apagado),
               ),
             ),
           if (vacio)
