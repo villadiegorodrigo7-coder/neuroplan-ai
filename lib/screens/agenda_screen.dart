@@ -50,7 +50,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final title = TextEditingController();
     DateTime dia = DateTime.now();
     TimeOfDay inicio = TimeOfDay.now();
-    TimeOfDay fin = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1)));
+    int duracionMinutos = 60;
     String frecuencia = 'unica';
     bool aviso = true;
     final diasElegidos = <int>{};
@@ -84,10 +84,35 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   },
                 ),
                 Row(children: [
-                  Expanded(child: _horaTile(ctx, 'Empieza', inicio, (v) => setD(() => inicio = v))),
+                  Expanded(
+                    child: _horaTile(
+                      ctx, 'Hora para realizarlo', inicio,
+                      (v) => setD(() => inicio = v),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: _horaTile(ctx, 'Termina', fin, (v) => setD(() => fin = v))),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: duracionMinutos,
+                      decoration: const InputDecoration(labelText: 'Duración'),
+                      items: const [
+                        DropdownMenuItem(value: 15, child: Text('15 minutos')),
+                        DropdownMenuItem(value: 30, child: Text('30 minutos')),
+                        DropdownMenuItem(value: 45, child: Text('45 minutos')),
+                        DropdownMenuItem(value: 60, child: Text('1 hora')),
+                        DropdownMenuItem(value: 90, child: Text('1 h 30 min')),
+                        DropdownMenuItem(value: 120, child: Text('2 horas')),
+                        DropdownMenuItem(value: 180, child: Text('3 horas')),
+                      ],
+                      onChanged: (v) => setD(() => duracionMinutos = v ?? 60),
+                    ),
+                  ),
                 ]),
+                const SizedBox(height: 4),
+                Text(
+                  'La Agenda reservará ese intervalo a partir de la hora elegida.',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.62)),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: frecuencia,
@@ -126,8 +151,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             FilledButton(
               onPressed: () {
                 final s = DateTime(dia.year, dia.month, dia.day, inicio.hour, inicio.minute);
-                final e = DateTime(dia.year, dia.month, dia.day, fin.hour, fin.minute);
-                if (title.text.trim().isEmpty || !e.isAfter(s) ||
+                if (title.text.trim().isEmpty ||
                     (frecuencia == 'personalizada' && diasElegidos.isEmpty)) return;
                 Navigator.pop(ctx, true);
               },
@@ -140,7 +164,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
     if (creado == true && mounted) {
       final s = DateTime(dia.year, dia.month, dia.day, inicio.hour, inicio.minute);
-      final e = DateTime(dia.year, dia.month, dia.day, fin.hour, fin.minute);
+      final e = s.add(Duration(minutes: duracionMinutos));
       final evento = AgendaEvent(
         id: const Uuid().v4(), title: title.text.trim(), date: s, endDate: e,
         aviso: aviso, frecuencia: frecuencia, diasSemana: diasElegidos.toList()..sort(),
