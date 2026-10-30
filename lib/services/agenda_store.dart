@@ -58,6 +58,17 @@ class AgendaStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Devuelve los compromisos que ocurren en una fecha, con sus horas de ese día.
+  List<AgendaEvent> eventosEnDia(DateTime dia) {
+    final resultado = <AgendaEvent>[];
+    for (final evento in _eventos) {
+      final ocurrencia = evento.ocurrenciaEn(dia);
+      if (ocurrencia != null) resultado.add(ocurrencia);
+    }
+    resultado.sort((a, b) => a.date.compareTo(b.date));
+    return resultado;
+  }
+
   AgendaEvent? porId(String id) {
     for (final e in _eventos) {
       if (e.id == id) return e;

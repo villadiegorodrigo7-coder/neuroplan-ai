@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/cuadernillo_data.dart';
-import '../services/auto_guardado.dart';
-import '../services/cuadernillo_service.dart';
+import 'package:intl/intl.dart';
+
+import '../models/agenda_event.dart';
+import '../models/task.dart';
+import '../services/agenda_store.dart';
+import '../services/tasks_service.dart';
+import '../theme/app_theme.dart';
 
 const Color kMorado = AppColors.primario;
 const Color kFondo = AppColors.fondo;
@@ -19,247 +22,271 @@ class Etapa3OrganizarScreen extends StatefulWidget {
 
 class _Etapa3OrganizarScreenState extends State<Etapa3OrganizarScreen> {
   bool _cargando = true;
-  bool _guardando = false;
-  late CuadernilloData _data;
-  int _diaSeleccionado = 0;
+  late DateTime _lunes;
 
-  final _mananaController = TextEditingController();
-  final _tardeController = TextEditingController();
-  final _nocheController = TextEditingController();
-
-  /// Guardado automático con debounce (ver services/auto_guardado.dart).
-  /// Antes de cada escritura copia los 3 campos del día visible al modelo.
-  late final AutoGuardado _auto = AutoGuardado(
-    obtenerDatos: () => _data,
-    sincronizar: (_) => _guardarDiaActual(),
-  );
+  static const _dias = [
+    'Lunes', 'Martes', 'Miércoles', 'Jueves',
+    'Viernes', 'Sábado', 'Domingo',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    final hoy = DateTime.now();
+    _lunes = DateTime(hoy.year, hoy.month, hoy.day)
+        .subtract(Duration(days: hoy.weekday - 1));
+    AgendaStore.instance.addListener(_actualizar);
+    TasksService.instance.addListener(_actualizar);
+    _cargar();
   }
 
-  Future<void> _cargarDatos() async {
-    final data = await CuadernilloService.cargar();
-    setState(() {
-      _data = data;
-      _cargando = false;
-      _cargarDiaEnControladores();
-    });
+  Future<void> _cargar() async {
+    await Future.wait([
+      AgendaStore.instance.cargar(),
+      TasksService.instance.cargar(),
+    ]);
+    if (mounted) setState(() => _cargando = false);
   }
 
-  void _cargarDiaEnControladores() {
-    final dia = _data.rutinaSemanal.dias[_diaSeleccionado];
-    _mananaController.text = dia.manana;
-    _tardeController.text = dia.tarde;
-    _nocheController.text = dia.noche;
-  }
-
-  void _guardarDiaActual() {
-    final dia = _data.rutinaSemanal.dias[_diaSeleccionado];
-    dia.manana = _mananaController.text;
-    dia.tarde = _tardeController.text;
-    dia.noche = _nocheController.text;
-  }
-
-  void _cambiarDia(int index) {
-    _guardarDiaActual();
-    setState(() {
-      _diaSeleccionado = index;
-      _cargarDiaEnControladores();
-    });
-    _auto.programar();
-  }
-
-  Future<void> _guardar({bool completar = false}) async {
-    if (completar) _data.etapa3Completada = true;
-    setState(() => _guardando = true);
-    await _auto.guardarAhora(); // copia el día visible al modelo y guarda
-    if (mounted) setState(() => _guardando = false);
-  }
-
-  Future<void> _finalizar() async {
-    await _guardar(completar: true);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Etapa 3 completada! Tu progreso fue guardado.'),
-          backgroundColor: kMorado,
-        ),
-      );
-      Navigator.of(context).pop();
-    }
+  void _actualizar() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    // Primero: cancela el timer y guarda lo pendiente (antes de liberar
-    // los controllers, porque la sincronización los lee).
-    _auto.dispose();
-    _mananaController.dispose();
-    _tardeController.dispose();
-    _nocheController.dispose();
+    AgendaStore.instance.removeListener(_actualizar);
+    TasksService.instance.removeListener(_actualizar);
     super.dispose();
   }
 
+  void _semanaAnterior() =>
+      setState(() => _lunes = _lunes.subtract(const Duration(days: 7)));
+
+  void _semanaSiguiente() =>
+      setState(() => _lunes = _lunes.add(const Duration(days: 7)));
+
   @override
   Widget build(BuildContext context) {
-    if (_cargando) {
-      return const Scaffold(
-        backgroundColor: kFondo,
-        body: Center(child: CircularProgressIndicator(color: kMorado)),
-      );
-    }
+    final domingo = _lunes.add(const Duration(days: 6));
+    final rango = '${DateFormat('dd/MM').format(_lunes)} – '
+        '${DateFormat('dd/MM/yyyy').format(domingo)}';
 
     return Scaffold(
       backgroundColor: kFondo,
       appBar: AppBar(
         backgroundColor: kFondo,
         elevation: 0,
-        title: Text('Etapa 3 · Organizar',
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+        title: Text(
+          'Etapa 3 · Organizar',
+          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Arma tu rutina semanal por bloques de tiempo.',
-                  style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 14),
-                ),
-              ),
-            ),
-            SizedBox(
-              height: 44,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _data.rutinaSemanal.dias.length,
-                itemBuilder: (context, index) {
-                  final activo = index == _diaSeleccionado;
-                  final dia = _data.rutinaSemanal.dias[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => _cambiarDia(index),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: activo ? kMorado : kTarjeta,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          dia.dia.substring(0, 3),
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: activo ? FontWeight.w700 : FontWeight.w500,
-                            fontSize: 13,
-                          ),
+      body: _cargando
+          ? const Center(child: CircularProgressIndicator(color: kMorado))
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tu semana, organizada',
+                        style: GoogleFonts.inter(
+                          color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  _buildBloque('Mañana', Icons.wb_sunny_outlined, _mananaController),
-                  const SizedBox(height: 16),
-                  _buildBloque('Tarde', Icons.wb_cloudy_outlined, _tardeController),
-                  const SizedBox(height: 16),
-                  _buildBloque('Noche', Icons.nights_stay_outlined, _nocheController),
-                ],
-              ),
-            ),
-            _buildBarraInferior(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBloque(String titulo, IconData icono, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icono, color: kMorado, size: 18),
-            const SizedBox(width: 8),
-            Text(titulo, style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(color: kTarjeta, borderRadius: BorderRadius.circular(16)),
-          child: TextField(
-            controller: controller,
-            maxLines: 3,
-            onChanged: (_) => _auto.programar(), // guardado automático
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Qué harás en este bloque...',
-              hintStyle: GoogleFonts.inter(color: kTextoSecundario, fontSize: 13),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBarraInferior() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: BoxDecoration(color: kFondo, border: Border(top: BorderSide(color: kTarjeta, width: 1))),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _guardando
-                  ? null
-                  : () async {
-                      await _guardar();
-                      if (mounted) Navigator.of(context).pop();
+                      const SizedBox(height: 5),
+                      Text(
+                        'La Agenda reserva el tiempo. Las Tareas ocupan los espacios disponibles. Los hábitos acompañan todo el proceso.',
+                        style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 13, height: 1.45),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: _semanaAnterior,
+                            icon: const Icon(Icons.chevron_left, color: Colors.white),
+                            tooltip: 'Semana anterior',
+                          ),
+                          Expanded(
+                            child: Text(
+                              rango,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _semanaSiguiente,
+                            icon: const Icon(Icons.chevron_right, color: Colors.white),
+                            tooltip: 'Semana siguiente',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: 7,
+                    itemBuilder: (context, index) {
+                      final dia = _lunes.add(Duration(days: index));
+                      return _buildDia(dia, _dias[index]);
                     },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: kMorado),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Text('Guardar y salir', style: GoogleFonts.inter(color: kMorado, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: SizedBox(
+            width: double.infinity,
             child: ElevatedButton(
-              onPressed: _guardando ? null : _finalizar,
+              onPressed: () => Navigator.of(context).pop(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kMorado,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: _guardando
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Finalizar', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700)),
+              child: Text(
+                'Volver',
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDia(DateTime dia, String nombre) {
+    final agenda = AgendaStore.instance.eventosEnDia(dia);
+    final clave = DateFormat('yyyy-MM-dd').format(dia);
+    final tareas = TasksService.instance.tasks
+        .where((t) => t.fecha == clave && t.bloque.isNotEmpty)
+        .toList()
+      ..sort((a, b) => _ordenBloque(a.bloque).compareTo(_ordenBloque(b.bloque)));
+
+    final hoy = DateUtils.isSameDay(dia, DateTime.now());
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: kTarjeta,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hoy ? kMorado.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  nombre,
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                DateFormat('dd/MM').format(dia),
+                style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 12),
+              ),
+              if (hoy) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.circle, color: kMorado, size: 7),
+                const SizedBox(width: 4),
+                Text('Hoy', style: GoogleFonts.inter(color: kMorado, fontSize: 11, fontWeight: FontWeight.w700)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (agenda.isEmpty && tareas.isEmpty)
+            Text(
+              'Sin compromisos ni tareas asignadas.',
+              style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 12),
+            ),
+          for (final evento in agenda) _filaAgenda(evento),
+          for (final tarea in tareas) _filaTarea(tarea),
         ],
       ),
     );
+  }
+
+  Widget _filaAgenda(AgendaEvent evento) {
+    final hora = '${DateFormat('HH:mm').format(evento.date)} – '
+        '${DateFormat('HH:mm').format(evento.endDate)}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.event_available_outlined, color: kMorado, size: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(evento.title, style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(hora, style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 11)),
+              ],
+            ),
+          ),
+          Text('Agenda', style: GoogleFonts.inter(color: kMorado, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaTarea(Task tarea) {
+    final bloque = _nombreBloque(tarea.bloque);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            tarea.done ? Icons.check_circle : Icons.task_alt,
+            color: tarea.done ? Colors.greenAccent : Colors.white70,
+            size: 18,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              tarea.title,
+              style: GoogleFonts.inter(
+                color: tarea.done ? kTextoSecundario : Colors.white,
+                fontSize: 13,
+                decoration: tarea.done ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          Text(bloque, style: GoogleFonts.inter(color: kTextoSecundario, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  int _ordenBloque(String bloque) {
+    switch (bloque) {
+      case 'manana': return 0;
+      case 'tarde': return 1;
+      default: return 2;
+    }
+  }
+
+  String _nombreBloque(String bloque) {
+    switch (bloque) {
+      case 'manana': return 'Mañana';
+      case 'tarde': return 'Tarde';
+      case 'noche': return 'Noche';
+      default: return bloque;
+    }
   }
 }

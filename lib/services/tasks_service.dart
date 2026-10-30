@@ -134,12 +134,18 @@ class TasksService extends ChangeNotifier {
     unawaited(_modificarMatriz((m) => _listaDe(m, cuadrante).add(task.title)));
   }
 
-  /// Lleva una tarea a un bloque del día de hoy ('manana', 'tarde' o 'noche').
-  void llevarAHoy(Task task, String bloque) {
-    task.fecha = EntradaDiario.claveFecha(DateTime.now());
+  /// Asigna una tarea a una fecha concreta y a uno de los tres bloques.
+  /// [fecha] usa el formato yyyy-MM-dd.
+  void llevarAFecha(Task task, String fecha, String bloque) {
+    task.fecha = fecha;
     task.bloque = bloque;
     _notificar();
     unawaited(_guardar());
+  }
+
+  /// Atajo para asignar una tarea a hoy.
+  void llevarAHoy(Task task, String bloque) {
+    llevarAFecha(task, EntradaDiario.claveFecha(DateTime.now()), bloque);
   }
 
   /// Quita la tarea del día (sigue existiendo en su cuadrante).
