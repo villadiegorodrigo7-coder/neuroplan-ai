@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
+import '../services/cuadernillo_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
@@ -20,10 +21,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   static const Color _sinRegistro = Color(0xFF30384D);
   DateTime _seleccionado = DateTime.now();
   bool _cargando = true;
+  late DateTime _inicioCiclo;
 
   DateTime get _hoy => DateTime.now();
-  DateTime get _inicio => DateTime(_hoy.year, _hoy.month, _hoy.day)
-      .subtract(const Duration(days: 29));
+  DateTime get _inicio => _inicioCiclo;
 
   List<DateTime> get _dias => List.generate(
         30,
@@ -45,7 +46,30 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       DiarioStore.instance.cargar(),
       TasksService.instance.cargar(),
     ]);
-    if (mounted) setState(() => _cargando = false);
+
+    // Mi pulso usa el mismo ciclo de 30 días que la Etapa 4 del cuadernillo.
+    final cuadernillo = await CuadernilloService.cargar();
+    var fechaInicio = cuadernillo.seguimiento30Dias.fechaInicio;
+    if (fechaInicio.isEmpty) {
+      final fechas = DiarioStore.instance.entradas.map((e) => e.fecha).toList()
+        ..sort();
+      fechaInicio = fechas.isNotEmpty
+          ? fechas.first
+          : EntradaDiario.claveFecha(DateTime.now());
+      cuadernillo.seguimiento30Dias.fechaInicio = fechaInicio;
+      await CuadernilloService.guardar(cuadernillo);
+    }
+
+    final inicio = DateTime.tryParse(fechaInicio) ?? DateTime.now();
+    final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
+    final diferencia = hoy.difference(DateTime(inicio.year, inicio.month, inicio.day)).inDays;
+    if (mounted) {
+      setState(() {
+        _inicioCiclo = DateTime(inicio.year, inicio.month, inicio.day);
+        _seleccionado = _dias[diferencia.clamp(0, 29)];
+        _cargando = false;
+      });
+    }
   }
 
   void _actualizar() {
@@ -116,7 +140,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
               children: [
                 Text(
-                  'Tu recorrido de los últimos 30 días',
+                  'Tu recorrido · ciclo de 30 días',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
                 ),
                 const SizedBox(height: 18),
@@ -161,7 +185,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 const SizedBox(height: 5),
                 Text('$_registrados',
                     style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700)),
-                Text('de 30 días registrados',
+                Text('de 30 días del ciclo',
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
               ],
             ),
@@ -316,7 +340,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
-          'Mi pulso no califica tu valor ni exige días perfectos. Reúne lo que has registrado para ayudarte a reconocer tu recorrido. Un día sin registro sigue siendo simplemente un día sin información.',
+          'Mi pulso no califica tu valor ni exige días perfectos. Reúne lo que has registrado durante este ciclo para ayudarte a reconocer tu recorrido. Un día sin registro sigue siendo simplemente un día sin información.',
           style: TextStyle(fontSize: 12.5, height: 1.45,
               color: Colors.white.withValues(alpha: 0.82)),
         ),
