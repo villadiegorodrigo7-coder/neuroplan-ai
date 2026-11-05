@@ -67,6 +67,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final diferencia = hoy.difference(DateTime(inicio.year, inicio.month, inicio.day)).inDays;
     if (mounted) {
       setState(() {
+        _cuaderno = cuadernillo;
         _inicioCiclo = DateTime(inicio.year, inicio.month, inicio.day);
         _seleccionado = _dias[diferencia.clamp(0, 29)];
         _cargando = false;
