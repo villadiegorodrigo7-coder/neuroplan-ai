@@ -22,9 +22,6 @@ String _fechaLarga(DateTime d) {
   return '$nombre ${d.day} de ${_meses[d.month - 1]}';
 }
 
-String _hora(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
 /// Tarjeta "Mi diario": lo que se llena cada día.
 ///
 /// Sin parámetros muestra el día de hoy (así se usa en el Perfil). Con [fecha]
