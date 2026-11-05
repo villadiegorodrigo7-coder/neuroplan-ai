@@ -174,7 +174,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             final d=dias[i],sel=_fecha(d)==_seleccion,actual=_fecha(d)==_fecha(DateTime.now());
             final tiene=AgendaStore.instance.eventosEnDia(d).isNotEmpty;
             final delMes=d.month==_mes.month;
-            return InkWell(borderRadius:BorderRadius.circular(9),onTap:()=>setState(()=>_seleccion=_fecha(d)),
+            return InkWell(borderRadius:BorderRadius.circular(9),onTap:()=>setState((){_seleccion=_fecha(d);_mes=DateTime(d.year,d.month);}),
               child:Container(decoration:BoxDecoration(color:sel?s.primaryContainer:null,borderRadius:BorderRadius.circular(9),
                 border:actual&&!sel?Border.all(color:s.primary):null),
                 child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
