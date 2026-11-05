@@ -226,7 +226,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final tareas=_tasks.tasks.where((t)=>t.fecha==fecha).toList();
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Padding(padding:const EdgeInsets.fromLTRB(2,20,2,12),child:Text(
-        '${_diasFull[_seleccion.weekday-1]} ${DateFormat('d MMMM yyyy','es').format(_seleccion)}',
+        '${_diasFull[_seleccion.weekday-1]} ${DateFormat('d MMMM yyyy').format(_seleccion)}',
         style:const TextStyle(fontSize:17,fontWeight:FontWeight.w700))),
       for(final b in _bloques)
         Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
