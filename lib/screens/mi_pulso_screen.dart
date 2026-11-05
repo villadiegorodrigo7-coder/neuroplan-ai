@@ -138,24 +138,41 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       appBar: AppBar(title: const Text('Mi pulso')),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              children: [
-                Text(
-                  'Tu recorrido · ciclo de 30 días',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
-                ),
-                const SizedBox(height: 18),
-                _anillo(scheme),
-                const SizedBox(height: 18),
-                _leyenda(),
-                const SizedBox(height: 24),
-                _resumenEvaluaciones(scheme),
-                const SizedBox(height: 16),
-                _detalleDia(scheme),
-                const SizedBox(height: 20),
-                _notaMetodo(scheme),
-              ],
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final compacto = constraints.maxWidth < 430;
+                final resumen = compacto
+                    ? Column(
+                        children: [
+                          _panelIndicadores(scheme),
+                          const SizedBox(height: 18),
+                          _anillo(scheme),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(child: _panelIndicadores(scheme)),
+                          const SizedBox(width: 10),
+                          SizedBox(width: 290, child: _anillo(scheme)),
+                        ],
+                      );
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                  children: [
+                    Text(
+                      'Tu recorrido · ciclo de 30 días',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
+                    ),
+                    const SizedBox(height: 14),
+                    resumen,
+                    const SizedBox(height: 12),
+                    _leyenda(),
+                    const SizedBox(height: 22),
+                    _tareasDelDia(scheme),
+                  ],
+                );
+              },
             ),
     );
   }
@@ -197,6 +214,161 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               _puntoInteractivo(i, scheme),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _panelIndicadores(ColorScheme scheme) {
+    final entrada = _entrada(_seleccionado);
+    final colorTexto = Colors.white.withValues(alpha: 0.82);
+
+    Widget opcionSemaforo(String valor, String nombre, String significado, Color color) {
+      final activo = entrada?.semaforo == valor;
+      return InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+          registro.semaforo = valor;
+          DiarioStore.instance.cambio(registro);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
+          decoration: BoxDecoration(
+            color: activo ? color.withValues(alpha: 0.16) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: activo ? color : Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 13,
+                height: 13,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(nombre, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    Text(significado, style: TextStyle(fontSize: 9, height: 1.2, color: colorTexto)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget escala(String titulo, int valor, String descripcion, IconData icono) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(icono, size: 14, color: scheme.primary),
+              const SizedBox(width: 5),
+              Expanded(child: Text(titulo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+            ]),
+            const SizedBox(height: 5),
+            Row(
+              children: List.generate(5, (i) => Expanded(
+                child: Container(
+                  height: 9,
+                  margin: EdgeInsets.only(right: i == 4 ? 0 : 3),
+                  decoration: BoxDecoration(
+                    color: valor > i ? scheme.primary : Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              )),
+            ),
+            const SizedBox(height: 3),
+            Text(valor > 0 ? descripcion : 'Sin registro',
+              style: TextStyle(fontSize: 10, color: colorTexto)),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('¿De qué color pasó tu día hoy?',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 9),
+          opcionSemaforo('bien', 'Bien', 'Satisfacción', kColorBien),
+          const SizedBox(height: 5),
+          opcionSemaforo('atencion', 'Atención', 'Pausa y observa', kColorAtencion),
+          const SizedBox(height: 5),
+          opcionSemaforo('riesgo', 'Desafío', 'Una oportunidad', kColorDesafio),
+          escala('Estado emocional', entrada?.estado ?? 0,
+            _estado(entrada?.estado ?? 0), Icons.mood_outlined),
+          escala('Energía', entrada?.energia ?? 0,
+            _energia(entrada?.energia ?? 0), Icons.bolt_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _tareasDelDia(ColorScheme scheme) {
+    final tareas = _tareas(_seleccionado);
+    final hechas = tareas.where((t) => t.done).length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.task_alt, color: scheme.primary),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Tareas del día',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+            Text('$hechas/${tareas.length}',
+              style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 4),
+          Text(_fechaLarga(_seleccionado),
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+          const SizedBox(height: 10),
+          if (tareas.isEmpty)
+            Text('No hay tareas programadas para este día.',
+              style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.68)))
+          else
+            for (final tarea in tareas)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: tarea.done,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(tarea.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    decoration: tarea.done ? TextDecoration.lineThrough : null,
+                    color: tarea.done
+                        ? Colors.white.withValues(alpha: 0.55)
+                        : Colors.white.withValues(alpha: 0.92),
+                  )),
+                onChanged: (_) => TasksService.instance.alternar(tarea),
+              ),
+        ],
       ),
     );
   }
