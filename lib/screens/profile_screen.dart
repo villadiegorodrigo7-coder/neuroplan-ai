@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cuadernillo_home_screen.dart';
-import 'mi_diario_card.dart';
 import 'mi_pulso_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -41,8 +40,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          const MiDiarioCard(),
-          const SizedBox(height: 12),
           Material(
             color: scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(18),
@@ -145,34 +142,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome, color: scheme.primary, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Ágora',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tu asistente ya está listo: no necesitas configurar nada. Puedes escribirle hasta 30 mensajes al día; el contador se renueva cada día.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 13),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             // Al cerrar sesión, la puerta de acceso vuelve a la pantalla de
