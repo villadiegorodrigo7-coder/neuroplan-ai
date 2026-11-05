@@ -225,7 +225,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       return InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () {
-          final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+          final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
           registro.semaforo = valor;
           DiarioStore.instance.cambio(registro);
         },
@@ -336,13 +336,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           opcionSemaforo('riesgo', 'Desafío', 'Una oportunidad', kColorDesafio),
           escala('Estado emocional', entrada?.estado ?? 0,
             _estado(entrada?.estado ?? 0), Icons.mood_outlined, (nivel) {
-              final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+              final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
               registro.estado = nivel;
               DiarioStore.instance.cambio(registro);
             }),
           escala('Energía', entrada?.energia ?? 0,
             _energia(entrada?.energia ?? 0), Icons.bolt_outlined, (nivel) {
-              final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+              final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
               registro.energia = nivel;
               DiarioStore.instance.cambio(registro);
             }),
