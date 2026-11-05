@@ -404,7 +404,13 @@ class _TasksScreenState extends State<TasksScreen> {
               size: 22,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: _colorDeTarea(task), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: GestureDetector(
               onTap: () => _service.alternar(task),
