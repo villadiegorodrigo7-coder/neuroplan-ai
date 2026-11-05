@@ -137,9 +137,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final cruceFin = finPedido.isBefore(finOcupado) ? finPedido : finOcupado;
     final minutosCruce = cruceFin.difference(cruceInicio).inMinutes;
     final detalle = libreAntes > 0
-      ? 'Puedes utilizar el tramo de §{DateFormat('HH:mm').format(inicioPedido)} a §{DateFormat('HH:mm').format(inicioOcupado)}: son $libreAntes minutos libres. El resto se cruza con el compromiso existente.'
+      ? "Puedes utilizar el tramo de ${DateFormat('HH:mm').format(inicioPedido)} a ${DateFormat('HH:mm').format(inicioOcupado)}: son $libreAntes minutos libres. El resto se cruza con el compromiso existente."
       : 'El horario solicitado coincide con un periodo que ya está ocupado.';
-    return 'Se cruza con "§{conflicto.title}", de §{DateFormat('HH:mm').format(inicioOcupado)} a §{DateFormat('HH:mm').format(finOcupado)}. $detalle (solapamiento: $minutosCruce minutos).';
+    return "Se cruza con \"${conflicto.title}\", de ${DateFormat('HH:mm').format(inicioOcupado)} a ${DateFormat('HH:mm').format(finOcupado)}. $detalle (solapamiento: $minutosCruce minutos).";
   }
   Future<void> _eliminar(AgendaEvent e) async {
     final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Eliminar compromiso'),
