@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/entrada_diario.dart';
 import '../theme/app_theme.dart';
@@ -237,6 +238,37 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadHistory() async {
     final list = await ChatHistoryService.loadConversations();
+
+    // El diagnóstico conversacional se inicia una sola vez por cuenta.
+    // La conversación queda guardada en el historial para poder retomarla
+    // si la persona cierra la aplicación antes de terminar.
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final claveInicio = 'agora_diagnostico_inicial_v1_$uid';
+      final yaIniciado = prefs.getBool(claveInicio) ?? false;
+      if (!yaIniciado) {
+        ChatConversation? diagnostico;
+        for (final c in list) {
+          if (c.title == 'Diagnóstico inicial') {
+            diagnostico = c;
+            break;
+          }
+        }
+        if (diagnostico == null) {
+          diagnostico = await ChatHistoryService.createConversation();
+          diagnostico.title = 'Diagnóstico inicial';
+          diagnostico.messages.add(
+            ChatMessageData(role: 'model', content: 'Hola, ¿cómo te llamas?'),
+          );
+          list.insert(0, diagnostico);
+          await ChatHistoryService.saveConversations(list);
+        }
+        await prefs.setBool(claveInicio, true);
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
       _conversations = list;
       _current = list.isNotEmpty ? list.first : null;
@@ -378,7 +410,12 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     // del día) se envía con un primer turno de la persona, porque el servicio
     // de IA exige que la conversación empiece por ella.
     if (history.isNotEmpty && history.first['role'] == 'model') {
-      history.insert(0, {'role': 'user', 'content': 'Quiero hacer mi reflexión del día.'});
+      final mensajeDeContexto = _reflexionFecha != null
+          ? 'Quiero hacer mi reflexión del día.'
+          : conv.title == 'Diagnóstico inicial'
+              ? 'Estoy comenzando el diagnóstico inicial de NEUROPLAN y respondo al saludo de Ágora.'
+              : 'Quiero continuar esta conversación con Ágora.';
+      history.insert(0, {'role': 'user', 'content': mensajeDeContexto});
     }
 
     final contexto = await _construirContextoUsuario();
