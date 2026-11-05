@@ -108,7 +108,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Entendido'))]));
       } else {
         AgendaStore.instance.agregar(evento);
-        setState(()=>_seleccion=_fecha(dia));
+        setState(()=>{_seleccion=_fecha(dia);_mes=DateTime(dia.year,dia.month);});
       }
     }
     title.dispose();
@@ -125,6 +125,21 @@ class _AgendaScreenState extends State<AgendaScreen> {
       }
     }
     return null;
+  }
+  String _mensajeConflicto(AgendaEvent nuevo, AgendaEvent conflicto) {
+    final inicioPedido = nuevo.date;
+    final finPedido = nuevo.endDate;
+    final inicioOcupado = DateTime(inicioPedido.year, inicioPedido.month,
+      inicioPedido.day, conflicto.date.hour, conflicto.date.minute);
+    final finOcupado = inicioOcupado.add(conflicto.duracion);
+    final libreAntes = inicioOcupado.difference(inicioPedido).inMinutes;
+    final cruceInicio = inicioPedido.isAfter(inicioOcupado) ? inicioPedido : inicioOcupado;
+    final cruceFin = finPedido.isBefore(finOcupado) ? finPedido : finOcupado;
+    final minutosCruce = cruceFin.difference(cruceInicio).inMinutes;
+    final detalle = libreAntes > 0
+      ? 'Puedes utilizar el tramo de §{DateFormat('HH:mm').format(inicioPedido)} a §{DateFormat('HH:mm').format(inicioOcupado)}: son $libreAntes minutos libres. El resto se cruza con el compromiso existente.'
+      : 'El horario solicitado coincide con un periodo que ya está ocupado.';
+    return 'Se cruza con "§{conflicto.title}", de §{DateFormat('HH:mm').format(inicioOcupado)} a §{DateFormat('HH:mm').format(finOcupado)}. $detalle (solapamiento: $minutosCruce minutos).';
   }
   Future<void> _eliminar(AgendaEvent e) async {
     final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Eliminar compromiso'),
@@ -164,7 +179,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
         SegmentedButton<bool>(segments:const[
           ButtonSegment(value:false,label:Text('Semana'),icon:Icon(Icons.view_week_outlined)),
           ButtonSegment(value:true,label:Text('Mes'),icon:Icon(Icons.calendar_month_outlined)),
-        ],selected:{_mensual},onSelectionChanged:(v)=>setState(()=>_mensual=v.first)),
+        ],selected:{_mensual},onSelectionChanged:(v)=>setState(()=>{_mensual=v.first;_mes=DateTime(_seleccion.year,_seleccion.month);})),
         const SizedBox(height:12),
         Row(children:[for(final d in _dias)Expanded(child:Center(child:Text(d,style:TextStyle(fontSize:11,color:s.onSurface.withValues(alpha:.65)))))]),
         const SizedBox(height:6),
