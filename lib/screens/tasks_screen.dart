@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../models/agenda_event.dart';
 import '../models/cuadernillo_data.dart';
 import '../models/entrada_diario.dart';
 import '../models/task.dart';
-import '../services/agenda_store.dart';
 import '../services/cuadernillo_service.dart';
 import '../services/tasks_service.dart';
 
@@ -28,41 +26,12 @@ const List<_Cuadrante> _cuadrantes = [
       Color(0xFFB0AEC5)),
 ];
 
-const List<String> _diasNombre = [
-  'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
-];
-const List<String> _mesesAbrev = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-];
 
-/// Los tres bloques del día, igual que en la Etapa 3 del cuadernillo.
-class _Bloque {
-  final String clave;
-  final String titulo;
-  final String rango;
-  final IconData icono;
-  const _Bloque(this.clave, this.titulo, this.rango, this.icono);
-}
-
-const List<_Bloque> _bloques = [
-  _Bloque('manana', 'Mañana', 'antes de las 12 p. m.', Icons.wb_sunny_outlined),
-  _Bloque('tarde', 'Tarde', 'de 12 a 6 p. m.', Icons.wb_twilight),
-  _Bloque('noche', 'Noche', 'desde las 6 p. m.', Icons.nights_stay_outlined),
-];
-
-String _tituloBloque(String clave) {
-  for (final b in _bloques) {
-    if (b.clave == clave) return b.titulo;
-  }
-  return '';
-}
-
-Color _colorDeTarea(Task t) {
-  for (final c in _cuadrantes) {
-    if (c.clave == t.cuadrante) return c.color;
-  }
-  return const Color(0xFF8D9BC8);
-}
+/// Color asociado a la clasificación de la tarea en la matriz.
+Color _colorDeTarea(Task t) => _cuadrantes
+    .firstWhere((c) => c.clave == t.cuadrante,
+        orElse: () => const _Cuadrante('', '', '', Color(0xFF8D9BC8)))
+    .color;
 
 String _etiquetaCuadrante(Task t) {
   for (final c in _cuadrantes) {
@@ -94,14 +63,8 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void initState() {
     super.initState();
-    AgendaStore.instance.addListener(_alCambiarAgenda);
-    AgendaStore.instance.cargar();
     TasksScreen.recargar.addListener(_sincronizarConCuadernillo);
     _iniciar();
-  }
-
-  void _alCambiarAgenda() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _iniciar() async {
@@ -268,7 +231,6 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   void dispose() {
-    AgendaStore.instance.removeListener(_alCambiarAgenda);
     TasksScreen.recargar.removeListener(_sincronizarConCuadernillo);
     for (final c in _controllers.values) {
       c.dispose();
@@ -315,8 +277,6 @@ class _TasksScreenState extends State<TasksScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           _buildHabitos(scheme),
-                          const SizedBox(height: 18),
-                          _buildMiDia(tasks, scheme),
                           const SizedBox(height: 18),
                           for (final c in _cuadrantes) ...[
 
@@ -704,33 +664,11 @@ class _TasksScreenState extends State<TasksScreen> {
                           : Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
-                  if (_etiquetaDia(task) != null)
-                    Text(
-                      _etiquetaDia(task)!,
-                      style: TextStyle(fontSize: 11.5, color: scheme.secondary),
-                    ),
                 ],
               ),
             ),
           ),
           if (clasificador != null) clasificador,
-          PopupMenuButton<String>(
-            tooltip: 'Llevar a hoy',
-            icon: Icon(Icons.today_outlined,
-                size: 19, color: scheme.secondary.withValues(alpha: 0.9)),
-            onSelected: (v) {
-              if (v == 'quitar') {
-                _service.quitarDeHoy(task);
-              } else {
-                _service.llevarAHoy(task, v);
-              }
-            },
-            itemBuilder: (context) => [
-              for (final b in _bloques)
-                PopupMenuItem(
-                  value: b.clave,
-                  child: Text('Llevar a hoy · ${b.titulo}'),
-                ),
               if (task.fecha.isNotEmpty)
                 const PopupMenuItem(value: 'quitar', child: Text('Quitar del día')),
             ],
