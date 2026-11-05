@@ -262,7 +262,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       );
     }
 
-    Widget escala(String titulo, int valor, String descripcion, IconData icono) {
+    Widget escala(String titulo, int valor, String descripcion, IconData icono,
+        void Function(int) alSeleccionar) {
       return Padding(
         padding: const EdgeInsets.only(top: 13),
         child: Column(
@@ -273,21 +274,42 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               const SizedBox(width: 5),
               Expanded(child: Text(titulo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
             ]),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             Row(
-              children: List.generate(5, (i) => Expanded(
-                child: Container(
-                  height: 9,
-                  margin: EdgeInsets.only(right: i == 4 ? 0 : 3),
-                  decoration: BoxDecoration(
-                    color: valor > i ? scheme.primary : Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(3),
+              children: List.generate(5, (i) {
+                final nivel = i + 1;
+                final activo = valor == nivel;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: i == 4 ? 0 : 4),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(5),
+                      onTap: () => alSeleccionar(activo ? 0 : nivel),
+                      child: Container(
+                        height: 25,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: valor >= nivel
+                              ? scheme.primary.withValues(alpha: 0.85)
+                              : Colors.white.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: activo ? scheme.primary : Colors.white.withValues(alpha: 0.10),
+                            width: activo ? 1.5 : 0.7,
+                          ),
+                        ),
+                        child: Text('$nivel', style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w700,
+                          color: valor >= nivel ? Colors.black87 : colorTexto,
+                        )),
+                      ),
+                    ),
                   ),
-                ),
-              )),
+                );
+              }),
             ),
-            const SizedBox(height: 3),
-            Text(valor > 0 ? descripcion : 'Sin registro',
+            const SizedBox(height: 4),
+            Text(valor > 0 ? descripcion : 'Toca un cuadro para registrar',
               style: TextStyle(fontSize: 10, color: colorTexto)),
           ],
         ),
@@ -313,9 +335,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           const SizedBox(height: 5),
           opcionSemaforo('riesgo', 'Desafío', 'Una oportunidad', kColorDesafio),
           escala('Estado emocional', entrada?.estado ?? 0,
-            _estado(entrada?.estado ?? 0), Icons.mood_outlined),
+            _estado(entrada?.estado ?? 0), Icons.mood_outlined, (nivel) {
+              final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+              registro.estado = nivel;
+              DiarioStore.instance.cambio(registro);
+            }),
           escala('Energía', entrada?.energia ?? 0,
-            _energia(entrada?.energia ?? 0), Icons.bolt_outlined),
+            _energia(entrada?.energia ?? 0), Icons.bolt_outlined, (nivel) {
+              final registro = DiarioStore.instance.obtenerOCrear(_seleccionado);
+              registro.energia = nivel;
+              DiarioStore.instance.cambio(registro);
+            }),
         ],
       ),
     );
