@@ -104,11 +104,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
       final conflicto=_buscarConflicto(evento);
       if(conflicto!=null){
         await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Horario ocupado'),
-          content:Text('Este intervalo se cruza con ${conflicto.title}. Revisa los horarios antes de guardar.'),
+          content:Text(_mensajeConflicto(evento,conflicto)),
           actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Entendido'))]));
       } else {
         AgendaStore.instance.agregar(evento);
-        setState(()=>{_seleccion=_fecha(dia);_mes=DateTime(dia.year,dia.month);});
+        setState(() { _seleccion = _fecha(dia); _mes = DateTime(dia.year, dia.month); });
       }
     }
     title.dispose();
@@ -167,7 +167,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Widget _calendario(ColorScheme s){
     final dias=_diasCalendario();
     final titulo=_mensual?'${_meses[_mes.month-1][0].toUpperCase()}${_meses[_mes.month-1].substring(1)} ${_mes.year}':
-      '${DateFormat('d MMM', 'es').format(dias.first)} – ${DateFormat('d MMM yyyy','es').format(dias.last)}';
+      '${DateFormat('d MMM').format(dias.first)} – ${DateFormat('d MMM yyyy').format(dias.last)}';
     return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:s.surfaceContainerHighest,borderRadius:BorderRadius.circular(18)),
       child:Column(children:[
         Row(children:[
@@ -179,7 +179,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
         SegmentedButton<bool>(segments:const[
           ButtonSegment(value:false,label:Text('Semana'),icon:Icon(Icons.view_week_outlined)),
           ButtonSegment(value:true,label:Text('Mes'),icon:Icon(Icons.calendar_month_outlined)),
-        ],selected:{_mensual},onSelectionChanged:(v)=>setState(()=>{_mensual=v.first;_mes=DateTime(_seleccion.year,_seleccion.month);})),
+        ],selected:{_mensual},onSelectionChanged:(v)=>setState(() { _mensual = v.first; _mes = DateTime(_seleccion.year, _seleccion.month); })),
         const SizedBox(height:12),
         Row(children:[for(final d in _dias)Expanded(child:Center(child:Text(d,style:TextStyle(fontSize:11,color:s.onSurface.withValues(alpha:.65)))))]),
         const SizedBox(height:6),
