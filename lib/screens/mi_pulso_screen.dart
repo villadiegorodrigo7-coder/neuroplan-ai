@@ -140,23 +140,20 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                final compacto = constraints.maxWidth < 430;
-                final resumen = compacto
-                    ? Column(
-                        children: [
-                          _panelIndicadores(scheme),
-                          const SizedBox(height: 18),
-                          _anillo(scheme),
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(child: _panelIndicadores(scheme)),
-                          const SizedBox(width: 10),
-                          SizedBox(width: 290, child: _anillo(scheme)),
-                        ],
-                      );
+                final resumen = Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(flex: 5, child: _panelIndicadores(scheme)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 6,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: _anillo(scheme),
+                      ),
+                    ),
+                  ],
+                );
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                   children: [
