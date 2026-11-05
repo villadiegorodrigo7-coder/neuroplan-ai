@@ -6,7 +6,6 @@ import '../services/cuadernillo_service.dart';
 import 'cuadernillo_screen.dart';
 import 'etapa2_priorizar_screen.dart';
 import 'etapa3_organizar_screen.dart';
-import 'etapa4_seguimiento_screen.dart';
 import 'etapa5_evaluar_screen.dart';
 
 const Color kMorado = AppColors.primario;
@@ -79,14 +78,6 @@ class _CuadernilloHomeScreenState extends State<CuadernilloHomeScreen> {
         icono: Icons.calendar_view_week_outlined,
         completada: _data!.etapa3Completada,
         onTap: () => _abrirEtapa(const Etapa3OrganizarScreen()),
-      ),
-      _EtapaInfo(
-        numero: 4,
-        titulo: 'Hacer seguimiento',
-        descripcion: 'Registra tu avance día a día (30 días)',
-        icono: Icons.checklist_outlined,
-        completada: _data!.etapa4Completada,
-        onTap: () => _abrirEtapa(const Etapa4SeguimientoScreen()),
       ),
       _EtapaInfo(
         numero: 5,
