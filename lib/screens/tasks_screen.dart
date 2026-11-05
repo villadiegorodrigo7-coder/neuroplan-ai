@@ -43,8 +43,7 @@ String _etiquetaCuadrante(Task t) {
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
 
-  /// Sube cada vez que se entra a la pestaña de Tareas: se vuelve a leer el
-  /// cuadernillo para mostrar lo último de las Etapas 2 y 3.
+  /// Sube cada vez que se entra a Tareas para sincronizar la matriz.
   static final ValueNotifier<int> recargar = ValueNotifier<int>(0);
 
   @override
@@ -73,9 +72,7 @@ class _TasksScreenState extends State<TasksScreen> {
     await _sincronizarConCuadernillo();
   }
 
-  /// Trae las tareas que el usuario ya tenía en la Matriz de Eisenhower
-  /// (Etapa 2) y la rutina de la Etapa 3. Solo si hay Cuadernillo guardado: si
-  /// no, una lectura vacía borraría por error las tareas ya sincronizadas.
+  /// Sincroniza las tareas existentes de la Matriz de Eisenhower.
   Future<void> _sincronizarConCuadernillo() async {
     if (await CuadernilloService.tieneDatosGuardados()) {
       final data = await CuadernilloService.cargar();
@@ -393,245 +390,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  /// "Hoy · Tarde", o "Quedó del 26 oct" si era de un día anterior y sigue
-  /// pendiente.
-  String? _etiquetaDia(Task t) {
-    if (t.fecha.isEmpty) return null;
-    final hoy = EntradaDiario.claveFecha(DateTime.now());
-    if (t.fecha == hoy) return 'Hoy · ${_tituloBloque(t.bloque)}';
-    if (t.fecha.compareTo(hoy) < 0 && !t.done) {
-      final d = DateTime.tryParse(t.fecha);
-      if (d == null) return null;
-      return 'Quedó del ${d.day} ${_mesesAbrev[d.month - 1]}';
-    }
-    return null;
-  }
-
-  /// Elige una tarea pendiente y la fecha en la que quiere ubicarla.
-  /// El bloque se conserva según el botón + que abrió este selector.
-  Future<void> _llevarTarea(_Bloque bloque) async {
-    final ahora = DateTime.now();
-    final fechaElegida = await showDatePicker(
-      context: context,
-      initialDate: DateTime(ahora.year, ahora.month, ahora.day),
-      firstDate: DateTime(ahora.year, ahora.month, ahora.day),
-      lastDate: DateTime(ahora.year + 5, ahora.month, ahora.day),
-      helpText: '¿Qué día quieres realizar esta tarea?',
-      cancelText: 'Cancelar',
-      confirmText: 'Continuar',
-    );
-    if (fechaElegida == null || !mounted) return;
-
-    final claveFecha = EntradaDiario.claveFecha(fechaElegida);
-    final candidatas = _service.tasks
-        .where((t) => !t.done && !(t.fecha == claveFecha && t.bloque == bloque.clave))
-        .toList();
-
-    final elegida = await showModalBottomSheet<Task>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: candidatas.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, 28),
-                child: Text(
-                  'No tienes tareas pendientes para asignar. Crea una en la Matriz de abajo.',
-                ),
-              )
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                    child: Text(
-                      'Tareas para ${fechaElegida.day}/${fechaElegida.month}/${fechaElegida.year} · ${bloque.titulo}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  for (final t in candidatas)
-                    ListTile(
-                      leading: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: _colorDeTarea(t),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      title: Text(t.title),
-                      subtitle: Text(
-                        t.fecha.isEmpty
-                            ? _etiquetaCuadrante(t)
-                            : '${_etiquetaCuadrante(t)} · ${t.fecha}',
-                      ),
-                      onTap: () => Navigator.of(ctx).pop(t),
-                    ),
-                ],
-              ),
-      ),
-    );
-    if (elegida != null) {
-      _service.llevarAFecha(elegida, claveFecha, bloque.clave);
-    }
-  }
-
-  /// El día se compone de compromisos con hora fija y tareas en los espacios disponibles.
-  Widget _buildMiDia(List<Task> tasks, ColorScheme scheme) {
-    final hoy = DateTime.now();
-    final fechaHoy = EntradaDiario.claveFecha(hoy);
-    final eventosHoy = AgendaStore.instance.eventosEnDia(hoy)
-      ..sort((a, b) => a.date.compareTo(b.date));
-    final deHoy = tasks.where((t) => t.fecha == fechaHoy).toList();
-    final fechaTexto =
-        '${hoy.day.toString().padLeft(2, '0')}/${hoy.month.toString().padLeft(2, '0')}/${hoy.year}';
-    final apagado = Colors.white.withValues(alpha: 0.72);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.today_rounded, color: scheme.secondary, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Hoy · ${_diasNombre[hoy.weekday - 1]} $fechaTexto',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Tus compromisos reservan el tiempo indicado. Las tareas ocupan los espacios que decidas; el resto queda libre.',
-            style: TextStyle(fontSize: 12.5, color: apagado),
-          ),
-          if (eventosHoy.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text('COMPROMISOS DE AGENDA',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: scheme.secondary)),
-            for (final e in eventosHoy)
-              Padding(
-                padding: const EdgeInsets.only(top: 9),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.schedule, size: 16, color: apagado),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 112,
-                      child: Text(
-                        '${TimeOfDay.fromDateTime(e.date).format(context)}–${TimeOfDay.fromDateTime(e.endDate).format(context)}',
-                        style: TextStyle(fontSize: 12, color: apagado),
-                      ),
-                    ),
-                    Expanded(child: Text(e.title, style: const TextStyle(fontSize: 14))),
-                    if (e.aviso) Icon(Icons.notifications_active, size: 14, color: scheme.primary),
-                  ],
-                ),
-              ),
-          ],
-          const SizedBox(height: 14),
-          Text('TAREAS DEL DÍA',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: scheme.secondary)),
-          const SizedBox(height: 8),
-          for (final b in _bloques) ...[
-            _buildBloque(b, deHoy.where((t) => t.bloque == b.clave).toList(), scheme),
-            const SizedBox(height: 10),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBloque(_Bloque b, List<Task> tareas, ColorScheme scheme) {
-    final apagado = Colors.white.withValues(alpha: 0.72);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(b.icono, size: 18, color: scheme.secondary),
-              const SizedBox(width: 8),
-              Text(b.titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(b.rango, style: TextStyle(fontSize: 12, color: apagado))),
-              TextButton.icon(
-                onPressed: () => _llevarTarea(b),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Llevar tarea'),
-              ),
-            ],
-          ),
-          for (final t in tareas)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(color: _colorDeTarea(t), shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _service.alternar(t),
-                    child: Icon(
-                      t.done ? Icons.check_circle : Icons.circle_outlined,
-                      size: 20,
-                      color: t.done ? scheme.primary : Colors.white.withValues(alpha: 0.62),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      t.title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        decoration: t.done ? TextDecoration.lineThrough : null,
-                        color: t.done ? apagado : Colors.white.withValues(alpha: 0.92),
-                      ),
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Quitar de este día',
-                    child: InkWell(
-                      onTap: () => _service.quitarDeHoy(t),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.close, size: 16, color: apagado),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (tareas.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text('Espacio disponible para organizar tareas.',
-                style: TextStyle(fontSize: 12, color: apagado)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Una tarea: toca para marcar como hecha, X para eliminar.
+  /// Una tarea de la matriz: marcar como realizada, clasificar o eliminar.
   Widget _buildFila(Task task, ColorScheme scheme, {Widget? clasificador}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -641,9 +400,7 @@ class _TasksScreenState extends State<TasksScreen> {
             onTap: () => _service.alternar(task),
             child: Icon(
               task.done ? Icons.check_circle : Icons.circle_outlined,
-              color: task.done
-                  ? scheme.primary
-                  : Colors.white.withValues(alpha: 0.55),
+              color: task.done ? scheme.primary : Colors.white.withValues(alpha: 0.55),
               size: 22,
             ),
           ),
@@ -651,28 +408,19 @@ class _TasksScreenState extends State<TasksScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () => _service.alternar(task),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      decoration: task.done ? TextDecoration.lineThrough : null,
-                      color: task.done
-                          ? Colors.white.withValues(alpha: 0.62)
-                          : Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
+              child: Text(
+                task.title,
+                style: TextStyle(
+                  fontSize: 14,
+                  decoration: task.done ? TextDecoration.lineThrough : null,
+                  color: task.done
+                      ? Colors.white.withValues(alpha: 0.62)
+                      : Colors.white.withValues(alpha: 0.9),
+                ),
               ),
             ),
           ),
           if (clasificador != null) clasificador,
-              if (task.fecha.isNotEmpty)
-                const PopupMenuItem(value: 'quitar', child: Text('Quitar del día')),
-            ],
-          ),
           GestureDetector(
             onTap: () => _confirmDeleteTask(task),
             child: Icon(Icons.close,
@@ -682,4 +430,5 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
     );
   }
+
 }
