@@ -427,6 +427,31 @@ class _TasksScreenState extends State<TasksScreen> {
             ),
           ),
           if (clasificador != null) clasificador,
+          PopupMenuButton<String>(
+            tooltip: 'Llevar a hoy',
+            icon: Icon(Icons.today_outlined,
+                size: 19, color: scheme.secondary.withValues(alpha: 0.9)),
+            onSelected: (v) {
+              if (v == 'quitar') {
+                _service.quitarDeHoy(task);
+              } else {
+                _service.llevarAHoy(task, v);
+              }
+            },
+            itemBuilder: (context) => [
+              for (final bloque in const [
+                ('manana', 'Mañana'),
+                ('tarde', 'Tarde'),
+                ('noche', 'Noche'),
+              ])
+                PopupMenuItem(
+                  value: bloque.$1,
+                  child: Text('Llevar a hoy · ${bloque.$2}'),
+                ),
+              if (task.fecha.isNotEmpty)
+                const PopupMenuItem(value: 'quitar', child: Text('Quitar del día')),
+            ],
+          ),
           GestureDetector(
             onTap: () => _confirmDeleteTask(task),
             child: Icon(Icons.close,
