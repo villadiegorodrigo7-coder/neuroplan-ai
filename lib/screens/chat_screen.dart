@@ -375,6 +375,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       setState(() {
         _conversations.insert(0, conv);
         _current = conv;
+        _revisionSemanalSemana = null;
       });
       await _persist();
       await prefs.setString(claveUltimoInforme, EntradaDiario.claveFecha(hoy));
@@ -413,6 +414,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       _conversations.removeWhere((c) => c.id == conv.id);
       if (_current?.id == conv.id) {
         _current = _conversations.isNotEmpty ? _conversations.first : null;
+        _revisionSemanalSemana = _semanaDeRevision(_current);
       }
     });
     await _persist();
@@ -599,8 +601,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
             'Respuestas de la persona en su diagnóstico inicial. Úsalas para '
             'personalizar la revisión semanal, relacionando el uso de tiempo y '
             'energía con las áreas y preocupaciones que la propia persona nombró. '
-            'No conviertas estos datos en puntuaciones ni supongas que algo cambió.\\n'
-            '${respuestas.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\\n')}',
+            'No conviertas estos datos en puntuaciones ni supongas que algo cambió.\n'
+            '${respuestas.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n')}',
           );
         }
       }
