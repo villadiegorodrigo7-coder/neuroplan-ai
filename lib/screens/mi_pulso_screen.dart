@@ -421,7 +421,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             color: _colorDia(_dias[index]),
             shape: BoxShape.circle,
             border: Border.all(
-              color: seleccionado ? scheme.primary : const Color(0xFF0B1020),
+              color: seleccionado ? Colors.orangeAccent : const Color(0xFF0B1020),
               width: seleccionado ? 2.5 : 1.5,
             ),
           ),
