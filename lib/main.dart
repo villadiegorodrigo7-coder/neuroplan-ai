@@ -7,6 +7,7 @@ import 'theme/app_theme.dart';
 import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
+import 'screens/mi_pulso_screen.dart';
 import 'screens/profile_screen.dart';
 import 'models/agenda_event.dart';
 import 'services/agenda_avisos.dart';
@@ -81,6 +82,7 @@ class _MainNavigationState extends State<MainNavigation>
     const ChatScreen(),
     const TasksScreen(),
     const AgendaScreen(),
+    const MiPulsoScreen(),
     const ProfileScreen(),
   ];
 
@@ -158,7 +160,7 @@ class _MainNavigationState extends State<MainNavigation>
     return MaterialBanner(
       leading: const Icon(Icons.menu_book_rounded),
       content: const Text(
-        '¿Cómo fue tu día? Marca tu semáforo en Mi diario cuando quieras.',
+        '¿Cómo fue tu día? Registra tu semáforo en Mi Pulso cuando quieras.',
       ),
       actions: [
         TextButton(
@@ -167,7 +169,7 @@ class _MainNavigationState extends State<MainNavigation>
             RecordatorioDiario.instance.descartarHoy();
             setState(() => _currentIndex = 3);
           },
-          child: const Text('Abrir Mi diario'),
+          child: const Text('Abrir Mi Pulso'),
         ),
         TextButton(
           onPressed: () {
@@ -247,6 +249,11 @@ class _MainNavigationState extends State<MainNavigation>
             icon: Icon(Icons.calendar_today_outlined),
             selectedIcon: Icon(Icons.calendar_today),
             label: 'Agenda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.graphic_eq_outlined),
+            selectedIcon: Icon(Icons.graphic_eq),
+            label: 'Mi Pulso',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
