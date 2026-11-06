@@ -58,7 +58,7 @@ class _TasksScreenState extends State<TasksScreen> {
     for (final c in _cuadrantes) c.clave: TextEditingController(),
   };
   bool _loading = true;
-  HerramientasData? _cuaderno;
+  HerramientasData? _herramientas;
 
   @override
   void initState() {
@@ -78,7 +78,7 @@ class _TasksScreenState extends State<TasksScreen> {
     if (await HerramientasService.tieneDatosGuardados()) {
       final data = await HerramientasService.cargar();
       await _service.sincronizarMatriz(data.matrizEisenhower);
-      if (mounted) setState(() => _cuaderno = data);
+      if (mounted) setState(() => _herramientas = data);
     }
   }
 
@@ -117,7 +117,7 @@ class _TasksScreenState extends State<TasksScreen> {
       tipo: tipo,
     ));
     await HerramientasService.guardar(data);
-    if (mounted) setState(() => _cuaderno = data);
+    if (mounted) setState(() => _herramientas = data);
   }
 
   Future<void> _confirmarEliminarHabito(HabitoSeguimiento habito) async {
@@ -165,7 +165,7 @@ class _TasksScreenState extends State<TasksScreen> {
     data.habitos.removeWhere((h) => h.id == habito.id);
     await HerramientasService.guardar(data);
     if (mounted) {
-      setState(() => _cuaderno = data);
+      setState(() => _herramientas = data);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hábito eliminado.')),
       );
@@ -200,11 +200,11 @@ class _TasksScreenState extends State<TasksScreen> {
       );
     }
     await HerramientasService.guardar(data);
-    if (mounted) setState(() => _cuaderno = data);
+    if (mounted) setState(() => _herramientas = data);
   }
 
   Widget _buildHabitos(ColorScheme scheme) {
-    final habitos = _cuaderno?.habitos ?? [];
+    final habitos = _herramientas?.habitos ?? [];
     final hoy = EntradaDiario.claveFecha(DateTime.now());
     Widget grupo(String tipo, String titulo, String ayuda) {
       final lista = habitos.where((h) => h.tipo == tipo).toList();
