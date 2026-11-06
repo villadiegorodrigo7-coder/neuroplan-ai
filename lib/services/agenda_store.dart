@@ -86,6 +86,14 @@ class AgendaStore extends ChangeNotifier {
     _cambio();
   }
 
+  void alternarCumplimiento(String id, DateTime dia) {
+    final evento = porId(id);
+    if (evento == null) return;
+    final clave = evento.claveOcurrencia(dia);
+    evento.cumplimientos[clave] = !(evento.cumplimientos[clave] ?? false);
+    _cambio();
+  }
+
   void alternarAviso(String id) {
     final e = porId(id);
     if (e == null) return;
