@@ -8,6 +8,8 @@ import '../services/cuadernillo_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
+import '../models/agenda_event.dart';
+import '../services/agenda_store.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
 /// (Mi ritmo) y las intenciones elegidas (Mis intenciones).
@@ -41,6 +43,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     super.initState();
     DiarioStore.instance.addListener(_actualizar);
     TasksService.instance.addListener(_actualizar);
+    AgendaStore.instance.addListener(_actualizar);
     _cargar();
   }
 
@@ -48,6 +51,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     await Future.wait([
       DiarioStore.instance.cargar(),
       TasksService.instance.cargar(),
+      AgendaStore.instance.cargar(),
     ]);
 
     // Mi pulso usa el mismo ciclo de 30 días que la Etapa 4 del cuadernillo.
@@ -84,6 +88,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   void dispose() {
     DiarioStore.instance.removeListener(_actualizar);
     TasksService.instance.removeListener(_actualizar);
+    AgendaStore.instance.removeListener(_actualizar);
     super.dispose();
   }
 
@@ -625,8 +630,32 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   Widget _tareasDelDia(ColorScheme scheme) {
-    final tareas = _tareas(_seleccionado);
-    final hechas = tareas.where((t) => t.done).length;
+    final tareasMatriz = _tareas(_seleccionado).where((t) => t.done).toList();
+    final compromisos = AgendaStore.instance
+        .eventosEnDia(_seleccionado)
+        .where((e) => e.realizadaEn(_seleccionado))
+        .toList();
+    final clave = _clave(_seleccionado);
+    final habitos = (_cuaderno?.habitos ?? [])
+        .where((h) => h.registros[clave] == true)
+        .toList();
+    final total = tareasMatriz.length + compromisos.length + habitos.length;
+
+    Widget actividad(String titulo, String origen, IconData icono) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(children: [
+          Icon(icono, size: 18, color: scheme.primary),
+          const SizedBox(width: 9),
+          Expanded(child: Text(titulo, style: const TextStyle(fontSize: 13))),
+          Text(origen, style: TextStyle(
+            fontSize: 10, color: Colors.white.withValues(alpha: 0.58))),
+          const SizedBox(width: 5),
+          Icon(Icons.check_circle, size: 16, color: scheme.primary),
+        ]),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -640,35 +669,26 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           Row(children: [
             Icon(Icons.task_alt, color: scheme.primary),
             const SizedBox(width: 8),
-            const Expanded(child: Text('Tareas del día',
+            const Expanded(child: Text('Tareas cumplidas',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-            Text('$hechas/${tareas.length}',
-              style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700)),
+            Text('$total', style: TextStyle(
+              color: scheme.primary, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 4),
           Text(_fechaLarga(_seleccionado),
             style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
           const SizedBox(height: 10),
-          if (tareas.isEmpty)
-            Text('No hay tareas programadas para este día.',
+          if (total == 0)
+            Text('Aún no hay actividades cumplidas en este día.',
               style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.68)))
-          else
-            for (final tarea in tareas)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                value: tarea.done,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: Text(tarea.title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    decoration: tarea.done ? TextDecoration.lineThrough : null,
-                    color: tarea.done
-                        ? Colors.white.withValues(alpha: 0.55)
-                        : Colors.white.withValues(alpha: 0.92),
-                  )),
-                onChanged: (_) => TasksService.instance.alternar(tarea),
-              ),
+          else ...[
+            for (final tarea in tareasMatriz)
+              actividad(tarea.title, 'Matriz', Icons.checklist),
+            for (final evento in compromisos)
+              actividad(evento.title, 'Agenda', Icons.event_available),
+            for (final habito in habitos)
+              actividad(habito.nombre, 'Hábito', Icons.repeat),
+          ],
         ],
       ),
     );
