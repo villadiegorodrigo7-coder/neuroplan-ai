@@ -173,7 +173,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
-                    if (_tieneDiagnosticoConversacionalConfirmado)
+                    if (_hayPropuestaRueda)
                       _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
@@ -387,15 +387,20 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     'Organización', 'Motivación', 'Satisfacción general',
   ];
 
+  bool get _hayPropuestaRueda =>
+      (_cuaderno?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ?? false) ||
+      (_cuaderno?.diagnosticoConversacional?.confirmado == true);
+
   bool get _tieneDiagnosticoConversacionalConfirmado =>
-      _cuaderno?.diagnosticoConversacional?.confirmado == true &&
-      _cuaderno!.diagnosticoConversacional!.valoresConfirmados.length == _etiquetasRueda.length;
+      _cuaderno?.diagnosticoConversacional?.confirmado == true;
 
   List<double> _valoresRuedaUnificada() {
-    final confirmados =
-        _cuaderno?.diagnosticoConversacional?.valoresConfirmados ?? const <String, int>{};
+    final diagnostico = _cuaderno?.diagnosticoConversacional;
+    final valores = diagnostico?.confirmado == true
+        ? diagnostico!.valoresConfirmados
+        : diagnostico?.valoresPropuestos ?? const <String, int>{};
     return _etiquetasRueda
-        .map((etiqueta) => (confirmados[etiqueta] ?? 0).toDouble())
+        .map((etiqueta) => (valores[etiqueta] ?? 0).toDouble())
         .toList();
   }
 
@@ -410,7 +415,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         Text(
-          'Una mirada integrada a las distintas dimensiones de tu vida.',
+          _tieneDiagnosticoConversacionalConfirmado\n              ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'\n              : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
           style: TextStyle(fontSize: 12, height: 1.35,
             color: Colors.white.withValues(alpha: 0.66)),
         ),
@@ -508,22 +513,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           onPressed: () async {
                             final data = _cuaderno;
                             if (data == null) return;
-                            final rueda = data.ruedaVida;
-                            final diagnostico = data.diagnosticoInicial;
-                            rueda.salud = editados[0].round();
-                            rueda.estudios = editados[1].round();
-                            rueda.trabajo = editados[2].round();
-                            rueda.finanzas = editados[3].round();
-                            rueda.familia = editados[4].round();
-                            rueda.amigos = editados[5].round();
-                            rueda.descanso = editados[6].round();
-                            rueda.crecimiento = editados[7].round();
-                            diagnostico.energia = editados[8].round();
-                            diagnostico.estres = editados[9].round();
-                            diagnostico.claridadMental = editados[10].round();
-                            diagnostico.organizacion = editados[11].round();
-                            diagnostico.motivacion = editados[12].round();
-                            diagnostico.satisfaccionGeneral = editados[13].round();
+                            final diagnostico = data.diagnosticoConversacional;
+                            if (diagnostico == null) return;
+                            for (var i = 0; i < _etiquetasRueda.length; i++) {
+                              diagnostico.valoresConfirmados[_etiquetasRueda[i]] =
+                                  editados[i].round();
+                            }
+                            diagnostico.confirmado = true;
                             await CuadernilloService.guardar(data);
                             if (mounted) setState(() {});
                             if (dialogContext.mounted) Navigator.pop(dialogContext);
