@@ -281,6 +281,51 @@ class _ChatScreenState extends State<ChatScreen> {
       _loadingHistory = false;
     });
     await _generarInformeHabitosSiCorresponde();
+    await _recuperarDiagnosticoCompleto();
+  }
+
+  /// Recupera una conversación que ya terminó pero cuya rueda no se generó.
+  /// La comprobación se limita a una vez al día mientras no exista propuesta.
+  Future<void> _recuperarDiagnosticoCompleto() async {
+    try {
+      ChatConversation? diagnostico;
+      for (final conv in _conversations) {
+        if (conv.title == 'Diagnóstico inicial') {
+          diagnostico = conv;
+          break;
+        }
+      }
+      if (diagnostico == null) return;
+
+      final data = await CuadernilloService.cargar();
+      final existente = data.diagnosticoConversacional;
+      if (existente != null &&
+          (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final claveIntento = 'agora_diagnostico_recuperacion_${diagnostico.id}';
+      final hoy = DateTime.now();
+      final fechaHoy = '${hoy.year}-${hoy.month}-${hoy.day}';
+      if (prefs.getString(claveIntento) == fechaHoy) return;
+      await prefs.setString(claveIntento, fechaHoy);
+
+      final historial = diagnostico.messages
+          .where((m) => m.content.trim().isNotEmpty)
+          .map((m) => {
+                'role': m.role == 'user' ? 'user' : 'model',
+                'content': m.content,
+              })
+          .toList();
+      if (historial.where((m) => m['role'] == 'user').length < 3) return;
+
+      final completo =
+          await GeminiService.diagnosticoConversacionalCompleto(historial);
+      if (completo) await _generarPropuestaDiagnostico(diagnostico);
+    } catch (_) {
+      // La recuperación nunca debe impedir entrar a la aplicación.
+    }
   }
 
   int? _semanaDeRevision(ChatConversation? conv) {
@@ -517,11 +562,17 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
     final contexto = await _construirContextoUsuario();
 
-    final response = await GeminiService.sendMessage(
+    final respuestaAgora = await GeminiService.sendMessage(
       text,
       history: history,
       contextoUsuario: contexto,
     );
+    final diagnosticoCompleto =
+        conv.title == 'Diagnóstico inicial' &&
+        respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]');
+    final response = respuestaAgora
+        .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
+        .trim();
 
     if (!mounted) return;
     setState(() {
@@ -531,8 +582,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     _scrollToBottom();
     await _persist();
 
-    if (conv.title == 'Diagnóstico inicial' &&
-        conv.messages.where((m) => m.role == 'user').length >= 14) {
+    if (diagnosticoCompleto) {
       await _generarPropuestaDiagnostico(conv);
     }
 
