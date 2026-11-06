@@ -173,7 +173,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
-                    _composicionDiagnostica(scheme),
+                    if (_tieneDiagnosticoConversacionalConfirmado)\n                      _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
@@ -386,25 +386,16 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     'Organización', 'Motivación', 'Satisfacción general',
   ];
 
+  bool get _tieneDiagnosticoConversacionalConfirmado =>
+      _cuaderno?.diagnosticoConversacional?.confirmado == true &&
+      _cuaderno!.diagnosticoConversacional!.valoresConfirmados.length == _etiquetasRueda.length;
+
   List<double> _valoresRuedaUnificada() {
-    final rueda = _cuaderno?.ruedaVida ?? RuedaVida();
-    final diagnostico = _cuaderno?.diagnosticoInicial ?? DiagnosticoInicial();
-    return [
-      rueda.salud.toDouble(),
-      rueda.estudios.toDouble(),
-      rueda.trabajo.toDouble(),
-      rueda.finanzas.toDouble(),
-      rueda.familia.toDouble(),
-      rueda.amigos.toDouble(),
-      rueda.descanso.toDouble(),
-      rueda.crecimiento.toDouble(),
-      diagnostico.energia.toDouble(),
-      diagnostico.estres.toDouble(),
-      diagnostico.claridadMental.toDouble(),
-      diagnostico.organizacion.toDouble(),
-      diagnostico.motivacion.toDouble(),
-      diagnostico.satisfaccionGeneral.toDouble(),
-    ];
+    final confirmados =
+        _cuaderno?.diagnosticoConversacional?.valoresConfirmados ?? const <String, int>{};
+    return _etiquetasRueda
+        .map((etiqueta) => (confirmados[etiqueta] ?? 0).toDouble())
+        .toList();
   }
 
   Widget _composicionDiagnostica(ColorScheme scheme) {
