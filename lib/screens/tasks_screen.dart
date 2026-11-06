@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/cuadernillo_data.dart';
 import '../models/entrada_diario.dart';
 import '../models/task.dart';
+import '../models/agenda_event.dart';
+import '../services/agenda_store.dart';
 import '../services/cuadernillo_service.dart';
 import '../services/tasks_service.dart';
 
@@ -63,11 +65,14 @@ class _TasksScreenState extends State<TasksScreen> {
   void initState() {
     super.initState();
     TasksScreen.recargar.addListener(_sincronizarConCuadernillo);
+    AgendaStore.instance.addListener(_agendaActualizada);
     _iniciar();
   }
 
+  void _agendaActualizada() { if (mounted) setState(() {}); }
+
   Future<void> _iniciar() async {
-    await _service.cargar();
+    await Future.wait([_service.cargar(), AgendaStore.instance.cargar()]);
     if (mounted) setState(() => _loading = false);
     await _sincronizarConCuadernillo();
   }
@@ -229,6 +234,63 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  Widget _buildCompromisosAgenda(ColorScheme scheme) {
+    return ListenableBuilder(
+      listenable: AgendaStore.instance,
+      builder: (context, _) {
+        final eventos = AgendaStore.instance.eventosEnDia(DateTime.now());
+        if (eventos.isEmpty) return const SizedBox.shrink();
+        final cumplidos = eventos.where((e) => e.realizadaEn(DateTime.now())).length;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border(left: BorderSide(color: scheme.tertiary, width: 4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Expanded(child: Text('Compromisos de agenda',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+                Text('$cumplidos/${eventos.length}',
+                  style: TextStyle(fontSize: 12, color: scheme.tertiary,
+                    fontWeight: FontWeight.w700)),
+              ]),
+              Text('Los mismos compromisos de tu Agenda; marca aquí o allá y el estado se mantiene sincronizado.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
+              const SizedBox(height: 10),
+              for (final evento in eventos)
+                _filaCompromisoAgenda(evento, scheme),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _filaCompromisoAgenda(AgendaEvent evento, ColorScheme scheme) {
+    final hecho = evento.realizadaEn(DateTime.now());
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => AgendaStore.instance.alternarCumplimiento(evento.id, DateTime.now()),
+          child: Icon(hecho ? Icons.check_circle : Icons.circle_outlined,
+            color: hecho ? scheme.primary : Colors.white.withValues(alpha: 0.58), size: 21),
+        ),
+        const SizedBox(width: 9),
+        SizedBox(width: 88, child: Text(
+          '${TimeOfDay.fromDateTime(evento.date).format(context)}–${TimeOfDay.fromDateTime(evento.endDate).format(context)}',
+          style: TextStyle(fontSize: 11, color: scheme.onSurface.withValues(alpha: 0.65)))),
+        Expanded(child: Text(evento.title, style: TextStyle(fontSize: 13,
+          decoration: hecho ? TextDecoration.lineThrough : null,
+          color: hecho ? scheme.onSurface.withValues(alpha: 0.58) : null))),
+      ]),
+    );
+  }
+
   void _addTask(String cuadrante) {
     final controller = _controllers[cuadrante]!;
     _service.agregar(controller.text, cuadrante);
@@ -269,6 +331,7 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void dispose() {
     TasksScreen.recargar.removeListener(_sincronizarConCuadernillo);
+    AgendaStore.instance.removeListener(_agendaActualizada);
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -313,6 +376,8 @@ class _TasksScreenState extends State<TasksScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
+                          _buildCompromisosAgenda(scheme),
+                          const SizedBox(height: 18),
                           _buildHabitos(scheme),
                           const SizedBox(height: 18),
                           for (final c in _cuadrantes) ...[
