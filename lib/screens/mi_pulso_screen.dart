@@ -173,7 +173,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
-                    if (_tieneDiagnosticoConversacionalConfirmado)\n                      _composicionDiagnostica(scheme),
+                    if (_tieneDiagnosticoConversacionalConfirmado)
+                      _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
