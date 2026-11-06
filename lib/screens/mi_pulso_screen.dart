@@ -421,6 +421,15 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           style: TextStyle(fontSize: 12, height: 1.35,
             color: Colors.white.withValues(alpha: 0.66)),
         ),
+        if ((_cuaderno?.diagnosticoConversacional?.resumen ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
+            child: Text(
+              _cuaderno!.diagnosticoConversacional!.resumen,
+              style: TextStyle(fontSize: 12, height: 1.4,
+                color: Colors.white.withValues(alpha: 0.82)),
+            ),
+          ),
         const SizedBox(height: 12),
         Center(
           child: GestureDetector(
@@ -578,7 +587,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
                       itemCount: _etiquetasRueda.length,
-                      itemBuilder: (context, index) => Row(
+                      itemBuilder: (context, index) {
+                        final fundamento = _cuaderno?.diagnosticoConversacional
+                            ?.fundamentos[_etiquetasRueda[index]];
+                        return Row(
                         children: [
                           Container(width: 9, height: 9,
                             decoration: BoxDecoration(color: _coloresRueda[index],
@@ -586,8 +598,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             flex: 4,
-                            child: Text(_etiquetasRueda[index],
-                              style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(_etiquetasRueda[index],
+                                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                if (fundamento != null && fundamento.trim().isNotEmpty)
+                                  Text(fundamento,
+                                    style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                              ],
+                            ),
                           ),
                           Expanded(
                             flex: 6,
@@ -615,7 +636,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                 fontWeight: FontWeight.w800)),
                           ),
                         ],
-                      ),
+                      );
+                      },
                     ),
                   ),
                 ],
