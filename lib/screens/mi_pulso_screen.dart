@@ -352,11 +352,33 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   /// Dos discos superpuestos: cada uno conserva su gráfico y sus valores.
   /// El toque intercambia el primer plano; la transición combina profundidad,
   /// inclinación y giro tipo flip sin convertir los gráficos en imágenes.
-  Widget _composicionDiagnostica(ColorScheme scheme) {
+  static const List<Color> _coloresRueda = [
+    Color(0xFF35D07F), // Salud
+    Color(0xFF45A9FF), // Estudios
+    Color(0xFFFF9F43), // Trabajo
+    Color(0xFFFFD166), // Finanzas
+    Color(0xFFFF6FAE), // Familia
+    Color(0xFF35D6C5), // Amigos
+    Color(0xFFB28DFF), // Descanso
+    Color(0xFFA6D854), // Crecimiento
+    Color(0xFFFFE45E), // Energía
+    Color(0xFFFF5C65), // Estrés
+    Color(0xFF65D8FF), // Claridad mental
+    Color(0xFF788BFF), // Organización
+    Color(0xFFFF65D4), // Motivación
+    Color(0xFFFF876B), // Satisfacción general
+  ];
+
+  static const List<String> _etiquetasRueda = [
+    'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
+    'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
+    'Organización', 'Motivación', 'Satisfacción general',
+  ];
+
+  List<double> _valoresRuedaUnificada() {
     final rueda = _cuaderno?.ruedaVida ?? RuedaVida();
     final diagnostico = _cuaderno?.diagnosticoInicial ?? DiagnosticoInicial();
-
-    final ruedaValores = <double>[
+    return [
       rueda.salud.toDouble(),
       rueda.estudios.toDouble(),
       rueda.trabajo.toDouble(),
@@ -365,12 +387,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       rueda.amigos.toDouble(),
       rueda.descanso.toDouble(),
       rueda.crecimiento.toDouble(),
-    ];
-    const ruedaEtiquetas = [
-      'Salud', 'Estudios', 'Trabajo', 'Finanzas',
-      'Familia', 'Amigos', 'Descanso', 'Crecimiento',
-    ];
-    final diagnosticoValores = <double>[
       diagnostico.energia.toDouble(),
       diagnostico.estres.toDouble(),
       diagnostico.claridadMental.toDouble(),
@@ -378,80 +394,68 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       diagnostico.motivacion.toDouble(),
       diagnostico.satisfaccionGeneral.toDouble(),
     ];
-    const diagnosticoEtiquetas = [
-      'Energía', 'Estrés', 'Claridad mental',
-      'Organización', 'Motivación', 'Satisfacción general',
-    ];
+  }
 
+  Widget _composicionDiagnostica(ColorScheme scheme) {
+    final valores = _valoresRuedaUnificada();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'Tu punto de partida',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+          child: Text('Rueda de la Vida',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         Text(
-          'Explora la relación entre tu visión de vida y tu diagnóstico inicial.',
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.35,
-            color: Colors.white.withValues(alpha: 0.66),
-          ),
+          'Una mirada integrada a las distintas dimensiones de tu vida.',
+          style: TextStyle(fontSize: 12, height: 1.35,
+            color: Colors.white.withValues(alpha: 0.66)),
         ),
         const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final diameter = math.min(278.0, constraints.maxWidth * 0.68);
-            final desplazamiento = diameter * 0.39;
-            final total = diameter + desplazamiento;
-            return SizedBox(
-              height: diameter + 28,
-              child: Center(
-                child: SizedBox(
-                  width: total,
-                  height: diameter + 28,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
+        Center(
+          child: GestureDetector(
+            onTap: () => _abrirEditorRadar(scheme: scheme),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 430),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF101A32),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.13),
+                    blurRadius: 24, spreadRadius: 1),
+                ],
+              ),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 300,
+                    child: CustomPaint(
+                      painter: _RadarDiagnosticoPainter(
+                        values: valores,
+                        labels: _etiquetasRueda,
+                        color: const Color(0xFF9B75FF),
+                        axisColors: _coloresRueda,
+                        textColor: Colors.white,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _discoDiagnostico(
-                        diameter: diameter,
-                        left: _ruedaAlFrente ? desplazamiento : 0,
-                        front: !_ruedaAlFrente,
-                        title: 'DIAGNÓSTICO INICIAL',
-                        values: diagnosticoValores,
-                        labels: diagnosticoEtiquetas,
-                        scheme: scheme,
-                      ),
-                      _discoDiagnostico(
-                        diameter: diameter,
-                        left: _ruedaAlFrente ? 0 : desplazamiento,
-                        front: _ruedaAlFrente,
-                        title: 'RUEDA DE LA VIDA',
-                        values: ruedaValores,
-                        labels: ruedaEtiquetas,
-                        scheme: scheme,
-                      ),
+                      const Icon(Icons.open_in_full, size: 15, color: Color(0xFF8CEBFF)),
+                      const SizedBox(width: 6),
+                      Text('Toca para ampliar y editar',
+                        style: TextStyle(fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.82))),
                     ],
                   ),
-                ),
+                ],
               ),
-            );
-          },
-        ),
-        Center(
-          child: TextButton.icon(
-            onPressed: () => setState(() => _ruedaAlFrente = !_ruedaAlFrente),
-            icon: const Icon(Icons.flip, size: 18),
-            label: Text(_ruedaAlFrente
-                ? 'Ver diagnóstico inicial al frente'
-                : 'Ver rueda de la vida al frente'),
-            style: TextButton.styleFrom(
-              foregroundColor: scheme.primary,
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -459,169 +463,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
-  Widget _discoDiagnostico({
-    required double diameter,
-    required double left,
-    required bool front,
-    required String title,
-    required List<double> values,
-    required List<String> labels,
-    required ColorScheme scheme,
-  }) {
-    final tilt = front ? -0.08 : 0.12;
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 720),
-      curve: Curves.easeInOutCubic,
-      left: left,
-      top: front ? 0 : 18,
-      width: diameter,
-      height: diameter,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 720),
-        curve: Curves.easeInOutCubic,
-        scale: front ? 1 : 0.91,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: front ? 0.12 : -0.08, end: tilt),
-          duration: const Duration(milliseconds: 720),
-          curve: Curves.easeInOutCubic,
-          builder: (context, angleY, child) => Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.0012)
-              ..rotateY(angleY),
-            child: child,
-          ),
-          child: GestureDetector(
-            onTap: () => setState(() => _ruedaAlFrente = title == 'RUEDA DE LA VIDA'),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 720),
-              curve: Curves.easeInOutCubic,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  center: const Alignment(-0.28, -0.35),
-                  radius: 1.12,
-                  colors: [
-                    const Color(0xFF263D67).withValues(alpha: front ? 0.98 : 0.90),
-                    const Color(0xFF111D3B).withValues(alpha: front ? 0.98 : 0.94),
-                    const Color(0xFF080F22),
-                  ],
-                ),
-                border: Border.all(
-                  color: front
-                      ? const Color(0xFF8CEBFF).withValues(alpha: 0.88)
-                      : const Color(0xFFB66BFF).withValues(alpha: 0.65),
-                  width: front ? 3.2 : 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (front ? const Color(0xFF9B4DFF) : const Color(0xFF38CFFF))
-                        .withValues(alpha: front ? 0.42 : 0.22),
-                    blurRadius: front ? 30 : 17,
-                    spreadRadius: front ? 2 : 0,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.48),
-                    blurRadius: 18,
-                    offset: const Offset(8, 12),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    blurRadius: 2,
-                    spreadRadius: -2,
-                    offset: const Offset(-4, -5),
-                  ),
-                ],
-              ),
-              child: Padding(
-                  padding: EdgeInsets.all(diameter * 0.075),
-                  child: Column(
-                    children: [
-                      SizedBox(height: diameter * 0.055),
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: TextStyle(
-                          fontSize: diameter * 0.052,
-                          letterSpacing: 0.6,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white.withValues(alpha: front ? 0.98 : 0.76),
-                          shadows: const [
-                            Shadow(color: Color(0xFFB66BFF), blurRadius: 10),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CustomPaint(
-                              painter: _RadarDiagnosticoPainter(
-                                values: values,
-                                labels: labels,
-                                color: title == 'RUEDA DE LA VIDA'
-                                    ? const Color(0xFFE16BFF)
-                                    : const Color(0xFF9B75FF),
-                                textColor: Colors.white.withValues(alpha: front ? 0.90 : 0.68),
-                              ),
-                            ),
-                            Center(
-                              child: Material(
-                                color: Colors.black.withValues(alpha: 0.30),
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => _abrirEditorRadar(
-                                    title: title,
-                                    labels: labels,
-                                    values: values,
-                                    esRueda: title == 'RUEDA DE LA VIDA',
-                                    scheme: scheme,
-                                  ),
-                                  child: const SizedBox(
-                                    width: 42,
-                                    height: 42,
-                                    child: Icon(Icons.open_in_full, size: 17, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: diameter * 0.045),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-  }
-
-  Future<void> _abrirEditorRadar({
-    required String title,
-    required List<String> labels,
-    required List<double> values,
-    required bool esRueda,
-    required ColorScheme scheme,
-  }) async {
-    final editados = List<double>.from(values);
+  Future<void> _abrirEditorRadar({required ColorScheme scheme}) async {
+    final editados = _valoresRuedaUnificada();
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, actualizarDialogo) {
-          final color = esRueda
-              ? const Color(0xFFE16BFF)
-              : const Color(0xFF9B75FF);
-
           void moverPunto(Offset posicion, Size size) {
             final centro = Offset(size.width / 2, size.height / 2);
             final delta = posicion - centro;
-            final radio = math.min(size.width, size.height) * 0.285;
+            final radio = math.min(size.width, size.height) * 0.34;
             if (delta.distance < 2) return;
             var angulo = math.atan2(delta.dy, delta.dx) + math.pi / 2;
             if (angulo < 0) angulo += 2 * math.pi;
@@ -631,107 +483,141 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             actualizarDialogo(() => editados[indice] = valor);
           }
 
-          return AlertDialog(
-            backgroundColor: const Color(0xFF101A32),
-            title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Toca una dimensión y ajusta su punto en el radar, o utiliza su control numérico.',
+          return Dialog.fullscreen(
+            backgroundColor: const Color(0xFF080F22),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                        ),
+                        const Expanded(
+                          child: Text('Rueda de la Vida',
+                            style: TextStyle(color: Colors.white,
+                              fontSize: 18, fontWeight: FontWeight.w700)),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final data = _cuaderno;
+                            if (data == null) return;
+                            final rueda = data.ruedaVida;
+                            final diagnostico = data.diagnosticoInicial;
+                            rueda.salud = editados[0].round();
+                            rueda.estudios = editados[1].round();
+                            rueda.trabajo = editados[2].round();
+                            rueda.finanzas = editados[3].round();
+                            rueda.familia = editados[4].round();
+                            rueda.amigos = editados[5].round();
+                            rueda.descanso = editados[6].round();
+                            rueda.crecimiento = editados[7].round();
+                            diagnostico.energia = editados[8].round();
+                            diagnostico.estres = editados[9].round();
+                            diagnostico.claridadMental = editados[10].round();
+                            diagnostico.organizacion = editados[11].round();
+                            diagnostico.motivacion = editados[12].round();
+                            diagnostico.satisfaccionGeneral = editados[13].round();
+                            await CuadernilloService.guardar(data);
+                            if (mounted) setState(() {});
+                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                          },
+                          child: const Text('Guardar',
+                            style: TextStyle(color: Color(0xFF8CEBFF),
+                              fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    child: Text(
+                      'Toca o arrastra sobre el gráfico para ajustar cada dimensión. También puedes usar los controles.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
-                    const SizedBox(height: 12),
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final size = Size(constraints.maxWidth, constraints.maxHeight);
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapDown: (d) => moverPunto(d.localPosition, size),
-                            onPanStart: (d) => moverPunto(d.localPosition, size),
-                            onPanUpdate: (d) => moverPunto(d.localPosition, size),
-                            child: CustomPaint(
-                              painter: _RadarDiagnosticoPainter(
-                                values: editados,
-                                labels: labels,
-                                color: color,
-                                textColor: Colors.white,
+                  ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final side = math.min(constraints.maxWidth,
+                          constraints.maxHeight * 0.78);
+                        return Center(
+                          child: SizedBox(
+                            width: side,
+                            height: side,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (d) => moverPunto(d.localPosition, Size(side, side)),
+                              onPanStart: (d) => moverPunto(d.localPosition, Size(side, side)),
+                              onPanUpdate: (d) => moverPunto(d.localPosition, Size(side, side)),
+                              child: CustomPaint(
+                                painter: _RadarDiagnosticoPainter(
+                                  values: editados,
+                                  labels: _etiquetasRueda,
+                                  color: const Color(0xFF9B75FF),
+                                  axisColors: _coloresRueda,
+                                  textColor: Colors.white,
+                                ),
+                                child: const SizedBox.expand(),
                               ),
-                              child: const SizedBox.expand(),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 8),
-                    for (var i = 0; i < labels.length; i++)
-                      Row(
+                  ),
+                  SizedBox(
+                    height: math.min(250, MediaQuery.of(context).size.height * 0.29),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+                      itemCount: _etiquetasRueda.length,
+                      itemBuilder: (context, index) => Row(
                         children: [
+                          Container(width: 9, height: 9,
+                            decoration: BoxDecoration(color: _coloresRueda[index],
+                              shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
                           Expanded(
                             flex: 4,
-                            child: Text(labels[i], style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            child: Text(_etiquetasRueda[index],
+                              style: const TextStyle(color: Colors.white, fontSize: 12)),
                           ),
                           Expanded(
-                            flex: 5,
-                            child: Slider(
-                              value: editados[i].clamp(0, 10),
-                              min: 0,
-                              max: 10,
-                              divisions: 10,
-                              activeColor: color,
-                              onChanged: (v) => actualizarDialogo(() => editados[i] = v),
+                            flex: 6,
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: _coloresRueda[index],
+                                thumbColor: _coloresRueda[index],
+                                inactiveTrackColor: _coloresRueda[index].withValues(alpha: 0.20),
+                              ),
+                              child: Slider(
+                                value: editados[index].clamp(0, 10),
+                                min: 0,
+                                max: 10,
+                                divisions: 10,
+                                onChanged: (value) => actualizarDialogo(
+                                  () => editados[index] = value),
+                              ),
                             ),
                           ),
                           SizedBox(
-                            width: 34,
-                            child: Text(editados[i].toStringAsFixed(0),
+                            width: 25,
+                            child: Text(editados[index].toStringAsFixed(0),
                               textAlign: TextAlign.end,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              style: TextStyle(color: _coloresRueda[index],
+                                fontWeight: FontWeight.w800)),
                           ),
                         ],
                       ),
-                  ],
-                ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final rueda = _cuaderno!.ruedaVida;
-                  final diagnostico = _cuaderno!.diagnosticoInicial;
-                  if (esRueda) {
-                    rueda.salud = editados[0].round();
-                    rueda.estudios = editados[1].round();
-                    rueda.trabajo = editados[2].round();
-                    rueda.finanzas = editados[3].round();
-                    rueda.familia = editados[4].round();
-                    rueda.amigos = editados[5].round();
-                    rueda.descanso = editados[6].round();
-                    rueda.crecimiento = editados[7].round();
-                  } else {
-                    diagnostico.energia = editados[0].round();
-                    diagnostico.estres = editados[1].round();
-                    diagnostico.claridadMental = editados[2].round();
-                    diagnostico.organizacion = editados[3].round();
-                    diagnostico.motivacion = editados[4].round();
-                    diagnostico.satisfaccionGeneral = editados[5].round();
-                  }
-                  await CuadernilloService.guardar(_cuaderno!);
-                  if (mounted) setState(() {});
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                },
-                child: const Text('Guardar cambios'),
-              ),
-            ],
           );
         },
       ),
@@ -1093,12 +979,14 @@ class _RadarDiagnosticoPainter extends CustomPainter {
   final List<String> labels;
   final Color color;
   final Color textColor;
+  final List<Color>? axisColors;
 
   _RadarDiagnosticoPainter({
     required this.values,
     required this.labels,
     required this.color,
     required this.textColor,
+    this.axisColors,
   });
 
   @override
@@ -1133,7 +1021,8 @@ class _RadarDiagnosticoPainter extends CustomPainter {
     for (var i = 0; i < count; i++) {
       final angle = -math.pi / 2 + 2 * math.pi * i / count;
       final end = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
-      canvas.drawLine(center, end, axisPaint);
+      final axisColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
+      canvas.drawLine(center, end, Paint()..color = axisColor.withValues(alpha: 0.48)..strokeWidth = 1.1);
       final value = values[i].clamp(0, 10).toDouble();
       polygon.add(center + Offset(
         math.cos(angle) * radius * value / 10,
@@ -1146,38 +1035,34 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       area.lineTo(point.dx, point.dy);
     }
     area.close();
-    canvas.drawPath(
-      area,
-      Paint()
-        ..color = color.withValues(alpha: 0.22)
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawPath(
-      area,
-      Paint()
-        ..color = color
+    for (var i = 0; i < count; i++) {
+      final next = (i + 1) % count;
+      final sector = Path()
+        ..moveTo(center.dx, center.dy)
+        ..lineTo(polygon[i].dx, polygon[i].dy)
+        ..lineTo(polygon[next].dx, polygon[next].dy)
+        ..close();
+      final sectorColor = axisColors != null && i < axisColors!.length
+          ? axisColors![i] : color;
+      canvas.drawPath(sector, Paint()
+        ..color = sectorColor.withValues(alpha: 0.13)
+        ..style = PaintingStyle.fill);
+      canvas.drawLine(polygon[i], polygon[next], Paint()
+        ..color = sectorColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
-    );
-    canvas.drawPath(
-      area,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..strokeJoin = StrokeJoin.round,
-    );
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round);
+    }
 
     for (var i = 0; i < count; i++) {
       final point = polygon[i];
-      canvas.drawCircle(point, 3.2, Paint()..color = color);
+      final pointColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
+      canvas.drawCircle(point, 4.2, Paint()..color = pointColor);
       canvas.drawCircle(
         point,
         5.3,
         Paint()
-          ..color = color.withValues(alpha: 0.22)
+          ..color = pointColor.withValues(alpha: 0.25)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
@@ -1229,7 +1114,8 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       oldDelegate.values != values ||
       oldDelegate.labels != labels ||
       oldDelegate.color != color ||
-      oldDelegate.textColor != textColor;
+      oldDelegate.textColor != textColor ||
+      oldDelegate.axisColors != axisColors;
 }
 
 /// Dibuja los 30 segmentos del anillo; el selector táctil se superpone encima.
