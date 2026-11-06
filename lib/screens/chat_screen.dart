@@ -9,11 +9,11 @@ import '../theme/app_theme.dart';
 import '../services/diario_store.dart';
 import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
-import '../models/cuadernillo_data.dart';
+import '../models/productividad_data.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
-import '../services/cuadernillo_service.dart';
+import '../services/herramientas_service.dart';
 import '../services/tasks_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -297,7 +297,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       if (diagnostico == null) return;
 
-      final data = await CuadernilloService.cargar();
+      final data = await HerramientasService.cargar();
       final existente = data.diagnosticoConversacional;
       if (existente != null &&
           (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
@@ -382,7 +382,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _generarInformeHabitosSiCorresponde() async {
     try {
-      final data = await CuadernilloService.cargar();
+      final data = await HerramientasService.cargar();
       if (data.habitos.isEmpty) return;
       final prefs = await SharedPreferences.getInstance();
       const claveUltimoInforme = 'agora_ultimo_informe_habitos';
@@ -443,7 +443,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
   Future<void> _generarPropuestaDiagnostico(ChatConversation conv) async {
     try {
-      final data = await CuadernilloService.cargar();
+      final data = await HerramientasService.cargar();
       final existente = data.diagnosticoConversacional;
       if (existente != null &&
           (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
@@ -465,7 +465,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
         resumen: (propuesta['resumen'] ?? '').toString(),
       );
-      await CuadernilloService.guardar(data);
+      await HerramientasService.guardar(data);
 
       final aviso = ChatMessageData(
         role: 'model',
@@ -616,7 +616,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
   /// La Etapa 1 antigua del cuadernillo ya no es fuente de este contexto.
   Future<String?> _construirContextoUsuario() async {
-    final data = await CuadernilloService.cargar();
+    final data = await HerramientasService.cargar();
     final partes = <String>[];
     final diagnostico = data.diagnosticoConversacional;
 
