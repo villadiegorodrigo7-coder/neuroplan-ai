@@ -4,15 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/cuadernillo_data.dart';
+import '../models/productividad_data.dart';
 import '../models/entrada_diario.dart';
 import '../models/task.dart';
 import 'coleccion_nube.dart';
-import 'cuadernillo_service.dart';
+import 'herramientas_service.dart';
 
 /// Fuente única de verdad de las tareas.
 ///
-/// La pantalla de Tareas y la Etapa 2 del Cuadernillo usan este servicio.
+/// La pantalla de Tareas y la matriz independiente usan este servicio.
 /// Es necesario porque la pantalla de Tareas vive en un IndexedStack (se
 /// queda en memoria): si otra pantalla escribiera directo en
 /// SharedPreferences, Tareas no se enteraría y luego lo sobrescribiría.
@@ -181,12 +181,12 @@ class TasksService extends ChangeNotifier {
     });
   }
 
-  /// Lee el Cuadernillo, aplica [cambio] a la matriz y lo vuelve a guardar.
+  /// Lee las herramientas independientes, aplica [cambio] a la matriz y las guarda.
   /// Las modificaciones van en cola: dos cambios seguidos (p. ej. agregar
   /// dos tareas rápido) no se pisan entre sí.
   Future<void> _modificarMatriz(void Function(MatrizEisenhower m) cambio) {
     _colaMatriz = _colaMatriz.then((_) async {
-      final data = await CuadernilloService.cargar();
+      final data = await HerramientasService.cargar();
       cambio(data.matrizEisenhower);
       await CuadernilloService.guardar(data);
     }).catchError((Object e) {
