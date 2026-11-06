@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cuadernillo_data.dart';
@@ -17,6 +18,7 @@ class CuadernilloService {
   /// Clave original. Se conserva para migrar datos previos a la cuenta.
   static const String _legacyKey = 'cuadernillo_neuroplan_data';
   static const String _tabla = 'cuadernillos';
+  static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
 
   static SupabaseClient get _db => Supabase.instance.client;
   static String? get _uid => _db.auth.currentUser?.id;
@@ -39,6 +41,7 @@ class CuadernilloService {
 
     await prefs.setString(_dataKey(uid), data.toJsonString());
     await prefs.setString(_tsKey(uid), ahora.toIso8601String());
+    cambios.value++;
 
     if (uid == null) return; // sin sesión: solo local
 
