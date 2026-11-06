@@ -128,6 +128,7 @@ class HerramientasService {
     Map<String, dynamic>? remoto;
     final uid = _uid;
     if (uid != null) {
+      // Primero consulta el almacenamiento nuevo.
       try {
         final fila = await _db
             .from(_tablaTransicion)
@@ -137,8 +138,13 @@ class HerramientasService {
         if (fila != null && fila['datos'] is Map) {
           remoto = Map<String, dynamic>.from(fila['datos']);
         }
-        if (remoto == null) {
-          // Solo lectura temporal de la tabla antigua para migrar datos cloud.
+      } catch (_) {
+        // La migración SQL puede no haberse aplicado todavía.
+      }
+
+      // Si no hay copia nueva, lee la tabla antigua solo para migrar.
+      if (remoto == null) {
+        try {
           final anterior = await _db
               .from(_tablaAntigua)
               .select('datos')
@@ -147,9 +153,9 @@ class HerramientasService {
           if (anterior != null && anterior['datos'] is Map) {
             remoto = Map<String, dynamic>.from(anterior['datos']);
           }
+        } catch (_) {
+          // La copia local sigue siendo una fuente válida.
         }
-      } catch (_) {
-        // Seguimos con la copia local disponible.
       }
     }
 
@@ -212,7 +218,15 @@ class HerramientasService {
           .select('user_id')
           .eq('user_id', uid)
           .maybeSingle();
-      return fila != null;
+      if (fila != null) return true;
+    } catch (_) {}
+    try {
+      final filaAntigua = await _db
+          .from(_tablaAntigua)
+          .select('user_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+      return filaAntigua != null;
     } catch (_) {
       return false;
     }
