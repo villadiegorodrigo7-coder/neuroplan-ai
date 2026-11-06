@@ -107,7 +107,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       if (diagnostico == null) return data;
 
       final historial = diagnostico.messages
-          .where((m) => m.content.trim().isNotEmpty)
+          .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
           .map((m) => <String, String>{
                 'role': m.role == 'user' ? 'user' : 'model',
                 'content': m.content,
@@ -128,6 +128,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       // Persistir el cierre antes de solicitar la propuesta evita que una
       // falla temporal de Gemini obligue a clasificar otra vez el historial.
       diagnostico.diagnosticoCompleto = true;
+      if (!diagnostico.messages.any((m) =>
+          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
+        diagnostico.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'DIAGNOSTICO_COMPLETO',
+        ));
+      }
       await ChatHistoryService.saveConversations(conversaciones);
 
       final propuesta =
