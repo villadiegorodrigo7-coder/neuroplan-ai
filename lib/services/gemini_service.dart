@@ -85,7 +85,7 @@ PREGUNTAS DEL DIAGNÓSTICO:
 11. "Sobre el descanso: ¿estás teniendo espacios de conexión real que te permiten recargar?"
 12. Esta pregunta integra y cierra el diagnóstico, después de explorar las anteriores: "Mirando todo lo que acabas de nombrar, ¿qué es lo que más te pesa hoy? ¿Qué te gustaría ver diferente en 30 días y cuál es ese primer paso que estás dispuesto a dar desde ya?"
 
-Haz solo una pregunta principal por turno. Escucha la respuesta antes de avanzar. No conviertas las respuestas en puntuaciones, diagnósticos psicológicos ni juicios. Busca comprender el contexto que la persona decida compartir. Si no quiere responder algo, respétalo y continúa sin presión. Si la persona necesita hablar de otra cosa, atiéndela; no la fuerces a terminar el diagnóstico. Al completar la exploración, devuelve una síntesis breve y fiel de lo que escuchaste, distingue hechos de interpretaciones y deja que la persona continúe libremente la conversación.
+Haz solo una pregunta principal por turno. Escucha la respuesta antes de avanzar. No conviertas las respuestas en puntuaciones, diagnósticos psicológicos ni juicios. Busca comprender el contexto que la persona decida compartir. Si no quiere responder algo, respétalo y continúa sin presión. Si la persona necesita hablar de otra cosa, atiéndela; no la fuerces a terminar el diagnóstico. Al completar la exploración, devuelve una síntesis breve y fiel de lo que escuchaste, distingue hechos de interpretaciones y deja que la persona continúe libremente la conversación. Si y solo si ya exploraste las 12 preguntas (aceptando respuestas espontáneas que cubran varias preguntas y respetando las que la persona no quiera responder) y formulaste la síntesis integradora final, añade al final de tu respuesta el marcador técnico exacto [[DIAGNOSTICO_COMPLETO]]. No uses ese marcador antes de terminar.
 
 El diagnóstico conversacional es la única fuente del diagnóstico inicial y de la primera propuesta de la Rueda de la Vida. No consultes ni uses valores, notas o respuestas guardados en la antigua Etapa 1 del cuadernillo para completar, adelantar o modificar este diagnóstico. No des por respondidas preguntas a partir de esos datos antiguos. Escucha las 12 preguntas de este proceso y trabaja únicamente con lo que la persona expresa en esta conversación.
 
@@ -323,6 +323,17 @@ $contextoUsuario
     }
   }
 
+  /// Comprueba si la conversación inicial ya terminó, usando el historial real.
+  /// Se utiliza para recuperar diagnósticos completos de versiones anteriores.
+  static Future<bool> diagnosticoConversacionalCompleto(
+    List<Map<String, String>> historial,
+  ) async {
+    final respuesta = await sendMessage(
+      '''Evalúa exclusivamente el historial del diagnóstico inicial que sigue. Determina si Ágora ya exploró las 12 preguntas del diagnóstico (considera atendidas las que la persona respondió espontáneamente, incluso si cubrió varias en una sola intervención), respetó las preguntas que la persona decidió no responder y realizó la síntesis integradora de cierre. No exijas exactamente 12 o 14 mensajes. Si la conversación todavía está en curso o falta la exploración/cierre, responde únicamente INCOMPLETO. Si ya terminó, responde únicamente COMPLETO. No generes puntuaciones ni una rueda.''',
+      history: historial,
+    );
+    return respuesta.trim().toUpperCase() == 'COMPLETO';
+  }
   /// Propone valores preliminares para la Rueda de la Vida usando únicamente
   /// la conversación del diagnóstico. La propuesta nunca se confirma sola.
   static Future<Map<String, dynamic>?> proponerDiagnosticoConversacional(
