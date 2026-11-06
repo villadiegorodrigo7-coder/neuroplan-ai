@@ -305,7 +305,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       final historial = diagnostico.messages
-          .where((m) => m.content.trim().isNotEmpty)
+          .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
           .map((m) => {
                 'role': m.role == 'user' ? 'user' : 'model',
                 'content': m.content,
@@ -324,6 +324,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!completo) return;
 
       diagnostico.diagnosticoCompleto = true;
+      if (!diagnostico.messages.any((m) =>
+          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
+        diagnostico.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'DIAGNOSTICO_COMPLETO',
+        ));
+      }
       await _persist();
       await _generarPropuestaDiagnostico(diagnostico);
     } catch (_) {
@@ -443,7 +450,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         return;
       }
       final historial = conv.messages
-          .where((m) => m.content.trim().isNotEmpty)
+          .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
           .map((m) => {
                 'role': m.role == 'user' ? 'user' : 'model',
                 'content': m.content,
@@ -546,6 +553,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     // en sendMessage, así que se excluye del historial para no duplicarlo.
     final history = conv.messages
         .sublist(0, conv.messages.length - 1)
+        .where((m) => m.role != 'system')
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
@@ -574,7 +582,16 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         conv.title == 'Diagnóstico inicial' &&
         (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
             conv.diagnosticoCompleto);
-    if (diagnosticoCompleto) conv.diagnosticoCompleto = true;
+    if (diagnosticoCompleto) {
+      conv.diagnosticoCompleto = true;
+      if (!conv.messages.any((m) =>
+          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
+        conv.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'DIAGNOSTICO_COMPLETO',
+        ));
+      }
+    }
     final response = respuestaAgora
         .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
         .trim();
@@ -1016,6 +1033,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
                           final msg = messages[index];
+                          if (msg.role == 'system') return const SizedBox.shrink();
                           final isUser = msg.role == 'user';
                           return Align(
                             alignment: isUser
