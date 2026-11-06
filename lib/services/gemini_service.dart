@@ -333,7 +333,7 @@ $contextoUsuario
       history: historial,
     );
     final estado = RegExp(
-      r'\\b(INCOMPLETO|COMPLETO)\\b',
+      r'\b(INCOMPLETO|COMPLETO)\b',
       caseSensitive: false,
     ).firstMatch(respuesta.trim());
     return estado?.group(1)?.toUpperCase() == 'COMPLETO';
