@@ -404,7 +404,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final diameter = math.min(278.0, constraints.maxWidth * 0.76);
+            final diameter = math.min(278.0, constraints.maxWidth * 0.68);
             final desplazamiento = diameter * 0.39;
             final total = diameter + desplazamiento;
             return SizedBox(
@@ -468,7 +468,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     required List<String> labels,
     required ColorScheme scheme,
   }) {
-    final tilt = front ? -0.035 : 0.045;
+    final tilt = front ? -0.08 : 0.12;
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 720),
       curve: Curves.easeInOutCubic,
@@ -480,10 +480,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         duration: const Duration(milliseconds: 720),
         curve: Curves.easeInOutCubic,
         scale: front ? 1 : 0.91,
-        child: AnimatedRotation(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: front ? 0.12 : -0.08, end: tilt),
           duration: const Duration(milliseconds: 720),
           curve: Curves.easeInOutCubic,
-          turns: front ? 0 : 0.012,
+          builder: (context, angleY, child) => Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.0012)
+              ..rotateY(angleY),
+            child: child,
+          ),
           child: GestureDetector(
             onTap: () => setState(() => _ruedaAlFrente = title == 'RUEDA DE LA VIDA'),
             child: AnimatedContainer(
@@ -526,12 +533,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                   ),
                 ],
               ),
-              child: Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.0012)
-                  ..rotateY(tilt),
-                child: Padding(
+              child: Padding(
                   padding: EdgeInsets.all(diameter * 0.075),
                   child: Column(
                     children: [
