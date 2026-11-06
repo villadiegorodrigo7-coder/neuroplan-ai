@@ -95,7 +95,9 @@ class AgendaStore extends ChangeNotifier {
         'frecuencia': evento.frecuencia,
         'diasSemana': evento.diasSemana,
         'cumplimientos': Map<String, bool>.from(evento.cumplimientos),
-        'eliminado_sin_cumplir': !evento.cumplimientos.values.any((v) => v),
+        'fechas_cumplidas': evento.cumplimientos.entries.where((e) => e.value).map((e) => e.key).toList(),
+        'fechas_marcadas_no_cumplidas': evento.cumplimientos.entries.where((e) => !e.value).map((e) => e.key).toList(),
+        'frecuencia_indefinida': evento.frecuencia != 'unica',
       },
     ));
     _eventos.removeWhere((e) => e.id == id);
