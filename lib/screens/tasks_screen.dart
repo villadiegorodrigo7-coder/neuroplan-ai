@@ -126,8 +126,8 @@ class _TasksScreenState extends State<TasksScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar hábito'),
         content: Text(
-          '¿Quieres eliminar "${habito.nombre}"? También se eliminará '
-          'el historial de seguimiento asociado a este hábito.',
+          '¿Quieres eliminar "${habito.nombre}"? Su historial quedará '
+          'conservado para el indicador de Mi Pulso.',
         ),
         actions: [
           TextButton(
@@ -162,19 +162,6 @@ class _TasksScreenState extends State<TasksScreen> {
             .toList(),
       },
     );
-    for (final registro in registros.entries.where((e) => e.value)) {
-      final fecha = DateTime.tryParse(registro.key);
-      if (fecha != null) {
-        await ActividadDiariaService.registrar(
-          origen: 'habito',
-          origenId: habito.id,
-          titulo: habito.nombre,
-          accion: 'cumplida',
-          fecha: fecha,
-          detalles: {'tipo': habito.tipo, 'recuperado_al_eliminar': true},
-        );
-      }
-    }
     data.habitos.removeWhere((h) => h.id == habito.id);
     await CuadernilloService.guardar(data);
     if (mounted) {
