@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../services/diario_store.dart';
 import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
+import '../models/cuadernillo_data.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
@@ -385,6 +386,47 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
   }
 
+  Future<void> _generarPropuestaDiagnostico(ChatConversation conv) async {
+    try {
+      final data = await CuadernilloService.cargar();
+      final existente = data.diagnosticoConversacional;
+      if (existente != null &&
+          (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
+        return;
+      }
+      final historial = conv.messages
+          .where((m) => m.content.trim().isNotEmpty)
+          .map((m) => {
+                'role': m.role == 'user' ? 'user' : 'model',
+                'content': m.content,
+              })
+          .toList();
+      final propuesta =
+          await GeminiService.proponerDiagnosticoConversacional(historial);
+      if (propuesta == null) return;
+
+      data.diagnosticoConversacional = DiagnosticoConversacional(
+        valoresPropuestos: Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
+        fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
+        resumen: (propuesta['resumen'] ?? '').toString(),
+      );
+      await CuadernilloService.guardar(data);
+
+      final aviso = ChatMessageData(
+        role: 'model',
+        content: 'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
+      );
+      conv.messages.add(aviso);
+      await _persist();
+      if (mounted && _current?.id == conv.id) {
+        setState(() {});
+        _scrollToBottom();
+      }
+    } catch (_) {
+      // La conversación sigue disponible aunque falle la propuesta visual.
+    }
+  }
+
   Future<void> _persist() async {
     await ChatHistoryService.saveConversations(_conversations);
   }
@@ -488,6 +530,11 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     });
     _scrollToBottom();
     await _persist();
+
+    if (conv.title == 'Diagnóstico inicial' &&
+        conv.messages.where((m) => m.role == 'user').length >= 14) {
+      await _generarPropuestaDiagnostico(conv);
+    }
 
     if (_voiceReplyEnabled) {
       VoiceService.speak(response);
