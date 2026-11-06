@@ -106,7 +106,7 @@ class TasksService extends ChangeNotifier {
   // ---------------------------------------------------------------
 
   /// Agrega una tarea en un cuadrante. Se refleja en la matriz del
-  /// Cuadernillo (Etapa 2), porque Tareas es una réplica de esa matriz.
+  /// La matriz independiente, que se refleja en la pantalla de Tareas.
   void agregar(String titulo, String cuadrante) {
     final texto = titulo.trim();
     if (texto.isEmpty || !cuadrantesSincronizados.containsKey(cuadrante)) {
