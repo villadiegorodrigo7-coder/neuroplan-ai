@@ -415,7 +415,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         Text(
-          _tieneDiagnosticoConversacionalConfirmado\n              ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'\n              : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
+          _tieneDiagnosticoConversacionalConfirmado
+              ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
+              : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
           style: TextStyle(fontSize: 12, height: 1.35,
             color: Colors.white.withValues(alpha: 0.66)),
         ),
