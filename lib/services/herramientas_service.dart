@@ -29,6 +29,13 @@ class HerramientasData {
         evaluacionesBloques = evaluacionesBloques ?? [],
         habitos = habitos ?? [];
 
+  MatrizEisenhower get matrizEisenhower => matriz;
+  set matrizEisenhower(MatrizEisenhower value) => matriz = value;
+  Seguimiento30Dias get seguimiento30Dias => seguimiento;
+  set seguimiento30Dias(Seguimiento30Dias value) => seguimiento = value;
+  DiagnosticoConversacional? get diagnosticoConversacional => diagnostico;
+  set diagnosticoConversacional(DiagnosticoConversacional? value) => diagnostico = value;
+
   Map<String, dynamic> toJson() => {
         'version': 1,
         'matriz': matriz.toJson(),
@@ -99,6 +106,7 @@ class HerramientasData {
 class HerramientasService {
   static const String _localKey = 'neuroplan_herramientas_v1';
   static const String _tablaTransicion = 'neuroplan_herramientas';
+  static const String _tablaAntigua = 'cuadernillos';
   static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
   static Future<void> _cola = Future.value();
 
@@ -128,6 +136,17 @@ class HerramientasService {
             .maybeSingle();
         if (fila != null && fila['datos'] is Map) {
           remoto = Map<String, dynamic>.from(fila['datos']);
+        }
+        if (remoto == null) {
+          // Solo lectura temporal de la tabla antigua para migrar datos cloud.
+          final anterior = await _db
+              .from(_tablaAntigua)
+              .select('datos')
+              .eq('user_id', uid)
+              .maybeSingle();
+          if (anterior != null && anterior['datos'] is Map) {
+            remoto = Map<String, dynamic>.from(anterior['datos']);
+          }
         }
       } catch (_) {
         // Seguimos con la copia local disponible.
@@ -176,6 +195,27 @@ class HerramientasService {
     });
     _cola = tarea;
     await tarea;
+  }
+
+  static Future<bool> tieneDatosGuardados() async {
+    final prefs = await SharedPreferences.getInstance();
+    final local = prefs.getString(_localKey);
+    if (local != null && local.isNotEmpty) return true;
+    final uid = _uid;
+    if (uid == null) {
+      final antiguo = prefs.getString('cuadernillo_neuroplan_data');
+      return antiguo != null && antiguo.isNotEmpty;
+    }
+    try {
+      final fila = await _db
+          .from(_tablaTransicion)
+          .select('user_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+      return fila != null;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> borrarTodo() async {
