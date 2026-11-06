@@ -4,6 +4,7 @@ import '../models/cuadernillo_data.dart';
 import '../models/entrada_diario.dart';
 import '../models/task.dart';
 import '../services/cuadernillo_service.dart';
+import '../services/actividad_diaria_service.dart';
 import '../services/tasks_service.dart';
 
 /// Datos de presentación de cada cuadrante (mismos colores que la Etapa 2).
@@ -144,6 +145,36 @@ class _TasksScreenState extends State<TasksScreen> {
     if (confirmar != true) return;
 
     final data = await CuadernilloService.cargar();
+    final ahora = DateTime.now();
+    final registros = Map<String, bool>.from(habito.registros);
+    await ActividadDiariaService.registrar(
+      origen: 'habito',
+      origenId: habito.id,
+      titulo: habito.nombre,
+      accion: 'habito_eliminado',
+      fecha: ahora,
+      detalles: {
+        'tipo': habito.tipo,
+        'registros': registros,
+        'fechas_no_cumplidas': registros.entries
+            .where((e) => !e.value)
+            .map((e) => e.key)
+            .toList(),
+      },
+    );
+    for (final registro in registros.entries.where((e) => e.value)) {
+      final fecha = DateTime.tryParse(registro.key);
+      if (fecha != null) {
+        await ActividadDiariaService.registrar(
+          origen: 'habito',
+          origenId: habito.id,
+          titulo: habito.nombre,
+          accion: 'cumplida',
+          fecha: fecha,
+          detalles: {'tipo': habito.tipo, 'recuperado_al_eliminar': true},
+        );
+      }
+    }
     data.habitos.removeWhere((h) => h.id == habito.id);
     await CuadernilloService.guardar(data);
     if (mounted) {
@@ -158,7 +189,29 @@ class _TasksScreenState extends State<TasksScreen> {
     final data = await CuadernilloService.cargar();
     final actual = data.habitos.where((h) => h.id == habito.id).toList();
     if (actual.isEmpty) return;
-    actual.first.registros[EntradaDiario.claveFecha(DateTime.now())] = valor;
+    final fecha = DateTime.now();
+    final clave = EntradaDiario.claveFecha(fecha);
+    final estadoAnterior = actual.first.registros[clave] ?? false;
+    actual.first.registros[clave] = valor;
+    if (valor && !estadoAnterior) {
+      await ActividadDiariaService.registrar(
+        origen: 'habito',
+        origenId: habito.id,
+        titulo: habito.nombre,
+        accion: 'cumplida',
+        fecha: fecha,
+        detalles: {'tipo': habito.tipo},
+      );
+    } else if (!valor && estadoAnterior) {
+      await ActividadDiariaService.registrar(
+        origen: 'habito',
+        origenId: habito.id,
+        titulo: habito.nombre,
+        accion: 'desmarcada',
+        fecha: fecha,
+        detalles: {'tipo': habito.tipo},
+      );
+    }
     await CuadernilloService.guardar(data);
     if (mounted) setState(() => _cuaderno = data);
   }
