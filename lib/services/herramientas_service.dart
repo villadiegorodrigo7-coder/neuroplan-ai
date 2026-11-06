@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/productividad_data.dart';
 
 /// Datos de las herramientas activas de NEUROPLAN.
-/// No contiene etapas ni depende del modelo del cuadernillo.
+/// Almacena las herramientas actuales de forma independiente.
 class HerramientasData {
   MatrizEisenhower matriz;
   Seguimiento30Dias seguimiento;
