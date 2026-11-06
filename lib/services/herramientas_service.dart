@@ -98,7 +98,7 @@ class HerramientasData {
 /// a partir de ahí guarda únicamente el esquema independiente.
 class HerramientasService {
   static const String _localKey = 'neuroplan_herramientas_v1';
-  static const String _tablaTransicion = 'cuadernillos';
+  static const String _tablaTransicion = 'neuroplan_herramientas';
   static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
   static Future<void> _cola = Future.value();
 
