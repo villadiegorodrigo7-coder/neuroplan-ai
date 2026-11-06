@@ -8,7 +8,6 @@ import '../services/cuadernillo_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
-import '../models/agenda_event.dart';
 import '../services/agenda_store.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
