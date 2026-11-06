@@ -98,23 +98,19 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       .where((t) => t.fecha == _clave(d))
       .toList();
 
-  Color _colorDia(DateTime d) {
-    final e = _entrada(d);
-    if (e == null || e.semaforo.isEmpty) return _sinRegistro;
-    return colorDeSemaforo(e.semaforo) ?? _sinRegistro;
+  static const Color _diaTranscurrido = Color(0xFFFF9800);
+
+  int get _diasTranscurridos {
+    final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
+    final diferencia = hoy.difference(_inicio).inDays;
+    return (diferencia + 1).clamp(0, 30);
   }
 
-  int get _registrados =>
-      _dias.where((d) => (_entrada(d)?.semaforo ?? '').isNotEmpty).length;
-
-  int get _bien =>
-      _dias.where((d) => _entrada(d)?.semaforo == 'bien').length;
-
-  int get _atencion =>
-      _dias.where((d) => _entrada(d)?.semaforo == 'atencion').length;
-
-  int get _desafio =>
-      _dias.where((d) => _entrada(d)?.semaforo == 'riesgo').length;
+  // El anillo representa el paso del tiempo, no una calificación del día.
+  Color _colorDia(DateTime d) {
+    final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
+    return !d.isAfter(hoy) ? _diaTranscurrido : _sinRegistro;
+  }
 
   String _fechaLarga(DateTime d) {
     const dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -165,7 +161,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
-                    _leyenda(),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
@@ -202,9 +197,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                       fontWeight: FontWeight.w700,
                     )),
                 const SizedBox(height: 5),
-                Text('$_registrados',
+                Text('$_diasTranscurridos',
                     style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700)),
-                Text('de 30 días del ciclo',
+                Text('días transcurridos de 30',
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
               ],
             ),
@@ -440,29 +435,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
-
-  Widget _leyenda() {
-    Widget item(Color color, String texto, int cantidad) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 9, height: 9,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: 6),
-            Text('$texto $cantidad', style: const TextStyle(fontSize: 12)),
-          ],
-        );
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 14,
-      runSpacing: 9,
-      children: [
-        item(kColorBien, 'Bien', _bien),
-        item(kColorAtencion, 'Atención', _atencion),
-        item(kColorDesafio, 'Desafío', _desafio),
-        item(_sinRegistro, 'Sin registro', 30 - _registrados),
-      ],
-    );
-  }
 
   List<EvaluacionBloque> _evaluacionesDeFecha(DateTime fecha) {
     final clave = _clave(fecha);
