@@ -494,83 +494,27 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
   }
 
-  /// Arma el contexto de la Etapa 1 (diagnóstico, Rueda de la Vida y
-  /// consumo de tiempo) para dárselo al agente.
-  ///
-  /// Los valores numéricos arrancan en 5 por defecto, así que un 5 puede
-  /// ser "no lo toqué" o un 5 real. Por eso:
-  ///  * Etapa 1 completada  -> se envían todos los valores (ya los revisó).
-  ///  * Etapa 1 en progreso -> solo se envían los valores distintos de 5
-  ///    (los que seguro movió el usuario) y se avisa que son parciales.
-  /// Así el agente no trata valores por defecto como si fueran de la persona.
+  /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
+  /// La Etapa 1 antigua del cuadernillo ya no es fuente de este contexto.
   Future<String?> _construirContextoUsuario() async {
     final data = await CuadernilloService.cargar();
-    final completa = data.etapa1Completada;
-
-    // Devuelve "Etiqueta valor, ..." con los campos que corresponda enviar.
-    String? valores(Map<String, int> campos) {
-      final usados = campos.entries
-          .where((e) => completa || e.value != 5)
-          .map((e) => '${e.key} ${e.value}')
-          .toList();
-      return usados.isEmpty ? null : usados.join(', ');
-    }
-
-    final bloques = <String>[];
-
-    // --- Diagnóstico inicial ---
-    final d = data.diagnosticoInicial;
-    final diag = valores({
-      'Energía': d.energia,
-      'Estrés': d.estres,
-      'Claridad mental': d.claridadMental,
-      'Organización': d.organizacion,
-      'Motivación': d.motivacion,
-      'Satisfacción general': d.satisfaccionGeneral,
-    });
-    if (diag != null) bloques.add('Diagnóstico inicial (escala 0-10): $diag.');
-    if (d.nota.trim().isNotEmpty) {
-      bloques.add('Nota del usuario en el diagnóstico: ${_recortar(d.nota)}');
-    }
-
-    // --- Rueda de la Vida ---
-    final r = data.ruedaVida;
-    final rueda = valores({
-      'Salud': r.salud,
-      'Estudios': r.estudios,
-      'Trabajo': r.trabajo,
-      'Finanzas': r.finanzas,
-      'Familia': r.familia,
-      'Amigos': r.amigos,
-      'Descanso': r.descanso,
-      'Crecimiento personal': r.crecimiento,
-    });
-    if (rueda != null) bloques.add('Rueda de la Vida (escala 0-10): $rueda.');
-
-    // --- Distribución / consumo de tiempo (texto libre) ---
-    final t = data.consumoTiempo;
-    final tiempo = <String>[
-      if (t.redesSociales.trim().isNotEmpty)
-        'Redes sociales: ${_recortar(t.redesSociales)}',
-      if (t.distracciones.trim().isNotEmpty)
-        'Distracciones: ${_recortar(t.distracciones)}',
-      if (t.obligaciones.trim().isNotEmpty)
-        'Obligaciones: ${_recortar(t.obligaciones)}',
-      if (t.habitos.trim().isNotEmpty) 'Hábitos: ${_recortar(t.habitos)}',
-    ];
-    if (tiempo.isNotEmpty) {
-      bloques.add('Cómo usa su tiempo el usuario. ${tiempo.join(' | ')}');
-    }
-
     final partes = <String>[];
+    final diagnostico = data.diagnosticoConversacional;
 
-    if (bloques.isNotEmpty) {
-      final estado = completa
-          ? 'Etapa 1 del Cuadernillo completada.'
-          : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES. Lo '
-              'que no aparece aquí aún no lo ha respondido; no lo des por '
-              'hecho ni asumas un valor.';
-      partes.add('$estado\n${bloques.join('\n')}');
+    if (diagnostico != null && diagnostico.confirmado) {
+      final valores = diagnostico.valoresConfirmados.entries
+          .map((e) => '${e.key}: ${e.value}/10')
+          .join(', ');
+      final fundamentos = diagnostico.fundamentos.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(' | ');
+      partes.add(
+        'Rueda de la Vida confirmada por la persona después de conversar '
+        'con Ágora. Valores revisados y aceptados: $valores. '
+        '${diagnostico.resumen.trim().isEmpty ? '' : 'Síntesis aceptada: ${diagnostico.resumen}'} '
+        '${fundamentos.isEmpty ? '' : 'Fundamentos conversados: $fundamentos'} '
+        'Estos valores son una referencia personal confirmada, no un diagnóstico clínico.',
+      );
     }
 
     // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
