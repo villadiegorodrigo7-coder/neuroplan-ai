@@ -230,8 +230,7 @@ class _MainNavigationState extends State<MainNavigation>
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
-          // Al entrar a Tareas se vuelve a leer el cuadernillo, por si se
-          // editó la Etapa 2 o la Etapa 3.
+          // Al entrar a Tareas se sincroniza la matriz independiente.
           if (index == 1) TasksScreen.recargar.value++;
         },
         destinations: const [
