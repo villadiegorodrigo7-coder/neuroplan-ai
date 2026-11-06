@@ -457,7 +457,7 @@ class CuadernilloData {
 
   Map<String, dynamic> toJson() => {
         'diagnosticoInicial': diagnosticoInicial.toJson(),
-        'ruedaVida': ruedaVida.toJson(),
+        'ruedaVida': ruedaVida.toJson(),\n        if (diagnosticoConversacional != null) 'diagnosticoConversacional': diagnosticoConversacional!.toJson(),
         'consumoTiempo': consumoTiempo.toJson(),
         'matrizEisenhower': matrizEisenhower.toJson(),
         'rutinaSemanal': rutinaSemanal.toJson(),
