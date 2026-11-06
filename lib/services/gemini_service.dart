@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -319,6 +320,66 @@ $contextoUsuario
 
       default:
         return 'No fue posible conectar con la inteligencia artificial en este momento.';
+    }
+  }
+
+  /// Propone valores preliminares para la Rueda de la Vida usando únicamente
+  /// la conversación del diagnóstico. La propuesta nunca se confirma sola.
+  static Future<Map<String, dynamic>?> proponerDiagnosticoConversacional(
+    List<Map<String, String>> respuestas,
+  ) async {
+    const dimensiones = [
+      'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
+      'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
+      'Organización', 'Motivación', 'Satisfacción general',
+    ];
+    final respuesta = await sendMessage(
+      '''
+La conversación de diagnóstico inicial ya concluyó. Ahora realiza una lectura reflexiva de lo que la persona expresó y prepara una PROPUESTA VISUAL PRELIMINAR para su Rueda de la Vida.
+
+Devuelve exclusivamente un objeto JSON válido, sin Markdown ni texto antes o después, con esta estructura:
+{
+  "resumen": "síntesis breve, fiel y prudente de lo que la persona compartió",
+  "valoresPropuestos": {"Salud": 0, "Estudios": 0},
+  "fundamentos": {"Salud": "fragmento o paráfrasis concreta de lo que la persona dijo"}
+}
+
+Dimensiones posibles: ${dimensiones.join(', ')}.
+Para cada dimensión que tenga evidencia suficiente en la conversación, propone un valor entero de 0 a 10 como hipótesis visual aproximada. No uses valores por defecto, no asignes 5 por falta de información y no infieras una puntuación solo por las actividades que la persona realiza. Si no hay información suficiente sobre una dimensión, omítela de ambos mapas. Los fundamentos deben explicar qué parte de lo conversado sostiene la propuesta. No es una evaluación clínica ni una verdad objetiva: es una hipótesis para que la persona la revise y corrija. No incluyas valores confirmados.
+''',
+      history: respuestas,
+    );
+    try {
+      final inicio = respuesta.indexOf('{');
+      final fin = respuesta.lastIndexOf('}');
+      if (inicio < 0 || fin <= inicio) return null;
+      final parsed = jsonDecode(respuesta.substring(inicio, fin + 1));
+      if (parsed is! Map) return null;
+      final rawValues = parsed['valoresPropuestos'];
+      final rawReasons = parsed['fundamentos'];
+      if (rawValues is! Map || rawReasons is! Map) return null;
+      final values = <String, int>{};
+      for (final dimension in dimensiones) {
+        final value = rawValues[dimension];
+        if (value is num && value >= 0 && value <= 10) {
+          values[dimension] = value.round();
+        }
+      }
+      final reasons = <String, String>{};
+      for (final dimension in values.keys) {
+        final reason = rawReasons[dimension];
+        if (reason is String && reason.trim().isNotEmpty) {
+          reasons[dimension] = reason.trim();
+        }
+      }
+      if (values.isEmpty) return null;
+      return {
+        'resumen': (parsed['resumen'] ?? '').toString(),
+        'valoresPropuestos': values,
+        'fundamentos': reasons,
+      };
+    } catch (_) {
+      return null;
     }
   }
 
