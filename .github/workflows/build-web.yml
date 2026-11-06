@@ -47,6 +47,9 @@ jobs:
   deploy:
     needs: build-web
     runs-on: ubuntu-latest
+    concurrency:
+      group: neuroplan-github-pages
+      cancel-in-progress: false
 
     environment:
       name: github-pages
