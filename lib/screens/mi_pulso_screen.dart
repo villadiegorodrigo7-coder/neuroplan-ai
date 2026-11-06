@@ -44,6 +44,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     DiarioStore.instance.addListener(_actualizar);
     TasksService.instance.addListener(_actualizar);
     AgendaStore.instance.addListener(_actualizar);
+    CuadernilloService.cambios.addListener(_actualizarCuadernillo);
     _cargar();
   }
 
@@ -84,11 +85,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _actualizarCuadernillo() async {
+    final data = await CuadernilloService.cargar();
+    if (mounted) setState(() => _cuaderno = data);
+  }
+
   @override
   void dispose() {
     DiarioStore.instance.removeListener(_actualizar);
     TasksService.instance.removeListener(_actualizar);
     AgendaStore.instance.removeListener(_actualizar);
+    CuadernilloService.cambios.removeListener(_actualizarCuadernillo);
     super.dispose();
   }
 
