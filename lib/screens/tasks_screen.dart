@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../models/cuadernillo_data.dart';
+import '../models/productividad_data.dart';
 import '../models/entrada_diario.dart';
 import '../models/task.dart';
-import '../services/cuadernillo_service.dart';
+import '../services/herramientas_service.dart';
 import '../services/actividad_diaria_service.dart';
 import '../services/tasks_service.dart';
 
@@ -58,7 +58,7 @@ class _TasksScreenState extends State<TasksScreen> {
     for (final c in _cuadrantes) c.clave: TextEditingController(),
   };
   bool _loading = true;
-  CuadernilloData? _cuaderno;
+  HerramientasData? _cuaderno;
 
   @override
   void initState() {
@@ -75,8 +75,8 @@ class _TasksScreenState extends State<TasksScreen> {
 
   /// Sincroniza las tareas existentes de la Matriz de Eisenhower.
   Future<void> _sincronizarConCuadernillo() async {
-    if (await CuadernilloService.tieneDatosGuardados()) {
-      final data = await CuadernilloService.cargar();
+    if (await HerramientasService.tieneDatosGuardados()) {
+      final data = await HerramientasService.cargar();
       await _service.sincronizarMatriz(data.matrizEisenhower);
       if (mounted) setState(() => _cuaderno = data);
     }
@@ -103,7 +103,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
     controlador.dispose();
     if (nombre == null || nombre.trim().isEmpty) return;
-    final data = await CuadernilloService.cargar();
+    final data = await HerramientasService.cargar();
     final cantidad = data.habitos.where((h) => h.tipo == tipo).length;
     if (cantidad >= 3) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +116,7 @@ class _TasksScreenState extends State<TasksScreen> {
       nombre: nombre.trim(),
       tipo: tipo,
     ));
-    await CuadernilloService.guardar(data);
+    await HerramientasService.guardar(data);
     if (mounted) setState(() => _cuaderno = data);
   }
 
@@ -144,7 +144,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
     if (confirmar != true) return;
 
-    final data = await CuadernilloService.cargar();
+    final data = await HerramientasService.cargar();
     final ahora = DateTime.now();
     final registros = Map<String, bool>.from(habito.registros);
     await ActividadDiariaService.registrar(
@@ -163,7 +163,7 @@ class _TasksScreenState extends State<TasksScreen> {
       },
     );
     data.habitos.removeWhere((h) => h.id == habito.id);
-    await CuadernilloService.guardar(data);
+    await HerramientasService.guardar(data);
     if (mounted) {
       setState(() => _cuaderno = data);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -173,7 +173,7 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _registrarHabito(HabitoSeguimiento habito, bool valor) async {
-    final data = await CuadernilloService.cargar();
+    final data = await HerramientasService.cargar();
     final actual = data.habitos.where((h) => h.id == habito.id).toList();
     if (actual.isEmpty) return;
     final fecha = DateTime.now();
@@ -199,7 +199,7 @@ class _TasksScreenState extends State<TasksScreen> {
         detalles: {'tipo': habito.tipo},
       );
     }
-    await CuadernilloService.guardar(data);
+    await HerramientasService.guardar(data);
     if (mounted) setState(() => _cuaderno = data);
   }
 
