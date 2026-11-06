@@ -239,9 +239,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
             ]),
             for(final e in eventos.where((e)=>_bloqueHora(e.date)==b.clave))
               Row(children:[
-                Icon(Icons.event_available,color:s.tertiary,size:16),const SizedBox(width:7),
-                SizedBox(width:100,child:Text('${DateFormat('HH:mm').format(e.date)}–${DateFormat('HH:mm').format(e.endDate)}',style:TextStyle(fontSize:11,color:s.onSurface.withValues(alpha:.65)))),
-                Expanded(child:Text(e.title,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w600))),
+                GestureDetector(
+                  onTap:()=>AgendaStore.instance.alternarCumplimiento(e.id, _seleccion),
+                  child:Icon(e.realizadaEn(_seleccion)?Icons.check_circle:Icons.circle_outlined,
+                    color:e.realizadaEn(_seleccion)?s.primary:s.onSurface.withValues(alpha:.58),size:20),
+                ),
+                const SizedBox(width:7),
+                SizedBox(width:91,child:Text('${DateFormat('HH:mm').format(e.date)}–${DateFormat('HH:mm').format(e.endDate)}',style:TextStyle(fontSize:11,color:s.onSurface.withValues(alpha:.65)))),
+                Expanded(child:Text(e.title,style:TextStyle(fontSize:13,fontWeight:FontWeight.w600,
+                  decoration:e.realizadaEn(_seleccion)?TextDecoration.lineThrough:null,
+                  color:e.realizadaEn(_seleccion)?s.onSurface.withValues(alpha:.58):null))),
                 if(e.aviso)Icon(Icons.notifications_active,size:14,color:s.primary),
                 IconButton(visualDensity:VisualDensity.compact,onPressed:()=>_eliminar(AgendaStore.instance.porId(e.id)!),icon:const Icon(Icons.delete_outline,size:17)),
               ]),
