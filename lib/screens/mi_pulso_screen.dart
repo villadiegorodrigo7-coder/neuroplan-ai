@@ -526,8 +526,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                             if (mounted) setState(() {});
                             if (dialogContext.mounted) Navigator.pop(dialogContext);
                           },
-                          child: const Text('Guardar',
-                            style: TextStyle(color: Color(0xFF8CEBFF),
+                          child: Text(_tieneDiagnosticoConversacionalConfirmado
+                              ? 'Guardar cambios'
+                              : 'Confirmar diagnóstico',
+                            style: const TextStyle(color: Color(0xFF8CEBFF),
                               fontWeight: FontWeight.w700)),
                         ),
                       ],
