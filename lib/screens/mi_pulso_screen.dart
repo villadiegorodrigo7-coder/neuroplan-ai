@@ -3,11 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
-import '../models/cuadernillo_data.dart';
+import '../models/productividad_data.dart';
 import '../models/chat_conversation.dart';
 import '../services/chat_history_service.dart';
 import '../services/gemini_service.dart';
-import '../services/cuadernillo_service.dart';
+import '../services/herramientas_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
@@ -28,7 +28,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   bool _cargando = true;
   bool _ruedaAlFrente = true;
   late DateTime _inicioCiclo;
-  CuadernilloData? _cuaderno;
+  HerramientasData? _cuaderno;
 
   DateTime get _hoy => DateTime.now();
   DateTime get _inicio => _inicioCiclo;
@@ -46,7 +46,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     DiarioStore.instance.addListener(_actualizar);
     TasksService.instance.addListener(_actualizar);
     AgendaStore.instance.addListener(_actualizar);
-    CuadernilloService.cambios.addListener(_actualizarCuadernillo);
+    HerramientasService.cambios.addListener(_actualizarCuadernillo);
     _cargar();
   }
 
@@ -58,7 +58,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     ]);
 
     // Mi pulso usa el mismo ciclo de 30 días que la Etapa 4 del cuadernillo.
-    var cuadernillo = await CuadernilloService.cargar();
+    var cuadernillo = await HerramientasService.cargar();
     cuadernillo = await _recuperarRuedaDesdeDiagnostico(cuadernillo);
     var fechaInicio = cuadernillo.seguimiento30Dias.fechaInicio;
     if (fechaInicio.isEmpty) {
@@ -68,7 +68,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           ? fechas.first
           : EntradaDiario.claveFecha(DateTime.now());
       cuadernillo.seguimiento30Dias.fechaInicio = fechaInicio;
-      await CuadernilloService.guardar(cuadernillo);
+      await HerramientasService.guardar(cuadernillo);
     }
 
     final inicio = DateTime.tryParse(fechaInicio) ?? DateTime.now();
@@ -87,8 +87,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   /// Si el diagnóstico ya terminó en Ágora pero la propuesta visual no se
   /// alcanzó a guardar, Mi Pulso la recupera al abrirse. Así no depende de que
   /// ChatScreen siga montada cuando termina la conversación.
-  Future<CuadernilloData> _recuperarRuedaDesdeDiagnostico(
-      CuadernilloData data) async {
+  Future<HerramientasData> _recuperarRuedaDesdeDiagnostico(
+      HerramientasData data) async {
     final existente = data.diagnosticoConversacional;
     if (existente != null &&
         (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
@@ -148,7 +148,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             Map<String, String>.from(propuesta['fundamentos'] as Map),
         resumen: (propuesta['resumen'] ?? '').toString(),
       );
-      await CuadernilloService.guardar(data);
+      await HerramientasService.guardar(data);
       return data;
     } catch (error, stackTrace) {
       debugPrint('No se pudo recuperar la Rueda de la Vida: $error');
@@ -162,7 +162,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   Future<void> _actualizarCuadernillo() async {
-    final data = await CuadernilloService.cargar();
+    final data = await HerramientasService.cargar();
     if (mounted) setState(() => _cuaderno = data);
   }
 
@@ -171,7 +171,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     DiarioStore.instance.removeListener(_actualizar);
     TasksService.instance.removeListener(_actualizar);
     AgendaStore.instance.removeListener(_actualizar);
-    CuadernilloService.cambios.removeListener(_actualizarCuadernillo);
+    HerramientasService.cambios.removeListener(_actualizarCuadernillo);
     super.dispose();
   }
 
@@ -608,7 +608,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                   editados[i].round();
                             }
                             diagnostico.confirmado = true;
-                            await CuadernilloService.guardar(data);
+                            await HerramientasService.guardar(data);
                             if (mounted) setState(() {});
                             if (dialogContext.mounted) Navigator.pop(dialogContext);
                           },
