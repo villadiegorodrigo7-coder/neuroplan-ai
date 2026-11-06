@@ -573,8 +573,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _tareasDelDia(ColorScheme scheme) {
