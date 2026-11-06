@@ -473,7 +473,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           void moverPunto(Offset posicion, Size size) {
             final centro = Offset(size.width / 2, size.height / 2);
             final delta = posicion - centro;
-            final radio = math.min(size.width, size.height) * 0.34;
+            final radio = math.min(size.width, size.height) * 0.285;
             if (delta.distance < 2) return;
             var angulo = math.atan2(delta.dy, delta.dx) + math.pi / 2;
             if (angulo < 0) angulo += 2 * math.pi;
@@ -595,7 +595,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                 inactiveTrackColor: _coloresRueda[index].withValues(alpha: 0.20),
                               ),
                               child: Slider(
-                                value: editados[index].clamp(0, 10),
+                                value: editados[index].clamp(0, 10).toDouble(),
                                 min: 0,
                                 max: 10,
                                 divisions: 10,
@@ -999,10 +999,6 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       ..color = const Color(0xFF9FB8E8).withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
-    final axisPaint = Paint()
-      ..color = const Color(0xFF9FB8E8).withValues(alpha: 0.24)
-      ..strokeWidth = 0.7;
-
     for (var level = 1; level <= 10; level++) {
       final r = radius * level / 10;
       final points = List.generate(count, (i) {
@@ -1071,11 +1067,12 @@ class _RadarDiagnosticoPainter extends CustomPainter {
         math.cos(angle) * (radius + 17),
         math.sin(angle) * (radius + 17),
       );
+      final labelColor = axisColors != null && i < axisColors!.length ? axisColors![i] : textColor;
       final text = TextPainter(
         text: TextSpan(
           text: labels[i],
           style: TextStyle(
-            color: textColor,
+            color: labelColor,
             fontSize: 8.5,
             fontWeight: FontWeight.w600,
             shadows: const [Shadow(color: Color(0xFFB66BFF), blurRadius: 5)],
