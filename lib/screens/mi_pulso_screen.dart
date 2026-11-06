@@ -28,7 +28,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   bool _cargando = true;
   bool _ruedaAlFrente = true;
   late DateTime _inicioCiclo;
-  HerramientasData? _cuaderno;
+  HerramientasData? _herramientas;
 
   DateTime get _hoy => DateTime.now();
   DateTime get _inicio => _inicioCiclo;
@@ -46,7 +46,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     DiarioStore.instance.addListener(_actualizar);
     TasksService.instance.addListener(_actualizar);
     AgendaStore.instance.addListener(_actualizar);
-    HerramientasService.cambios.addListener(_actualizarCuadernillo);
+    HerramientasService.cambios.addListener(_actualizarHerramientas);
     _cargar();
   }
 
@@ -57,18 +57,18 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       AgendaStore.instance.cargar(),
     ]);
 
-    // Mi pulso usa el mismo ciclo de 30 días que la Etapa 4 del cuadernillo.
-    var cuadernillo = await HerramientasService.cargar();
-    cuadernillo = await _recuperarRuedaDesdeDiagnostico(cuadernillo);
-    var fechaInicio = cuadernillo.seguimiento30Dias.fechaInicio;
+    // Mi Pulso utiliza su propio seguimiento de 30 días.
+    var herramientas = await HerramientasService.cargar();
+    herramientas = await _recuperarRuedaDesdeDiagnostico(herramientas);
+    var fechaInicio = herramientas.seguimiento30Dias.fechaInicio;
     if (fechaInicio.isEmpty) {
       final fechas = DiarioStore.instance.entradas.map((e) => e.fecha).toList()
         ..sort();
       fechaInicio = fechas.isNotEmpty
           ? fechas.first
           : EntradaDiario.claveFecha(DateTime.now());
-      cuadernillo.seguimiento30Dias.fechaInicio = fechaInicio;
-      await HerramientasService.guardar(cuadernillo);
+      herramientas.seguimiento30Dias.fechaInicio = fechaInicio;
+      await HerramientasService.guardar(herramientas);
     }
 
     final inicio = DateTime.tryParse(fechaInicio) ?? DateTime.now();
@@ -76,7 +76,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final diferencia = hoy.difference(DateTime(inicio.year, inicio.month, inicio.day)).inDays;
     if (mounted) {
       setState(() {
-        _cuaderno = cuadernillo;
+        _herramientas = herramientas;
         _inicioCiclo = DateTime(inicio.year, inicio.month, inicio.day);
         _seleccionado = _dias[diferencia.clamp(0, 29)];
         _cargando = false;
@@ -161,9 +161,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _actualizarCuadernillo() async {
+  Future<void> _actualizarHerramientas() async {
     final data = await HerramientasService.cargar();
-    if (mounted) setState(() => _cuaderno = data);
+    if (mounted) setState(() => _herramientas = data);
   }
 
   @override
@@ -171,7 +171,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     DiarioStore.instance.removeListener(_actualizar);
     TasksService.instance.removeListener(_actualizar);
     AgendaStore.instance.removeListener(_actualizar);
-    HerramientasService.cambios.removeListener(_actualizarCuadernillo);
+    HerramientasService.cambios.removeListener(_actualizarHerramientas);
     super.dispose();
   }
 
@@ -465,14 +465,14 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   ];
 
   bool get _hayPropuestaRueda =>
-      (_cuaderno?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ?? false) ||
-      (_cuaderno?.diagnosticoConversacional?.confirmado == true);
+      (_herramientas?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ?? false) ||
+      (_herramientas?.diagnosticoConversacional?.confirmado == true);
 
   bool get _tieneDiagnosticoConversacionalConfirmado =>
-      _cuaderno?.diagnosticoConversacional?.confirmado == true;
+      _herramientas?.diagnosticoConversacional?.confirmado == true;
 
   List<double> _valoresRuedaUnificada() {
-    final diagnostico = _cuaderno?.diagnosticoConversacional;
+    final diagnostico = _herramientas?.diagnosticoConversacional;
     final valores = diagnostico?.confirmado == true
         ? diagnostico!.valoresConfirmados
         : diagnostico?.valoresPropuestos ?? const <String, int>{};
@@ -498,11 +498,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           style: TextStyle(fontSize: 12, height: 1.35,
             color: Colors.white.withValues(alpha: 0.66)),
         ),
-        if ((_cuaderno?.diagnosticoConversacional?.resumen ?? '').trim().isNotEmpty)
+        if ((_herramientas?.diagnosticoConversacional?.resumen ?? '').trim().isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
             child: Text(
-              _cuaderno!.diagnosticoConversacional!.resumen,
+              _herramientas!.diagnosticoConversacional!.resumen,
               style: TextStyle(fontSize: 12, height: 1.4,
                 color: Colors.white.withValues(alpha: 0.82)),
             ),
@@ -599,7 +599,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         ),
                         TextButton(
                           onPressed: () async {
-                            final data = _cuaderno;
+                            final data = _herramientas;
                             if (data == null) return;
                             final diagnostico = data.diagnosticoConversacional;
                             if (diagnostico == null) return;
@@ -665,7 +665,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
                       itemCount: _etiquetasRueda.length,
                       itemBuilder: (context, index) {
-                        final fundamento = _cuaderno?.diagnosticoConversacional
+                        final fundamento = _herramientas?.diagnosticoConversacional
                             ?.fundamentos[_etiquetasRueda[index]];
                         return Row(
                         children: [
@@ -733,7 +733,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         .where((e) => e.realizadaEn(_seleccionado))
         .toList();
     final clave = _clave(_seleccionado);
-    final habitos = (_cuaderno?.habitos ?? [])
+    final habitos = (_herramientas?.habitos ?? [])
         .where((h) => h.registros[clave] == true)
         .toList();
     final total = tareasMatriz.length + compromisos.length + habitos.length;
@@ -833,13 +833,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   List<EvaluacionBloque> _evaluacionesDeFecha(DateTime fecha) {
     final clave = _clave(fecha);
-    return (_cuaderno?.evaluacionesBloques ?? [])
+    return (_herramientas?.evaluacionesBloques ?? [])
         .where((e) => e.fecha == clave)
         .toList();
   }
 
   Widget _resumenEvaluaciones(ColorScheme scheme) {
-    final evaluaciones = (_cuaderno?.evaluacionesBloques ?? [])
+    final evaluaciones = (_herramientas?.evaluacionesBloques ?? [])
         .where((e) => _dias.any((d) => _clave(d) == e.fecha))
         .toList();
     final conSatisfaccion = evaluaciones.where((e) => e.satisfaccion > 0).toList();
