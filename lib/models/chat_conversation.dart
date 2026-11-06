@@ -15,12 +15,16 @@ class ChatConversation {
   String title;
   final DateTime createdAt;
   List<ChatMessageData> messages;
+  /// Señal persistente: Ágora terminó el diagnóstico y emitió el marcador.
+  /// Permite recuperar la propuesta visual aunque falle la llamada posterior.
+  bool diagnosticoCompleto;
 
   ChatConversation({
     required this.id,
     required this.title,
     required this.createdAt,
     List<ChatMessageData>? messages,
+    this.diagnosticoCompleto = false,
   }) : messages = messages ?? [];
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +32,7 @@ class ChatConversation {
         'title': title,
         'createdAt': createdAt.toIso8601String(),
         'messages': messages.map((m) => m.toJson()).toList(),
+        'diagnosticoCompleto': diagnosticoCompleto,
       };
 
   factory ChatConversation.fromJson(Map<String, dynamic> json) =>
@@ -38,5 +43,6 @@ class ChatConversation {
         messages: (json['messages'] as List)
             .map((m) => ChatMessageData.fromJson(m))
             .toList(),
+        diagnosticoCompleto: json['diagnosticoCompleto'] == true,
       );
 }
