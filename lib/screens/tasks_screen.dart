@@ -7,7 +7,7 @@ import '../services/herramientas_service.dart';
 import '../services/actividad_diaria_service.dart';
 import '../services/tasks_service.dart';
 
-/// Datos de presentación de cada cuadrante (mismos colores que la Etapa 2).
+/// Datos de presentación de cada cuadrante (mismos colores de la matriz).
 class _Cuadrante {
   final String clave;
   final String titulo;
@@ -63,18 +63,18 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void initState() {
     super.initState();
-    TasksScreen.recargar.addListener(_sincronizarConCuadernillo);
+    TasksScreen.recargar.addListener(_sincronizarConMatriz);
     _iniciar();
   }
 
   Future<void> _iniciar() async {
     await _service.cargar();
     if (mounted) setState(() => _loading = false);
-    await _sincronizarConCuadernillo();
+    await _sincronizarConMatriz();
   }
 
   /// Sincroniza las tareas existentes de la Matriz de Eisenhower.
-  Future<void> _sincronizarConCuadernillo() async {
+  Future<void> _sincronizarConMatriz() async {
     if (await HerramientasService.tieneDatosGuardados()) {
       final data = await HerramientasService.cargar();
       await _service.sincronizarMatriz(data.matrizEisenhower);
@@ -284,7 +284,7 @@ class _TasksScreenState extends State<TasksScreen> {
         content: Text(
           vieneDeMatriz
               ? '¿Seguro que quieres eliminar "${task.title}"?\n\n'
-                  'Viene de tu Matriz de Eisenhower (Etapa 2), así que '
+                  'Viene de tu Matriz de Eisenhower, así que '
                   'también se quitará de ahí.'
               : '¿Seguro que quieres eliminar "${task.title}"?',
         ),
@@ -308,7 +308,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   void dispose() {
-    TasksScreen.recargar.removeListener(_sincronizarConCuadernillo);
+    TasksScreen.recargar.removeListener(_sincronizarConMatriz);
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -376,7 +376,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  /// Tarjeta de un cuadrante: igual que en la Etapa 2 (lista + campo con +).
+  /// Tarjeta de un cuadrante: con la misma estructura de la matriz (lista + campo con +).
   Widget _buildCuadrante(_Cuadrante c, List<Task> delCuadrante, ColorScheme scheme) {
     // Pendientes primero, completadas al final.
     final ordenadas = [
