@@ -188,7 +188,7 @@ class TasksService extends ChangeNotifier {
     _colaMatriz = _colaMatriz.then((_) async {
       final data = await HerramientasService.cargar();
       cambio(data.matrizEisenhower);
-      await CuadernilloService.guardar(data);
+      await HerramientasService.guardar(data);
     }).catchError((Object e) {
       debugPrint('TasksService: error al actualizar la matriz: $e');
     });
