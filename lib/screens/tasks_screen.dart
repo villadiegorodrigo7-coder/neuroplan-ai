@@ -119,6 +119,41 @@ class _TasksScreenState extends State<TasksScreen> {
     if (mounted) setState(() => _cuaderno = data);
   }
 
+  Future<void> _confirmarEliminarHabito(HabitoSeguimiento habito) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar hábito'),
+        content: Text(
+          '¿Quieres eliminar "${habito.nombre}"? También se eliminará '
+          'el historial de seguimiento asociado a este hábito.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+
+    final data = await CuadernilloService.cargar();
+    data.habitos.removeWhere((h) => h.id == habito.id);
+    await CuadernilloService.guardar(data);
+    if (mounted) {
+      setState(() => _cuaderno = data);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hábito eliminado.')),
+      );
+    }
+  }
+
   Future<void> _registrarHabito(HabitoSeguimiento habito, bool valor) async {
     final data = await CuadernilloService.cargar();
     final actual = data.habitos.where((h) => h.id == habito.id).toList();
@@ -155,6 +190,11 @@ class _TasksScreenState extends State<TasksScreen> {
               title: Text(h.nombre),
               subtitle: Text(h.tipo == 'incorporar' ? 'Lo hice hoy' : 'Hoy logré evitarlo'),
               controlAffinity: ListTileControlAffinity.leading,
+              secondary: IconButton(
+                tooltip: 'Eliminar hábito',
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                onPressed: () => _confirmarEliminarHabito(h),
+              ),
             ),
           if (lista.isEmpty)
             Padding(
