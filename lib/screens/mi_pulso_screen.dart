@@ -22,6 +22,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   static const Color _sinRegistro = Color(0xFF30384D);
   DateTime _seleccionado = DateTime.now();
   bool _cargando = true;
+  bool _ruedaAlFrente = true;
   late DateTime _inicioCiclo;
   CuadernilloData? _cuaderno;
 
@@ -161,6 +162,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
+                    _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
@@ -342,6 +344,233 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               DiarioStore.instance.cambio(registro);
             }),
         ],
+      ),
+    );
+  }
+
+
+  /// Dos discos superpuestos: cada uno conserva su gráfico y sus valores.
+  /// El toque intercambia el primer plano; la transición combina profundidad,
+  /// inclinación y giro tipo flip sin convertir los gráficos en imágenes.
+  Widget _composicionDiagnostica(ColorScheme scheme) {
+    final rueda = _cuaderno?.ruedaVida ?? RuedaVida();
+    final diagnostico = _cuaderno?.diagnosticoInicial ?? DiagnosticoInicial();
+
+    final ruedaValores = <double>[
+      rueda.salud.toDouble(),
+      rueda.estudios.toDouble(),
+      rueda.trabajo.toDouble(),
+      rueda.finanzas.toDouble(),
+      rueda.familia.toDouble(),
+      rueda.amigos.toDouble(),
+      rueda.descanso.toDouble(),
+      rueda.crecimiento.toDouble(),
+    ];
+    const ruedaEtiquetas = [
+      'Salud', 'Estudios', 'Trabajo', 'Finanzas',
+      'Familia', 'Amigos', 'Descanso', 'Crecimiento',
+    ];
+    final diagnosticoValores = <double>[
+      diagnostico.energia.toDouble(),
+      diagnostico.estres.toDouble(),
+      diagnostico.claridadMental.toDouble(),
+      diagnostico.organizacion.toDouble(),
+      diagnostico.motivacion.toDouble(),
+      diagnostico.satisfaccionGeneral.toDouble(),
+    ];
+    const diagnosticoEtiquetas = [
+      'Energía', 'Estrés', 'Claridad mental',
+      'Organización', 'Motivación', 'Satisfacción general',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Tu punto de partida',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+        ),
+        Text(
+          'Explora la relación entre tu visión de vida y tu diagnóstico inicial.',
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.35,
+            color: Colors.white.withValues(alpha: 0.66),
+          ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final diameter = math.min(278.0, constraints.maxWidth * 0.76);
+            final desplazamiento = diameter * 0.39;
+            final total = diameter + desplazamiento;
+            return SizedBox(
+              height: diameter + 28,
+              child: Center(
+                child: SizedBox(
+                  width: total,
+                  height: diameter + 28,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      _discoDiagnostico(
+                        diameter: diameter,
+                        left: _ruedaAlFrente ? desplazamiento : 0,
+                        front: !_ruedaAlFrente,
+                        title: 'DIAGNÓSTICO INICIAL',
+                        values: diagnosticoValores,
+                        labels: diagnosticoEtiquetas,
+                        scheme: scheme,
+                      ),
+                      _discoDiagnostico(
+                        diameter: diameter,
+                        left: _ruedaAlFrente ? 0 : desplazamiento,
+                        front: _ruedaAlFrente,
+                        title: 'RUEDA DE LA VIDA',
+                        values: ruedaValores,
+                        labels: ruedaEtiquetas,
+                        scheme: scheme,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        Center(
+          child: TextButton.icon(
+            onPressed: () => setState(() => _ruedaAlFrente = !_ruedaAlFrente),
+            icon: const Icon(Icons.flip, size: 18),
+            label: Text(_ruedaAlFrente
+                ? 'Ver diagnóstico inicial al frente'
+                : 'Ver rueda de la vida al frente'),
+            style: TextButton.styleFrom(
+              foregroundColor: scheme.primary,
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _discoDiagnostico({
+    required double diameter,
+    required double left,
+    required bool front,
+    required String title,
+    required List<double> values,
+    required List<String> labels,
+    required ColorScheme scheme,
+  }) {
+    final tilt = front ? -0.035 : 0.045;
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 720),
+      curve: Curves.easeInOutCubic,
+      left: left,
+      top: front ? 0 : 18,
+      width: diameter,
+      height: diameter,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 720),
+        curve: Curves.easeInOutCubic,
+        scale: front ? 1 : 0.91,
+        child: AnimatedRotation(
+          duration: const Duration(milliseconds: 720),
+          curve: Curves.easeInOutCubic,
+          turns: front ? 0 : 0.012,
+          child: GestureDetector(
+            onTap: () => setState(() => _ruedaAlFrente = title == 'RUEDA DE LA VIDA'),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 720),
+              curve: Curves.easeInOutCubic,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: const Alignment(-0.28, -0.35),
+                  radius: 1.12,
+                  colors: [
+                    const Color(0xFF263D67).withValues(alpha: front ? 0.98 : 0.90),
+                    const Color(0xFF111D3B).withValues(alpha: front ? 0.98 : 0.94),
+                    const Color(0xFF080F22),
+                  ],
+                ),
+                border: Border.all(
+                  color: front
+                      ? const Color(0xFF8CEBFF).withValues(alpha: 0.88)
+                      : const Color(0xFFB66BFF).withValues(alpha: 0.65),
+                  width: front ? 3.2 : 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (front ? const Color(0xFF9B4DFF) : const Color(0xFF38CFFF))
+                        .withValues(alpha: front ? 0.42 : 0.22),
+                    blurRadius: front ? 30 : 17,
+                    spreadRadius: front ? 2 : 0,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.48),
+                    blurRadius: 18,
+                    offset: const Offset(8, 12),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.10),
+                    blurRadius: 2,
+                    spreadRadius: -2,
+                    offset: const Offset(-4, -5),
+                  ),
+                ],
+              ),
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0012)
+                  ..rotateY(tilt),
+                child: Padding(
+                  padding: EdgeInsets.all(diameter * 0.075),
+                  child: Column(
+                    children: [
+                      SizedBox(height: diameter * 0.055),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: TextStyle(
+                          fontSize: diameter * 0.052,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white.withValues(alpha: front ? 0.98 : 0.76),
+                          shadows: const [
+                            Shadow(color: Color(0xFFB66BFF), blurRadius: 10),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: CustomPaint(
+                          painter: _RadarDiagnosticoPainter(
+                            values: values,
+                            labels: labels,
+                            color: title == 'RUEDA DE LA VIDA'
+                                ? const Color(0xFFE16BFF)
+                                : const Color(0xFF9B75FF),
+                            textColor: Colors.white.withValues(alpha: front ? 0.90 : 0.68),
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                      SizedBox(height: diameter * 0.045),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -691,6 +920,153 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               color: Colors.white.withValues(alpha: 0.82)),
         ),
       );
+}
+
+
+
+/// Radar numérico reutilizable para la Rueda de la Vida y el Diagnóstico.
+class _RadarDiagnosticoPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> labels;
+  final Color color;
+  final Color textColor;
+
+  _RadarDiagnosticoPainter({
+    required this.values,
+    required this.labels,
+    required this.color,
+    required this.textColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) * 0.285;
+    final count = values.length;
+    final gridPaint = Paint()
+      ..color = const Color(0xFF9FB8E8).withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final axisPaint = Paint()
+      ..color = const Color(0xFF9FB8E8).withValues(alpha: 0.24)
+      ..strokeWidth = 0.7;
+
+    for (var level = 1; level <= 10; level++) {
+      final r = radius * level / 10;
+      final points = List.generate(count, (i) {
+        final angle = -math.pi / 2 + 2 * math.pi * i / count;
+        return center + Offset(math.cos(angle) * r, math.sin(angle) * r);
+      });
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      path.close();
+      canvas.drawPath(path, gridPaint);
+    }
+
+    final polygon = <Offset>[];
+    for (var i = 0; i < count; i++) {
+      final angle = -math.pi / 2 + 2 * math.pi * i / count;
+      final end = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+      canvas.drawLine(center, end, axisPaint);
+      final value = values[i].clamp(0, 10).toDouble();
+      polygon.add(center + Offset(
+        math.cos(angle) * radius * value / 10,
+        math.sin(angle) * radius * value / 10,
+      ));
+    }
+
+    final area = Path()..moveTo(polygon.first.dx, polygon.first.dy);
+    for (final point in polygon.skip(1)) {
+      area.lineTo(point.dx, point.dy);
+    }
+    area.close();
+    canvas.drawPath(
+      area,
+      Paint()
+        ..color = color.withValues(alpha: 0.22)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      area,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+    );
+    canvas.drawPath(
+      area,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    for (var i = 0; i < count; i++) {
+      final point = polygon[i];
+      canvas.drawCircle(point, 3.2, Paint()..color = color);
+      canvas.drawCircle(
+        point,
+        5.3,
+        Paint()
+          ..color = color.withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      final angle = -math.pi / 2 + 2 * math.pi * i / count;
+      final labelPoint = center + Offset(
+        math.cos(angle) * (radius + 17),
+        math.sin(angle) * (radius + 17),
+      );
+      final text = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(
+            color: textColor,
+            fontSize: 8.5,
+            fontWeight: FontWeight.w600,
+            shadows: const [Shadow(color: Color(0xFFB66BFF), blurRadius: 5)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+      )..layout(maxWidth: 70);
+      final offset = Offset(
+        (labelPoint.dx - text.width / 2).clamp(0.0, size.width - text.width),
+        (labelPoint.dy - text.height / 2).clamp(0.0, size.height - text.height),
+      );
+      text.paint(canvas, offset);
+    }
+
+    // Escala discreta 1–10 en el eje vertical, como referencia numérica.
+    for (var level = 2; level <= 10; level += 2) {
+      final y = center.dy - radius * level / 10;
+      final text = TextPainter(
+        text: TextSpan(
+          text: '$level',
+          style: TextStyle(
+            color: textColor.withValues(alpha: 0.58),
+            fontSize: 7,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      text.paint(canvas, Offset(center.dx + 4, y - text.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadarDiagnosticoPainter oldDelegate) =>
+      oldDelegate.values != values ||
+      oldDelegate.labels != labels ||
+      oldDelegate.color != color ||
+      oldDelegate.textColor != textColor;
 }
 
 /// Dibuja los 30 segmentos del anillo; el selector táctil se superpone encima.
