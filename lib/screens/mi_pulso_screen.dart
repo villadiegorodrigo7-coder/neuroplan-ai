@@ -553,16 +553,41 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         ),
                       ),
                       Expanded(
-                        child: CustomPaint(
-                          painter: _RadarDiagnosticoPainter(
-                            values: values,
-                            labels: labels,
-                            color: title == 'RUEDA DE LA VIDA'
-                                ? const Color(0xFFE16BFF)
-                                : const Color(0xFF9B75FF),
-                            textColor: Colors.white.withValues(alpha: front ? 0.90 : 0.68),
-                          ),
-                          child: const SizedBox.expand(),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            CustomPaint(
+                              painter: _RadarDiagnosticoPainter(
+                                values: values,
+                                labels: labels,
+                                color: title == 'RUEDA DE LA VIDA'
+                                    ? const Color(0xFFE16BFF)
+                                    : const Color(0xFF9B75FF),
+                                textColor: Colors.white.withValues(alpha: front ? 0.90 : 0.68),
+                              ),
+                            ),
+                            Center(
+                              child: Material(
+                                color: Colors.black.withValues(alpha: 0.30),
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => _abrirEditorRadar(
+                                    title: title,
+                                    labels: labels,
+                                    values: values,
+                                    esRueda: title == 'RUEDA DE LA VIDA',
+                                    scheme: scheme,
+                                  ),
+                                  child: const SizedBox(
+                                    width: 42,
+                                    height: 42,
+                                    child: Icon(Icons.open_in_full, size: 17, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       SizedBox(height: diameter * 0.045),
@@ -574,6 +599,143 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           ),
         ),
       );
+  }
+
+  Future<void> _abrirEditorRadar({
+    required String title,
+    required List<String> labels,
+    required List<double> values,
+    required bool esRueda,
+    required ColorScheme scheme,
+  }) async {
+    final editados = List<double>.from(values);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, actualizarDialogo) {
+          final color = esRueda
+              ? const Color(0xFFE16BFF)
+              : const Color(0xFF9B75FF);
+
+          void moverPunto(Offset posicion, Size size) {
+            final centro = Offset(size.width / 2, size.height / 2);
+            final delta = posicion - centro;
+            final radio = math.min(size.width, size.height) * 0.285;
+            if (delta.distance < 2) return;
+            var angulo = math.atan2(delta.dy, delta.dx) + math.pi / 2;
+            if (angulo < 0) angulo += 2 * math.pi;
+            final paso = 2 * math.pi / editados.length;
+            final indice = ((angulo / paso).round()) % editados.length;
+            final valor = (delta.distance / radio * 10).clamp(0.0, 10.0);
+            actualizarDialogo(() => editados[indice] = valor);
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF101A32),
+            title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Toca una dimensión y ajusta su punto en el radar, o utiliza su control numérico.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final size = Size(constraints.maxWidth, constraints.maxHeight);
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapDown: (d) => moverPunto(d.localPosition, size),
+                            onPanStart: (d) => moverPunto(d.localPosition, size),
+                            onPanUpdate: (d) => moverPunto(d.localPosition, size),
+                            child: CustomPaint(
+                              painter: _RadarDiagnosticoPainter(
+                                values: editados,
+                                labels: labels,
+                                color: color,
+                                textColor: Colors.white,
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (var i = 0; i < labels.length; i++)
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: Text(labels[i], style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
+                          Expanded(
+                            flex: 5,
+                            child: Slider(
+                              value: editados[i].clamp(0, 10),
+                              min: 0,
+                              max: 10,
+                              divisions: 10,
+                              activeColor: color,
+                              onChanged: (v) => actualizarDialogo(() => editados[i] = v),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 34,
+                            child: Text(editados[i].toStringAsFixed(0),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final rueda = _cuaderno!.ruedaVida;
+                  final diagnostico = _cuaderno!.diagnosticoInicial;
+                  if (esRueda) {
+                    rueda.salud = editados[0].round();
+                    rueda.estudios = editados[1].round();
+                    rueda.trabajo = editados[2].round();
+                    rueda.finanzas = editados[3].round();
+                    rueda.familia = editados[4].round();
+                    rueda.amigos = editados[5].round();
+                    rueda.descanso = editados[6].round();
+                    rueda.crecimiento = editados[7].round();
+                  } else {
+                    diagnostico.energia = editados[0].round();
+                    diagnostico.estres = editados[1].round();
+                    diagnostico.claridadMental = editados[2].round();
+                    diagnostico.organizacion = editados[3].round();
+                    diagnostico.motivacion = editados[4].round();
+                    diagnostico.satisfaccionGeneral = editados[5].round();
+                  }
+                  await CuadernilloService.guardar(_cuaderno!);
+                  if (mounted) setState(() {});
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Guardar cambios'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _tareasDelDia(ColorScheme scheme) {
