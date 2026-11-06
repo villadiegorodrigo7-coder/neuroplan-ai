@@ -117,12 +117,18 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         return data;
       }
 
-      final tieneMarcador = diagnostico.messages.any(
-        (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
-      );
+      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+          diagnostico.messages.any(
+            (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
+          );
       final completo = tieneMarcador ||
           await GeminiService.diagnosticoConversacionalCompleto(historial);
       if (!completo) return data;
+
+      // Persistir el cierre antes de solicitar la propuesta evita que una
+      // falla temporal de Gemini obligue a clasificar otra vez el historial.
+      diagnostico.diagnosticoCompleto = true;
+      await ChatHistoryService.saveConversations(conversaciones);
 
       final propuesta =
           await GeminiService.proponerDiagnosticoConversacional(historial);
