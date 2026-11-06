@@ -413,9 +413,46 @@ class EvaluacionFinal {
 
 /// ================== CONTENEDOR PRINCIPAL ==================
 
+/// Propuesta de la Rueda de la Vida construida desde el diagnóstico conversacional.
+class DiagnosticoConversacional {
+  Map<String, int> valoresPropuestos;
+  Map<String, int> valoresConfirmados;
+  Map<String, String> fundamentos;
+  String resumen;
+  bool confirmado;
+
+  DiagnosticoConversacional({
+    Map<String, int>? valoresPropuestos,
+    Map<String, int>? valoresConfirmados,
+    Map<String, String>? fundamentos,
+    this.resumen = '',
+    this.confirmado = false,
+  })  : valoresPropuestos = valoresPropuestos ?? {},
+        valoresConfirmados = valoresConfirmados ?? {},
+        fundamentos = fundamentos ?? {};
+
+  Map<String, dynamic> toJson() => {
+        'valoresPropuestos': valoresPropuestos,
+        'valoresConfirmados': valoresConfirmados,
+        'fundamentos': fundamentos,
+        'resumen': resumen,
+        'confirmado': confirmado,
+      };
+
+  factory DiagnosticoConversacional.fromJson(Map<String, dynamic> json) =>
+      DiagnosticoConversacional(
+        valoresPropuestos: Map<String, int>.from(json['valoresPropuestos'] ?? {}),
+        valoresConfirmados: Map<String, int>.from(json['valoresConfirmados'] ?? {}),
+        fundamentos: Map<String, String>.from(json['fundamentos'] ?? {}),
+        resumen: (json['resumen'] ?? '').toString(),
+        confirmado: json['confirmado'] == true,
+      );
+}
+
 class CuadernilloData {
   DiagnosticoInicial diagnosticoInicial;
   RuedaVida ruedaVida;
+  DiagnosticoConversacional? diagnosticoConversacional;
   ConsumoTiempo consumoTiempo;
   MatrizEisenhower matrizEisenhower;
   RutinaSemanal rutinaSemanal;
@@ -433,6 +470,7 @@ class CuadernilloData {
   CuadernilloData({
     DiagnosticoInicial? diagnosticoInicial,
     RuedaVida? ruedaVida,
+    this.diagnosticoConversacional,
     ConsumoTiempo? consumoTiempo,
     MatrizEisenhower? matrizEisenhower,
     RutinaSemanal? rutinaSemanal,
@@ -457,7 +495,8 @@ class CuadernilloData {
 
   Map<String, dynamic> toJson() => {
         'diagnosticoInicial': diagnosticoInicial.toJson(),
-        'ruedaVida': ruedaVida.toJson(),\n        if (diagnosticoConversacional != null) 'diagnosticoConversacional': diagnosticoConversacional!.toJson(),
+        'ruedaVida': ruedaVida.toJson(),
+        if (diagnosticoConversacional != null) 'diagnosticoConversacional': diagnosticoConversacional!.toJson(),
         'consumoTiempo': consumoTiempo.toJson(),
         'matrizEisenhower': matrizEisenhower.toJson(),
         'rutinaSemanal': rutinaSemanal.toJson(),
@@ -479,6 +518,9 @@ class CuadernilloData {
           : null,
       ruedaVida:
           json['ruedaVida'] != null ? RuedaVida.fromJson(json['ruedaVida']) : null,
+      diagnosticoConversacional: json['diagnosticoConversacional'] != null
+          ? DiagnosticoConversacional.fromJson(Map<String, dynamic>.from(json['diagnosticoConversacional']))
+          : null,
       consumoTiempo: json['consumoTiempo'] != null
           ? ConsumoTiempo.fromJson(json['consumoTiempo'])
           : null,
