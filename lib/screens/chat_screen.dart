@@ -304,13 +304,6 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final claveIntento = 'agora_diagnostico_recuperacion_${diagnostico.id}';
-      final hoy = DateTime.now();
-      final fechaHoy = '${hoy.year}-${hoy.month}-${hoy.day}';
-      if (prefs.getString(claveIntento) == fechaHoy) return;
-      await prefs.setString(claveIntento, fechaHoy);
-
       final historial = diagnostico.messages
           .where((m) => m.content.trim().isNotEmpty)
           .map((m) => {
@@ -320,9 +313,19 @@ class _ChatScreenState extends State<ChatScreen> {
           .toList();
       if (historial.where((m) => m['role'] == 'user').length < 3) return;
 
-      final completo =
+      // La señal persistida o el marcador original evitan depender de una
+      // segunda llamada clasificadora que puede fallar o consumir el límite.
+      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+          diagnostico.messages.any(
+            (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
+          );
+      final completo = tieneMarcador ||
           await GeminiService.diagnosticoConversacionalCompleto(historial);
-      if (completo) await _generarPropuestaDiagnostico(diagnostico);
+      if (!completo) return;
+
+      diagnostico.diagnosticoCompleto = true;
+      await _persist();
+      await _generarPropuestaDiagnostico(diagnostico);
     } catch (_) {
       // La recuperación nunca debe impedir entrar a la aplicación.
     }
@@ -569,7 +572,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     );
     final diagnosticoCompleto =
         conv.title == 'Diagnóstico inicial' &&
-        respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]');
+        (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
+            conv.diagnosticoCompleto);
+    if (diagnosticoCompleto) conv.diagnosticoCompleto = true;
     final response = respuestaAgora
         .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
         .trim();
