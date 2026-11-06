@@ -1099,7 +1099,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
           text: labels[i],
           style: TextStyle(
             color: labelColor,
-            fontSize: 8.5,
+            fontSize: 9.5,
             fontWeight: FontWeight.w600,
             shadows: const [Shadow(color: Color(0xFFB66BFF), blurRadius: 5)],
           ),
@@ -1123,7 +1123,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
           text: '$level',
           style: TextStyle(
             color: textColor.withValues(alpha: 0.58),
-            fontSize: 7,
+            fontSize: 8,
           ),
         ),
         textDirection: TextDirection.ltr,
