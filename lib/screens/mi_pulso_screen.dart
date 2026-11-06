@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../models/entrada_diario.dart';
 import '../models/cuadernillo_data.dart';
+import '../models/chat_conversation.dart';
+import '../services/chat_history_service.dart';
+import '../services/gemini_service.dart';
 import '../services/cuadernillo_service.dart';
 import '../models/task.dart';
 import '../services/diario_store.dart';
@@ -55,7 +58,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     ]);
 
     // Mi pulso usa el mismo ciclo de 30 días que la Etapa 4 del cuadernillo.
-    final cuadernillo = await CuadernilloService.cargar();
+    var cuadernillo = await CuadernilloService.cargar();
+    cuadernillo = await _recuperarRuedaDesdeDiagnostico(cuadernillo);
     var fechaInicio = cuadernillo.seguimiento30Dias.fechaInicio;
     if (fechaInicio.isEmpty) {
       final fechas = DiarioStore.instance.entradas.map((e) => e.fecha).toList()
@@ -77,6 +81,66 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         _seleccionado = _dias[diferencia.clamp(0, 29)];
         _cargando = false;
       });
+    }
+  }
+
+  /// Si el diagnóstico ya terminó en Ágora pero la propuesta visual no se
+  /// alcanzó a guardar, Mi Pulso la recupera al abrirse. Así no depende de que
+  /// ChatScreen siga montada cuando termina la conversación.
+  Future<CuadernilloData> _recuperarRuedaDesdeDiagnostico(
+      CuadernilloData data) async {
+    final existente = data.diagnosticoConversacional;
+    if (existente != null &&
+        (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
+      return data;
+    }
+
+    try {
+      final conversaciones = await ChatHistoryService.loadConversations();
+      ChatConversation? diagnostico;
+      for (final conv in conversaciones) {
+        if (conv.title == 'Diagnóstico inicial') {
+          diagnostico = conv;
+          break;
+        }
+      }
+      if (diagnostico == null) return data;
+
+      final historial = diagnostico.messages
+          .where((m) => m.content.trim().isNotEmpty)
+          .map((m) => <String, String>{
+                'role': m.role == 'user' ? 'user' : 'model',
+                'content': m.content,
+              })
+          .toList();
+      if (historial.where((m) => m['role'] == 'user').length < 3) {
+        return data;
+      }
+
+      final tieneMarcador = diagnostico.messages.any(
+        (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
+      );
+      final completo = tieneMarcador ||
+          await GeminiService.diagnosticoConversacionalCompleto(historial);
+      if (!completo) return data;
+
+      final propuesta =
+          await GeminiService.proponerDiagnosticoConversacional(historial);
+      if (propuesta == null) return data;
+
+      data.diagnosticoConversacional = DiagnosticoConversacional(
+        valoresPropuestos:
+            Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
+        fundamentos:
+            Map<String, String>.from(propuesta['fundamentos'] as Map),
+        resumen: (propuesta['resumen'] ?? '').toString(),
+      );
+      await CuadernilloService.guardar(data);
+      return data;
+    } catch (error, stackTrace) {
+      debugPrint('No se pudo recuperar la Rueda de la Vida: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return data;
     }
   }
 
