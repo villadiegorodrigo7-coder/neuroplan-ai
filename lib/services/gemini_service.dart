@@ -332,7 +332,11 @@ $contextoUsuario
       '''Evalúa exclusivamente el historial del diagnóstico inicial que sigue. Determina si Ágora ya exploró las 12 preguntas del diagnóstico (considera atendidas las que la persona respondió espontáneamente, incluso si cubrió varias en una sola intervención), respetó las preguntas que la persona decidió no responder y realizó la síntesis integradora de cierre. No exijas exactamente 12 o 14 mensajes. Si la conversación todavía está en curso o falta la exploración/cierre, responde únicamente INCOMPLETO. Si ya terminó, responde únicamente COMPLETO. No generes puntuaciones ni una rueda.''',
       history: historial,
     );
-    return respuesta.trim().toUpperCase() == 'COMPLETO';
+    final estado = RegExp(
+      r'\\b(INCOMPLETO|COMPLETO)\\b',
+      caseSensitive: false,
+    ).firstMatch(respuesta.trim());
+    return estado?.group(1)?.toUpperCase() == 'COMPLETO';
   }
   /// Propone valores preliminares para la Rueda de la Vida usando únicamente
   /// la conversación del diagnóstico. La propuesta nunca se confirma sola.
