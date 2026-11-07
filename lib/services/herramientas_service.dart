@@ -105,7 +105,9 @@ class HerramientasData {
 /// a partir de ahí guarda únicamente el esquema independiente.
 class HerramientasService {
   static const String _localKey = 'neuroplan_herramientas_v1';
-  static const String _tablaTransicion = 'neuroplan_herramientas';
+  // Las herramientas nuevas viven dentro del JSONB existente de cuadernillos.
+  // Se conserva intacto el contenido legado (ruedaVida, diagnosticoInicial, etc.).
+  static const String _claveHerramientas = 'neuroplanHerramientasV1';
   static const String _tablaAntigua = 'cuadernillos';
   static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
   static Future<void> _cola = Future.value();
@@ -154,9 +156,19 @@ class HerramientasService {
                   .eq('user_id', _uid!)
                   .maybeSingle();
               if (anterior != null && anterior['datos'] is Map) {
-                diagnosticoAnterior = HerramientasData.desdeDatosAnteriores(
-                  Map<String, dynamic>.from(anterior['datos']),
-                ).diagnosticoConversacional;
+                final datosAnteriores =
+                    Map<String, dynamic>.from(anterior['datos']);
+                final herramientasGuardadas =
+                    datosAnteriores[_claveHerramientas];
+                if (herramientasGuardadas is Map) {
+                  diagnosticoAnterior = HerramientasData.fromJson(
+                    Map<String, dynamic>.from(herramientasGuardadas),
+                  ).diagnosticoConversacional;
+                } else {
+                  diagnosticoAnterior = HerramientasData
+                      .desdeDatosAnteriores(datosAnteriores)
+                      .diagnosticoConversacional;
+                }
               }
             } catch (_) {
               // La copia actual permanece intacta si la tabla antigua no está disponible.
@@ -181,34 +193,25 @@ class HerramientasService {
     Map<String, dynamic>? remoto;
     final uid = _uid;
     if (uid != null) {
-      // Primero consulta el almacenamiento nuevo.
+      // Las herramientas actuales se guardan en una clave propia dentro del
+      // JSONB de cuadernillos, sin reemplazar los datos históricos existentes.
       try {
-        final fila = await _db
-            .from(_tablaTransicion)
+        final anterior = await _db
+            .from(_tablaAntigua)
             .select('datos')
             .eq('user_id', uid)
             .maybeSingle();
-        if (fila != null && fila['datos'] is Map) {
-          remoto = Map<String, dynamic>.from(fila['datos']);
+        if (anterior != null && anterior['datos'] is Map) {
+          final datosAnteriores =
+              Map<String, dynamic>.from(anterior['datos']);
+          final herramientasGuardadas =
+              datosAnteriores[_claveHerramientas];
+          remoto = herramientasGuardadas is Map
+              ? Map<String, dynamic>.from(herramientasGuardadas)
+              : datosAnteriores;
         }
       } catch (_) {
-        // La migración SQL puede no haberse aplicado todavía.
-      }
-
-      // Si no hay copia nueva, lee la tabla antigua solo para migrar.
-      if (remoto == null) {
-        try {
-          final anterior = await _db
-              .from(_tablaAntigua)
-              .select('datos')
-              .eq('user_id', uid)
-              .maybeSingle();
-          if (anterior != null && anterior['datos'] is Map) {
-            remoto = Map<String, dynamic>.from(anterior['datos']);
-          }
-        } catch (_) {
-          // La copia local sigue siendo una fuente válida.
-        }
+        // La copia local sigue siendo una fuente válida.
       }
     }
 
@@ -243,12 +246,25 @@ class HerramientasService {
 
     final tarea = _cola.then((_) async {
       try {
-        await _db.from(_tablaTransicion).upsert({
+        final fila = await _db
+            .from(_tablaAntigua)
+            .select('datos')
+            .eq('user_id', uid)
+            .maybeSingle();
+        final datosExistentes = fila != null && fila['datos'] is Map
+            ? Map<String, dynamic>.from(fila['datos'])
+            : <String, dynamic>{};
+
+        // Solo actualizamos nuestra clave; ruedaVida y diagnosticoInicial
+        // históricos permanecen exactamente como estaban.
+        datosExistentes[_claveHerramientas] = json;
+        await _db.from(_tablaAntigua).upsert({
           'user_id': uid,
-          'datos': json,
+          'datos': datosExistentes,
           'actualizada_en': DateTime.now().toUtc().toIso8601String(),
         });
-      } catch (_) {
+      } catch (error) {
+        debugPrint('HerramientasService: no se pudo sincronizar cuadernillos: $error');
         // La copia local permanece disponible; el próximo guardado reintenta.
       }
     });
@@ -267,19 +283,11 @@ class HerramientasService {
     }
     try {
       final fila = await _db
-          .from(_tablaTransicion)
-          .select('user_id')
-          .eq('user_id', uid)
-          .maybeSingle();
-      if (fila != null) return true;
-    } catch (_) {}
-    try {
-      final filaAntigua = await _db
           .from(_tablaAntigua)
-          .select('user_id')
+          .select('datos')
           .eq('user_id', uid)
           .maybeSingle();
-      return filaAntigua != null;
+      return fila != null;
     } catch (_) {
       return false;
     }
@@ -292,8 +300,22 @@ class HerramientasService {
     final uid = _uid;
     if (uid != null) {
       try {
-        await _db.from(_tablaTransicion).delete().eq('user_id', uid);
-      } catch (_) {}
+        final fila = await _db
+            .from(_tablaAntigua)
+            .select('datos')
+            .eq('user_id', uid)
+            .maybeSingle();
+        if (fila != null && fila['datos'] is Map) {
+          final datosExistentes = Map<String, dynamic>.from(fila['datos']);
+          datosExistentes.remove(_claveHerramientas);
+          await _db.from(_tablaAntigua).update({
+            'datos': datosExistentes,
+            'actualizada_en': DateTime.now().toUtc().toIso8601String(),
+          }).eq('user_id', uid);
+        }
+      } catch (error) {
+        debugPrint('HerramientasService: no se pudo limpiar la copia propia: $error');
+      }
     }
   }
 }
