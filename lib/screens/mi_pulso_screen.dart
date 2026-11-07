@@ -250,8 +250,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     const SizedBox(height: 14),
                     resumen,
                     const SizedBox(height: 12),
-                    if (_hayPropuestaRueda)
-                      _composicionDiagnostica(scheme),
+                    _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
@@ -498,9 +497,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         Text(
-          _tieneDiagnosticoConversacionalConfirmado
-              ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
-              : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
+          !_hayPropuestaRueda
+              ? 'Base inicial: todas las dimensiones parten de 0. Ágora las revisará mediante sondeo y propondrá valores a partir de lo que conversen.'
+              : _tieneDiagnosticoConversacionalConfirmado
+                  ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
+                  : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
           style: TextStyle(fontSize: 12, height: 1.35,
             color: Colors.white.withValues(alpha: 0.66)),
         ),
@@ -516,7 +517,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         const SizedBox(height: 12),
         Center(
           child: GestureDetector(
-            onTap: () => _abrirEditorRadar(scheme: scheme),
+            onTap: _hayPropuestaRueda
+                ? () => _abrirEditorRadar(scheme: scheme)
+                : null,
             child: Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxWidth: 430),
@@ -541,7 +544,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         color: const Color(0xFF9B75FF),
                         axisColors: _coloresRueda,
                         textColor: Colors.white,
-                        missingIndices: _dimensionesSinDatoRueda,
+                        missingIndices: _hayPropuestaRueda
+                            ? _dimensionesSinDatoRueda
+                            : const <int>{},
                       ),
                       child: const SizedBox.expand(),
                     ),
