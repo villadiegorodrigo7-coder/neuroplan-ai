@@ -461,7 +461,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   static const List<String> _etiquetasRueda = [
     'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
     'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
-    'Organización', 'Motivación', 'Satisfacción general',
+    'Organización', 'Motivación', 'Satisfacción',
   ];
 
   bool get _hayPropuestaRueda =>
@@ -471,15 +471,21 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   bool get _tieneDiagnosticoConversacionalConfirmado =>
       _herramientas?.diagnosticoConversacional?.confirmado == true;
 
-  List<double> _valoresRuedaUnificada() {
+  Map<String, int> get _valoresDisponiblesRueda {
     final diagnostico = _herramientas?.diagnosticoConversacional;
-    final valores = diagnostico?.confirmado == true
+    return diagnostico?.confirmado == true
         ? diagnostico!.valoresConfirmados
         : diagnostico?.valoresPropuestos ?? const <String, int>{};
-    return _etiquetasRueda
-        .map((etiqueta) => (valores[etiqueta] ?? 0).toDouble())
-        .toList();
   }
+
+  Set<int> get _dimensionesSinDatoRueda => {
+    for (var i = 0; i < _etiquetasRueda.length; i++)
+      if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
+  };
+
+  List<double> _valoresRuedaUnificada() => _etiquetasRueda
+      .map((etiqueta) => (_valoresDisponiblesRueda[etiqueta] ?? 0).toDouble())
+      .toList();
 
   Widget _composicionDiagnostica(ColorScheme scheme) {
     final valores = _valoresRuedaUnificada();
@@ -535,6 +541,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         color: const Color(0xFF9B75FF),
                         axisColors: _coloresRueda,
                         textColor: Colors.white,
+                        missingIndices: _dimensionesSinDatoRueda,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -561,6 +568,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   Future<void> _abrirEditorRadar({required ColorScheme scheme}) async {
     final editados = _valoresRuedaUnificada();
+    final faltantesIniciales = _dimensionesSinDatoRueda;
+    final dimensionesEditadas = <int>{};
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -576,7 +585,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             final paso = 2 * math.pi / editados.length;
             final indice = ((angulo / paso).round()) % editados.length;
             final valor = (delta.distance / radio * 10).clamp(0.0, 10.0);
-            actualizarDialogo(() => editados[indice] = valor);
+            actualizarDialogo(() {
+              editados[indice] = valor;
+              dimensionesEditadas.add(indice);
+            });
           }
 
           return Dialog.fullscreen(
@@ -604,8 +616,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                             final diagnostico = data.diagnosticoConversacional;
                             if (diagnostico == null) return;
                             for (var i = 0; i < _etiquetasRueda.length; i++) {
-                              diagnostico.valoresConfirmados[_etiquetasRueda[i]] =
-                                  editados[i].round();
+                              final etiqueta = _etiquetasRueda[i];
+                              if (!faltantesIniciales.contains(i) ||
+                                  dimensionesEditadas.contains(i)) {
+                                diagnostico.valoresConfirmados[etiqueta] =
+                                    editados[i].round();
+                              }
                             }
                             diagnostico.confirmado = true;
                             await HerramientasService.guardar(data);
@@ -650,6 +666,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                   color: const Color(0xFF9B75FF),
                                   axisColors: _coloresRueda,
                                   textColor: Colors.white,
+                                  missingIndices: {
+                                    for (final i in faltantesIniciales)
+                                      if (!dimensionesEditadas.contains(i)) i,
+                                  },
                                 ),
                                 child: const SizedBox.expand(),
                               ),
@@ -684,6 +704,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                 if (fundamento != null && fundamento.trim().isNotEmpty)
                                   Text(fundamento,
                                     style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                                if (faltantesIniciales.contains(index) &&
+                                    !dimensionesEditadas.contains(index))
+                                  const Text('Sin información suficiente · puedes proponer un valor',
+                                    style: TextStyle(color: Colors.amberAccent, fontSize: 10)),
                               ],
                             ),
                           ),
@@ -700,14 +724,20 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                 min: 0,
                                 max: 10,
                                 divisions: 10,
-                                onChanged: (value) => actualizarDialogo(
-                                  () => editados[index] = value),
+                                onChanged: (value) => actualizarDialogo(() {
+                                  editados[index] = value;
+                                  dimensionesEditadas.add(index);
+                                }),
                               ),
                             ),
                           ),
                           SizedBox(
                             width: 25,
-                            child: Text(editados[index].toStringAsFixed(0),
+                            child: Text(
+                              faltantesIniciales.contains(index) &&
+                                      !dimensionesEditadas.contains(index)
+                                  ? '—'
+                                  : editados[index].toStringAsFixed(0),
                               textAlign: TextAlign.end,
                               style: TextStyle(color: _coloresRueda[index],
                                 fontWeight: FontWeight.w800)),
@@ -1097,6 +1127,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
   final Color color;
   final Color textColor;
   final List<Color>? axisColors;
+  final Set<int> missingIndices;
 
   _RadarDiagnosticoPainter({
     required this.values,
@@ -1104,6 +1135,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
     required this.color,
     required this.textColor,
     this.axisColors,
+    this.missingIndices = const {},
   });
 
   @override
@@ -1130,37 +1162,41 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       canvas.drawPath(path, gridPaint);
     }
 
-    final polygon = <Offset>[];
+    final polygon = <Offset?>[];
     for (var i = 0; i < count; i++) {
       final angle = -math.pi / 2 + 2 * math.pi * i / count;
       final end = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
       final axisColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
-      canvas.drawLine(center, end, Paint()..color = axisColor.withValues(alpha: 0.48)..strokeWidth = 1.1);
-      final value = values[i].clamp(0, 10).toDouble();
-      polygon.add(center + Offset(
-        math.cos(angle) * radius * value / 10,
-        math.sin(angle) * radius * value / 10,
-      ));
+      canvas.drawLine(center, end, Paint()
+        ..color = axisColor.withValues(alpha: 0.48)
+        ..strokeWidth = 1.1);
+      if (missingIndices.contains(i)) {
+        polygon.add(null);
+      } else {
+        final value = values[i].clamp(0, 10).toDouble();
+        polygon.add(center + Offset(
+          math.cos(angle) * radius * value / 10,
+          math.sin(angle) * radius * value / 10,
+        ));
+      }
     }
 
-    final area = Path()..moveTo(polygon.first.dx, polygon.first.dy);
-    for (final point in polygon.skip(1)) {
-      area.lineTo(point.dx, point.dy);
-    }
-    area.close();
+    // Solo une dimensiones con información: las ausencias no se dibujan como cero.
     for (var i = 0; i < count; i++) {
-      final next = (i + 1) % count;
-      final sector = Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(polygon[i].dx, polygon[i].dy)
-        ..lineTo(polygon[next].dx, polygon[next].dy)
-        ..close();
+      final current = polygon[i];
+      final next = polygon[(i + 1) % count];
+      if (current == null || next == null) continue;
       final sectorColor = axisColors != null && i < axisColors!.length
           ? axisColors![i] : color;
+      final sector = Path()
+        ..moveTo(center.dx, center.dy)
+        ..lineTo(current.dx, current.dy)
+        ..lineTo(next.dx, next.dy)
+        ..close();
       canvas.drawPath(sector, Paint()
         ..color = sectorColor.withValues(alpha: 0.13)
         ..style = PaintingStyle.fill);
-      canvas.drawLine(polygon[i], polygon[next], Paint()
+      canvas.drawLine(current, next, Paint()
         ..color = sectorColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
@@ -1169,6 +1205,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
 
     for (var i = 0; i < count; i++) {
       final point = polygon[i];
+      if (point == null) continue;
       final pointColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
       canvas.drawCircle(point, 4.2, Paint()..color = pointColor);
       canvas.drawCircle(
@@ -1179,12 +1216,17 @@ class _RadarDiagnosticoPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
+    }
+
+    for (var i = 0; i < count; i++) {
       final angle = -math.pi / 2 + 2 * math.pi * i / count;
       final labelPoint = center + Offset(
         math.cos(angle) * (radius + 17),
         math.sin(angle) * (radius + 17),
       );
-      final labelColor = axisColors != null && i < axisColors!.length ? axisColors![i] : textColor;
+      final labelColor = missingIndices.contains(i)
+          ? textColor.withValues(alpha: 0.45)
+          : (axisColors != null && i < axisColors!.length ? axisColors![i] : textColor);
       final text = TextPainter(
         text: TextSpan(
           text: labels[i],
@@ -1206,7 +1248,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       text.paint(canvas, offset);
     }
 
-    // Escala discreta 1–10 en el eje vertical, como referencia numérica.
+    // Escala discreta 2–10 en el eje vertical, como referencia numérica.
     for (var level = 2; level <= 10; level += 2) {
       final y = center.dy - radius * level / 10;
       final text = TextPainter(
@@ -1229,7 +1271,8 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       oldDelegate.labels != labels ||
       oldDelegate.color != color ||
       oldDelegate.textColor != textColor ||
-      oldDelegate.axisColors != axisColors;
+      oldDelegate.axisColors != axisColors ||
+      oldDelegate.missingIndices != missingIndices;
 }
 
 /// Dibuja los 30 segmentos del anillo; el selector táctil se superpone encima.
