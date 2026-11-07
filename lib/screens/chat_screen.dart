@@ -456,8 +456,14 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 'content': m.content,
               })
           .toList();
+      // Solo compartimos los antecedentes del diario con el generador:
+      // las tareas pendientes no son evidencia para puntuar dimensiones vitales.
+      final contextoDiario = await _construirContextoDiario();
       final propuesta =
-          await GeminiService.proponerDiagnosticoConversacional(historial);
+          await GeminiService.proponerDiagnosticoConversacional(
+        historial,
+        contextoUsuario: contextoDiario,
+      );
       if (propuesta == null) return;
 
       data.diagnosticoConversacional = DiagnosticoConversacional(
