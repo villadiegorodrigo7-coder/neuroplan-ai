@@ -614,7 +614,6 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   }
 
   /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
-  /// La Etapa 1 antigua del cuadernillo ya no es fuente de este contexto.
   Future<String?> _construirContextoUsuario() async {
     final data = await HerramientasService.cargar();
     final partes = <String>[];
