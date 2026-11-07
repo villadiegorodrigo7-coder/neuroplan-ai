@@ -1,5 +1,4 @@
 /// Modelos independientes de las herramientas de NEUROPLAN.
-/// Ya no dependen del concepto ni de la estructura del cuadernillo.
 
 class MatrizEisenhower {
   List<String> urgenteImportante;
