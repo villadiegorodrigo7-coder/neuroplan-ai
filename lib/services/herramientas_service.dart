@@ -118,8 +118,61 @@ class HerramientasService {
     final localJson = prefs.getString(_localKey);
     if (localJson != null && localJson.isNotEmpty) {
       try {
-        return HerramientasData.fromJson(
+        final data = HerramientasData.fromJson(
             Map<String, dynamic>.from(jsonDecode(localJson)));
+
+        // Una copia nueva puede haberse creado antes de migrar el diagnóstico
+        // que seguía guardado en el cuadernillo anterior. Recuperamos solo ese
+        // diagnóstico para no reemplazar ni perder las demás herramientas.
+        final diagnosticoActual = data.diagnosticoConversacional;
+        final tieneDiagnosticoActual = diagnosticoActual != null &&
+            (diagnosticoActual.valoresPropuestos.isNotEmpty ||
+                diagnosticoActual.valoresConfirmados.isNotEmpty ||
+                diagnosticoActual.confirmado);
+
+        if (!tieneDiagnosticoActual) {
+          DiagnosticoConversacional? diagnosticoAnterior;
+
+          final legadoLocal = prefs.getString('cuadernillo_neuroplan_data');
+          if (legadoLocal != null && legadoLocal.isNotEmpty) {
+            try {
+              final jsonAnterior =
+                  Map<String, dynamic>.from(jsonDecode(legadoLocal));
+              diagnosticoAnterior = HerramientasData
+                  .desdeDatosAnteriores(jsonAnterior)
+                  .diagnosticoConversacional;
+            } catch (_) {}
+          }
+
+          // Si el navegador ya no conserva la copia local antigua, intenta
+          // recuperar la misma información desde la tabla histórica.
+          if (diagnosticoAnterior == null && _uid != null) {
+            try {
+              final anterior = await _db
+                  .from(_tablaAntigua)
+                  .select('datos')
+                  .eq('user_id', _uid!)
+                  .maybeSingle();
+              if (anterior != null && anterior['datos'] is Map) {
+                diagnosticoAnterior = HerramientasData.desdeDatosAnteriores(
+                  Map<String, dynamic>.from(anterior['datos']),
+                ).diagnosticoConversacional;
+              }
+            } catch (_) {
+              // La copia actual permanece intacta si la tabla antigua no está disponible.
+            }
+          }
+
+          final tieneDiagnosticoAnterior = diagnosticoAnterior != null &&
+              (diagnosticoAnterior.valoresPropuestos.isNotEmpty ||
+                  diagnosticoAnterior.valoresConfirmados.isNotEmpty ||
+                  diagnosticoAnterior.confirmado);
+          if (tieneDiagnosticoAnterior) {
+            data.diagnosticoConversacional = diagnosticoAnterior;
+            await guardar(data);
+          }
+        }
+        return data;
       } catch (_) {
         // Si el dato local está dañado, intentamos recuperar la nube.
       }
