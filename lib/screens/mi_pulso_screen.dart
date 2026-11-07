@@ -243,14 +243,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                   children: [
+                    // La Rueda de la Vida queda al frente para que sea
+                    // visible al entrar a Mi pulso, sin tener que buscarla
+                    // debajo del seguimiento de 30 días.
+                    _composicionDiagnostica(scheme),
+                    const SizedBox(height: 22),
                     Text(
                       'Tu recorrido · ciclo de 30 días',
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
                     ),
                     const SizedBox(height: 14),
                     resumen,
-                    const SizedBox(height: 12),
-                    _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
                     _tareasDelDia(scheme),
                   ],
