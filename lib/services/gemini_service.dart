@@ -87,7 +87,7 @@ PREGUNTAS DEL DIAGNÓSTICO:
 
 Haz solo una pregunta principal por turno. Escucha la respuesta antes de avanzar. No conviertas las respuestas en puntuaciones, diagnósticos psicológicos ni juicios. Busca comprender el contexto que la persona decida compartir. Si no quiere responder algo, respétalo y continúa sin presión. Si la persona necesita hablar de otra cosa, atiéndela; no la fuerces a terminar el diagnóstico. Al completar la exploración, devuelve una síntesis breve y fiel de lo que escuchaste, distingue hechos de interpretaciones y deja que la persona continúe libremente la conversación. Si y solo si ya exploraste las 12 preguntas (aceptando respuestas espontáneas que cubran varias preguntas y respetando las que la persona no quiera responder) y formulaste la síntesis integradora final, añade al final de tu respuesta el marcador técnico exacto [[DIAGNOSTICO_COMPLETO]]. No uses ese marcador antes de terminar.
 
-El diagnóstico conversacional es la única fuente del diagnóstico inicial y de la primera propuesta de la Rueda de la Vida. Basa la conversación exclusivamente en lo que la persona expresa durante este proceso; no presupongas respuestas ni completes información con datos ajenos a esta conversación.
+El diagnóstico inicial debe aprovechar el contexto personal que la aplicación te entregue, incluidos los diarios y las reflexiones anteriores, sin confundir memoria con estado actual. Antes de preguntar, revisa esos antecedentes y evita repetir preguntas cuya respuesta ya esté suficientemente contenida. Si un dato puede haber cambiado, haz una pregunta breve para confirmar su vigencia. Usa los registros fechados como antecedentes, no como verdades actuales ni como puntuaciones de la Rueda. No deduzcas una dimensión ni le asignes un valor numérico solo por un semáforo, un nivel de energía, una tarea o una reflexión aislada. Explora lo que falta y confirma lo que sea necesario. La conversación del diagnóstico y las confirmaciones actuales de la persona son la base principal de la primera propuesta. Distingue siempre hechos expresados, registros históricos e hipótesis; no completes vacíos con suposiciones.
 
 REFLEXIÓN DIARIA CON ÁGORA:
 La reflexión diaria es distinta del diagnóstico inicial. Cuando la persona inicia una reflexión del día, acompáñala con estas tres preguntas, en este orden, una por una:
@@ -338,11 +338,14 @@ $contextoUsuario
     ).firstMatch(respuesta.trim());
     return estado?.group(1)?.toUpperCase() == 'COMPLETO';
   }
-  /// Propone valores preliminares para la Rueda de la Vida usando únicamente
-  /// la conversación del diagnóstico. La propuesta nunca se confirma sola.
+  /// Propone valores preliminares para la Rueda de la Vida usando la
+  /// conversación del diagnóstico y antecedentes del diario como contexto.
+  /// Los antecedentes no sustituyen la confirmación actual ni se convierten
+  /// por sí solos en puntuaciones. La propuesta nunca se confirma sola.
   static Future<Map<String, dynamic>?> proponerDiagnosticoConversacional(
-    List<Map<String, String>> respuestas,
-  ) async {
+    List<Map<String, String>> respuestas, {
+    String? contextoUsuario,
+  }) async {
     const dimensiones = [
       'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
       'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
@@ -360,9 +363,10 @@ Devuelve exclusivamente un objeto JSON válido, sin Markdown ni texto antes o de
 }
 
 Dimensiones posibles: ${dimensiones.join(', ')}.
-Para cada dimensión que tenga evidencia suficiente en la conversación, propone un valor entero de 0 a 10 como hipótesis visual aproximada. No uses valores por defecto, no asignes 5 por falta de información y no infieras una puntuación solo por las actividades que la persona realiza. Si no hay información suficiente sobre una dimensión, omítela de ambos mapas. Los fundamentos deben explicar qué parte de lo conversado sostiene la propuesta. No es una evaluación clínica ni una verdad objetiva: es una hipótesis para que la persona la revise y corrija. No incluyas valores confirmados.
+Para cada dimensión que tenga evidencia suficiente en la conversación, propone un valor entero de 0 a 10 como hipótesis visual aproximada. No uses valores por defecto, no asignes 5 por falta de información y no infieras una puntuación solo por las actividades que la persona realiza. Si no hay información suficiente sobre una dimensión, omítela de ambos mapas. Los fundamentos deben explicar qué parte de lo conversado sostiene la propuesta. No es una evaluación clínica ni una verdad objetiva: es una hipótesis para que la persona la revise y corrija. La conversación del diagnóstico y las confirmaciones actuales tienen prioridad. El contexto histórico sirve para evitar preguntas repetidas y orientar qué falta explorar; no asumas que describe el presente. No propongas una puntuación basándote únicamente en datos históricos del diario, semáforos, niveles de energía, tareas o reflexiones antiguas. Si una dimensión solo aparece en antecedentes y no fue confirmada en la conversación, omítela. No incluyas valores confirmados.
 ''',
       history: respuestas,
+      contextoUsuario: contextoUsuario,
     );
     try {
       final inicio = respuesta.indexOf('{');
