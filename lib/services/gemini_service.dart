@@ -307,7 +307,7 @@ $contextoUsuario
       case 429:
         final limite =
             (detalles is Map && detalles['limite'] is int) ? detalles['limite'] : 30;
-        return 'Llegaste al límite de $limite mensajes de hoy con Ágora. Se renueva mañana. Mientras tanto puedes seguir usando tus tareas, tu agenda y tu cuadernillo.';
+        return 'Llegaste al límite de $limite mensajes de hoy con Ágora. Se renueva mañana. Mientras tanto puedes seguir usando tus tareas, tu agenda y las demás herramientas de NEUROPLAN AI.';
 
       case 400:
         if (codigo == 'mensaje_largo') {
