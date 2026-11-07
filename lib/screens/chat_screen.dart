@@ -9,10 +9,11 @@ import '../theme/app_theme.dart';
 import '../services/diario_store.dart';
 import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
+import '../models/productividad_data.dart';
 import '../services/gemini_service.dart';
 import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
-import '../services/cuadernillo_service.dart';
+import '../services/herramientas_service.dart';
 import '../services/tasks_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -280,6 +281,61 @@ class _ChatScreenState extends State<ChatScreen> {
       _loadingHistory = false;
     });
     await _generarInformeHabitosSiCorresponde();
+    await _recuperarDiagnosticoCompleto();
+  }
+
+  /// Recupera una conversación que ya terminó pero cuya rueda no se generó.
+  /// La comprobación se limita a una vez al día mientras no exista propuesta.
+  Future<void> _recuperarDiagnosticoCompleto() async {
+    try {
+      ChatConversation? diagnostico;
+      for (final conv in _conversations) {
+        if (conv.title == 'Diagnóstico inicial') {
+          diagnostico = conv;
+          break;
+        }
+      }
+      if (diagnostico == null) return;
+
+      final data = await HerramientasService.cargar();
+      final existente = data.diagnosticoConversacional;
+      if (existente != null &&
+          (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
+        return;
+      }
+
+      final historial = diagnostico.messages
+          .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
+          .map((m) => {
+                'role': m.role == 'user' ? 'user' : 'model',
+                'content': m.content,
+              })
+          .toList();
+      if (historial.where((m) => m['role'] == 'user').length < 3) return;
+
+      // La señal persistida o el marcador original evitan depender de una
+      // segunda llamada clasificadora que puede fallar o consumir el límite.
+      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+          diagnostico.messages.any(
+            (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
+          );
+      final completo = tieneMarcador ||
+          await GeminiService.diagnosticoConversacionalCompleto(historial);
+      if (!completo) return;
+
+      diagnostico.diagnosticoCompleto = true;
+      if (!diagnostico.messages.any((m) =>
+          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
+        diagnostico.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'DIAGNOSTICO_COMPLETO',
+        ));
+      }
+      await _persist();
+      await _generarPropuestaDiagnostico(diagnostico);
+    } catch (_) {
+      // La recuperación nunca debe impedir entrar a la aplicación.
+    }
   }
 
   int? _semanaDeRevision(ChatConversation? conv) {
@@ -326,7 +382,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _generarInformeHabitosSiCorresponde() async {
     try {
-      final data = await CuadernilloService.cargar();
+      final data = await HerramientasService.cargar();
       if (data.habitos.isEmpty) return;
       final prefs = await SharedPreferences.getInstance();
       const claveUltimoInforme = 'agora_ultimo_informe_habitos';
@@ -382,6 +438,53 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       _scrollToBottom();
     } catch (_) {
       // Un informe fallido no debe impedir abrir ni usar el chat.
+    }
+  }
+
+  Future<void> _generarPropuestaDiagnostico(ChatConversation conv) async {
+    try {
+      final data = await HerramientasService.cargar();
+      final existente = data.diagnosticoConversacional;
+      if (existente != null &&
+          (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
+        return;
+      }
+      final historial = conv.messages
+          .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
+          .map((m) => {
+                'role': m.role == 'user' ? 'user' : 'model',
+                'content': m.content,
+              })
+          .toList();
+      // Solo compartimos los antecedentes del diario con el generador:
+      // las tareas pendientes no son evidencia para puntuar dimensiones vitales.
+      final contextoDiario = await _construirContextoDiario();
+      final propuesta =
+          await GeminiService.proponerDiagnosticoConversacional(
+        historial,
+        contextoUsuario: contextoDiario,
+      );
+      if (propuesta == null) return;
+
+      data.diagnosticoConversacional = DiagnosticoConversacional(
+        valoresPropuestos: Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
+        fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
+        resumen: (propuesta['resumen'] ?? '').toString(),
+      );
+      await HerramientasService.guardar(data);
+
+      final aviso = ChatMessageData(
+        role: 'model',
+        content: 'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
+      );
+      conv.messages.add(aviso);
+      await _persist();
+      if (mounted && _current?.id == conv.id) {
+        setState(() {});
+        _scrollToBottom();
+      }
+    } catch (_) {
+      // La conversación sigue disponible aunque falle la propuesta visual.
     }
   }
 
@@ -456,6 +559,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     // en sendMessage, así que se excluye del historial para no duplicarlo.
     final history = conv.messages
         .sublist(0, conv.messages.length - 1)
+        .where((m) => m.role != 'system')
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
@@ -475,11 +579,28 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
     final contexto = await _construirContextoUsuario();
 
-    final response = await GeminiService.sendMessage(
+    final respuestaAgora = await GeminiService.sendMessage(
       text,
       history: history,
       contextoUsuario: contexto,
     );
+    final diagnosticoCompleto =
+        conv.title == 'Diagnóstico inicial' &&
+        (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
+            conv.diagnosticoCompleto);
+    if (diagnosticoCompleto) {
+      conv.diagnosticoCompleto = true;
+      if (!conv.messages.any((m) =>
+          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
+        conv.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'DIAGNOSTICO_COMPLETO',
+        ));
+      }
+    }
+    final response = respuestaAgora
+        .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
+        .trim();
 
     if (!mounted) return;
     setState(() {
@@ -489,88 +610,35 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     _scrollToBottom();
     await _persist();
 
+    if (diagnosticoCompleto) {
+      await _generarPropuestaDiagnostico(conv);
+    }
+
     if (_voiceReplyEnabled) {
       VoiceService.speak(response);
     }
   }
 
-  /// Arma el contexto de la Etapa 1 (diagnóstico, Rueda de la Vida y
-  /// consumo de tiempo) para dárselo al agente.
-  ///
-  /// Los valores numéricos arrancan en 5 por defecto, así que un 5 puede
-  /// ser "no lo toqué" o un 5 real. Por eso:
-  ///  * Etapa 1 completada  -> se envían todos los valores (ya los revisó).
-  ///  * Etapa 1 en progreso -> solo se envían los valores distintos de 5
-  ///    (los que seguro movió el usuario) y se avisa que son parciales.
-  /// Así el agente no trata valores por defecto como si fueran de la persona.
+  /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
   Future<String?> _construirContextoUsuario() async {
-    final data = await CuadernilloService.cargar();
-    final completa = data.etapa1Completada;
-
-    // Devuelve "Etiqueta valor, ..." con los campos que corresponda enviar.
-    String? valores(Map<String, int> campos) {
-      final usados = campos.entries
-          .where((e) => completa || e.value != 5)
-          .map((e) => '${e.key} ${e.value}')
-          .toList();
-      return usados.isEmpty ? null : usados.join(', ');
-    }
-
-    final bloques = <String>[];
-
-    // --- Diagnóstico inicial ---
-    final d = data.diagnosticoInicial;
-    final diag = valores({
-      'Energía': d.energia,
-      'Estrés': d.estres,
-      'Claridad mental': d.claridadMental,
-      'Organización': d.organizacion,
-      'Motivación': d.motivacion,
-      'Satisfacción general': d.satisfaccionGeneral,
-    });
-    if (diag != null) bloques.add('Diagnóstico inicial (escala 0-10): $diag.');
-    if (d.nota.trim().isNotEmpty) {
-      bloques.add('Nota del usuario en el diagnóstico: ${_recortar(d.nota)}');
-    }
-
-    // --- Rueda de la Vida ---
-    final r = data.ruedaVida;
-    final rueda = valores({
-      'Salud': r.salud,
-      'Estudios': r.estudios,
-      'Trabajo': r.trabajo,
-      'Finanzas': r.finanzas,
-      'Familia': r.familia,
-      'Amigos': r.amigos,
-      'Descanso': r.descanso,
-      'Crecimiento personal': r.crecimiento,
-    });
-    if (rueda != null) bloques.add('Rueda de la Vida (escala 0-10): $rueda.');
-
-    // --- Distribución / consumo de tiempo (texto libre) ---
-    final t = data.consumoTiempo;
-    final tiempo = <String>[
-      if (t.redesSociales.trim().isNotEmpty)
-        'Redes sociales: ${_recortar(t.redesSociales)}',
-      if (t.distracciones.trim().isNotEmpty)
-        'Distracciones: ${_recortar(t.distracciones)}',
-      if (t.obligaciones.trim().isNotEmpty)
-        'Obligaciones: ${_recortar(t.obligaciones)}',
-      if (t.habitos.trim().isNotEmpty) 'Hábitos: ${_recortar(t.habitos)}',
-    ];
-    if (tiempo.isNotEmpty) {
-      bloques.add('Cómo usa su tiempo el usuario. ${tiempo.join(' | ')}');
-    }
-
+    final data = await HerramientasService.cargar();
     final partes = <String>[];
+    final diagnostico = data.diagnosticoConversacional;
 
-    if (bloques.isNotEmpty) {
-      final estado = completa
-          ? 'Etapa 1 del Cuadernillo completada.'
-          : 'Etapa 1 del Cuadernillo en progreso: son datos PARCIALES. Lo '
-              'que no aparece aquí aún no lo ha respondido; no lo des por '
-              'hecho ni asumas un valor.';
-      partes.add('$estado\n${bloques.join('\n')}');
+    if (diagnostico != null && diagnostico.confirmado) {
+      final valores = diagnostico.valoresConfirmados.entries
+          .map((e) => '${e.key}: ${e.value}/10')
+          .join(', ');
+      final fundamentos = diagnostico.fundamentos.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(' | ');
+      partes.add(
+        'Rueda de la Vida confirmada por la persona después de conversar '
+        'con Ágora. Valores revisados y aceptados: $valores. '
+        '${diagnostico.resumen.trim().isEmpty ? '' : 'Síntesis aceptada: ${diagnostico.resumen}'} '
+        '${fundamentos.isEmpty ? '' : 'Fundamentos conversados: $fundamentos'} '
+        'Estos valores son una referencia personal confirmada, no un diagnóstico clínico.',
+      );
     }
 
     // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
@@ -970,6 +1038,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
                           final msg = messages[index];
+                          if (msg.role == 'system') return const SizedBox.shrink();
                           final isUser = msg.role == 'user';
                           return Align(
                             alignment: isUser

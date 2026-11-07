@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/agenda_event.dart';
 import 'agenda_service.dart';
+import 'actividad_diaria_service.dart';
 
 /// Estado compartido de la Agenda.
 ///
@@ -82,7 +83,52 @@ class AgendaStore extends ChangeNotifier {
   }
 
   void eliminar(String id) {
+    final evento = porId(id);
+    if (evento == null) return;
+    unawaited(ActividadDiariaService.registrar(
+      origen: 'agenda',
+      origenId: evento.id,
+      titulo: evento.title,
+      accion: 'compromiso_eliminado',
+      fecha: evento.date,
+      detalles: {
+        'frecuencia': evento.frecuencia,
+        'diasSemana': evento.diasSemana,
+        'cumplimientos': Map<String, bool>.from(evento.cumplimientos),
+        'fechas_cumplidas': evento.cumplimientos.entries.where((e) => e.value).map((e) => e.key).toList(),
+        'fechas_marcadas_no_cumplidas': evento.cumplimientos.entries.where((e) => !e.value).map((e) => e.key).toList(),
+        'frecuencia_indefinida': evento.frecuencia != 'unica',
+      },
+    ));
     _eventos.removeWhere((e) => e.id == id);
+    _cambio();
+  }
+
+  void alternarCumplimiento(String id, DateTime dia) {
+    final evento = porId(id);
+    if (evento == null) return;
+    final clave = evento.claveOcurrencia(dia);
+    final nuevaMarca = !(evento.cumplimientos[clave] ?? false);
+    evento.cumplimientos[clave] = nuevaMarca;
+    if (nuevaMarca) {
+      unawaited(ActividadDiariaService.registrar(
+        origen: 'agenda',
+        origenId: evento.id,
+        titulo: evento.title,
+        accion: 'cumplida',
+        fecha: dia,
+        detalles: {'frecuencia': evento.frecuencia},
+      ));
+    } else {
+      unawaited(ActividadDiariaService.registrar(
+        origen: 'agenda',
+        origenId: evento.id,
+        titulo: evento.title,
+        accion: 'desmarcada',
+        fecha: dia,
+        detalles: {'frecuencia': evento.frecuencia},
+      ));
+    }
     _cambio();
   }
 

@@ -1,8 +1,7 @@
 import 'dart:ui' show Color;
 
 // ---------------------------------------------------------------------
-// Semáforo NeuroPlan: los tres estados y sus definiciones, tal como las
-// escribe el cuadernillo del método.
+// Semáforo NeuroPlan: los tres estados y sus definiciones.
 // ---------------------------------------------------------------------
 
 const Color kColorBien = Color(0xFF34D399);

@@ -25,14 +25,19 @@ class ChatHistoryService {
       'creada_en': c.createdAt.toUtc().toIso8601String(),
       'mensajes': c.messages.map((m) => m.toJson()).toList(),
     },
-    deFila: (f) => ChatConversation(
-      id: f['id'] as String,
-      title: f['titulo'] as String,
-      createdAt: DateTime.parse(f['creada_en'] as String).toLocal(),
-      messages: ((f['mensajes'] as List?) ?? const [])
+    deFila: (f) {
+      final mensajes = ((f['mensajes'] as List?) ?? const [])
           .map((m) => ChatMessageData.fromJson(Map<String, dynamic>.from(m as Map)))
-          .toList(),
-    ),
+          .toList();
+      return ChatConversation(
+        id: f['id'] as String,
+        title: f['titulo'] as String,
+        createdAt: DateTime.parse(f['creada_en'] as String).toLocal(),
+        messages: mensajes,
+        diagnosticoCompleto: mensajes.any((m) =>
+            m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO'),
+      );
+    },
   );
 
   static Future<List<ChatConversation>> loadConversations() async {

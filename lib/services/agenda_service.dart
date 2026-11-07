@@ -19,6 +19,7 @@ class AgendaService {
       'frecuencia': e.frecuencia,
       'dias_semana': e.diasSemana,
       'aviso': e.aviso,
+      'cumplimientos': e.cumplimientos,
     },
     deFila: (f) {
       final inicio = DateTime.parse(f['fecha'] as String).toLocal();
@@ -35,6 +36,7 @@ class AgendaService {
                 .toList() ??
             <int>[],
         aviso: (f['aviso'] as bool?) ?? false,
+        cumplimientos: (f['cumplimientos'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v == true)) ?? <String, bool>{},
       );
     },
   );
