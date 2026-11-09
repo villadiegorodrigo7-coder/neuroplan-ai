@@ -580,7 +580,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       history.insert(0, {'role': 'user', 'content': mensajeDeContexto});
     }
 
-    final contexto = await _construirContextoUsuario();
+    final contexto = await _construirContextoUsuario(
+      incluirAntecedentesDiagnostico: conv.title == 'Diagnóstico inicial',
+    );
 
     final respuestaAgora = await GeminiService.sendMessage(
       text,
@@ -623,11 +625,43 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   }
 
   /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
-  Future<String?> _construirContextoUsuario() async {
+  Future<String?> _construirContextoUsuario({
+    bool incluirAntecedentesDiagnostico = false,
+  }) async {
     final data = await HerramientasService.cargar();
     final partes = <String>[];
     final diagnostico = data.diagnosticoConversacional;
 
+    if (incluirAntecedentesDiagnostico &&
+        diagnostico != null &&
+        diagnostico.antecedentesHistoricos.isNotEmpty) {
+      final antecedentes = diagnostico.antecedentesHistoricos;
+      final rueda = antecedentes['ruedaVida'];
+      final inicial = antecedentes['diagnosticoInicial'];
+      final lineasHistoricas = <String>[];
+      if (rueda is Map && rueda.isNotEmpty) {
+        lineasHistoricas.add(
+          'Rueda de la Vida histórica (datos antiguos, no confirmados hoy): '
+          '${rueda.entries.map((e) => '${e.key}: ${e.value}').join(', ')}.',
+        );
+      }
+      if (inicial is Map && inicial.isNotEmpty) {
+        lineasHistoricas.add(
+          'Diagnóstico inicial histórico (referencia antigua, no equivale a '
+          'una evaluación actual): '
+          '${inicial.entries.map((e) => '${e.key}: ${e.value}').join(', ')}.',
+        );
+      }
+      if (lineasHistoricas.isNotEmpty) {
+        partes.add(
+          'ANTECEDENTES HISTÓRICOS PARA EL DIAGNÓSTICO. Úsalos solo para '
+          'orientar preguntas y detectar qué conviene confirmar. No los '
+          'conviertas en puntuaciones actuales ni en valores de la Rueda. '
+          'Si pueden haber cambiado, pregunta por su vigencia.\n'
+          '${lineasHistoricas.join('\n')}',
+        );
+      }
+    }
     if (diagnostico != null && diagnostico.confirmado) {
       final valores = diagnostico.valoresConfirmados.entries
           .map((e) => '${e.key}: ${e.value}/10')
