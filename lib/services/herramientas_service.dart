@@ -74,6 +74,27 @@ class HerramientasData {
 
   /// Convierte una sola vez la estructura antigua a herramientas independientes.
   factory HerramientasData.desdeDatosAnteriores(Map<String, dynamic> json) {
+    // Conservamos las estructuras anteriores como antecedentes separados.
+    // Nunca las convertimos automáticamente en puntuaciones propuestas o
+    // confirmadas: Ágora debe contrastarlas con la situación actual.
+    final antecedentes = <String, dynamic>{};
+    if (json['ruedaVida'] is Map) {
+      antecedentes['ruedaVida'] =
+          Map<String, dynamic>.from(json['ruedaVida']);
+    }
+    if (json['diagnosticoInicial'] is Map) {
+      antecedentes['diagnosticoInicial'] =
+          Map<String, dynamic>.from(json['diagnosticoInicial']);
+    }
+
+    final diagnosticoActual = json['diagnosticoConversacional'] is Map
+        ? DiagnosticoConversacional.fromJson(
+            Map<String, dynamic>.from(json['diagnosticoConversacional']))
+        : null;
+    if (diagnosticoActual != null) {
+      diagnosticoActual.antecedentesHistoricos.addAll(antecedentes);
+    }
+
     return HerramientasData(
       matriz: json['matrizEisenhower'] is Map
           ? MatrizEisenhower.fromJson(Map<String, dynamic>.from(json['matrizEisenhower']))
@@ -92,10 +113,10 @@ class HerramientasData {
           .whereType<Map>()
           .map((h) => HabitoSeguimiento.fromJson(Map<String, dynamic>.from(h)))
           .toList(),
-      diagnostico: json['diagnosticoConversacional'] is Map
-          ? DiagnosticoConversacional.fromJson(
-              Map<String, dynamic>.from(json['diagnosticoConversacional']))
-          : null,
+      diagnostico: diagnosticoActual ??
+          (antecedentes.isNotEmpty
+              ? DiagnosticoConversacional(antecedentesHistoricos: antecedentes)
+              : null),
     );
   }
 }
