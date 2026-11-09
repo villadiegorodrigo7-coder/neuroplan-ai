@@ -199,7 +199,8 @@ class HerramientasService {
           final tieneDiagnosticoAnterior = diagnosticoAnterior != null &&
               (diagnosticoAnterior.valoresPropuestos.isNotEmpty ||
                   diagnosticoAnterior.valoresConfirmados.isNotEmpty ||
-                  diagnosticoAnterior.confirmado);
+                  diagnosticoAnterior.confirmado ||
+                diagnosticoAnterior.antecedentesHistoricos.isNotEmpty);
           if (tieneDiagnosticoAnterior) {
             data.diagnosticoConversacional = diagnosticoAnterior;
             await guardar(data);
