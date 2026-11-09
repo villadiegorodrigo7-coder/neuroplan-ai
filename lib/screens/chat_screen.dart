@@ -311,10 +311,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 'content': m.content,
               })
           .toList();
-      if (historial.where((m) => m['role'] == 'user').length < 3) return;
+      final respuestasUsuario =
+          historial.where((m) => m['role'] == 'user').length;
+      if (respuestasUsuario == 0) return;
 
-      // La señal persistida o el marcador original evitan depender de una
-      // segunda llamada clasificadora que puede fallar o consumir el límite.
+      // La conversación puede cubrir varias preguntas en una sola respuesta.
+      // No imponemos un mínimo artificial de turnos: el clasificador evalúa
+      // el contenido real y el cierre integrador, no el número de mensajes.
       final tieneMarcador = diagnostico.diagnosticoCompleto ||
           diagnostico.messages.any(
             (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
