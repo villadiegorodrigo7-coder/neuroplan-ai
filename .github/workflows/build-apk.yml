@@ -3,7 +3,7 @@ name: NEUROPLAN AI - Android + Web
 # Ambas plataformas se compilan desde el mismo commit y en paralelo.
 on:
   push:
-    branches: [main, feature/agenda-intervalos-recurrencias]
+    branches: [main, feature/agenda-intervalos-recurrencias, feature/agenda-calendario-organizacion-dia]
   workflow_dispatch:
 
 jobs:

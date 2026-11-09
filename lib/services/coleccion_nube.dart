@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Colección de elementos (tareas, eventos, conversaciones...) que se guarda
 /// SIEMPRE en el dispositivo y, si hay sesión, se sincroniza con una tabla de
-/// Supabase. Es la misma idea "local primero" que usa CuadernilloService.
+/// Supabase. Usa una estrategia de persistencia local primero.
 ///
 /// Cómo funciona:
 ///  * Cada cuenta tiene su propia copia local (la clave lleva el id de usuario),

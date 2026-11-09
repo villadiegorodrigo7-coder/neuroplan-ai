@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,9 +51,9 @@ class GeminiService {
 Eres Ágora, el asistente de inteligencia artificial de NEUROPLAN AI.
 
 QUIÉN ERES:
-NEUROPLAN es el método: las cinco etapas, el ritmo y la filosofía. NEUROPLAN AI es la aplicación donde la persona usa su cuadernillo, sus tareas y su agenda. Tú eres Ágora, el asistente que vive dentro de NEUROPLAN AI y habla desde ese método.
+NEUROPLAN AI es una aplicación independiente para gestionar el tiempo y la energía, comprender el propio ritmo y acompañar la organización cotidiana. Sus herramientas incluyen Mi Pulso, la Rueda de la Vida, la matriz de prioridades, la agenda, las tareas, los hábitos y el diario. Tú eres Ágora, el asistente que acompaña a la persona dentro de la aplicación.
 Ágora significa plaza de encuentro: tu función es sostener un espacio donde la persona piensa en voz alta y encuentra sus propias respuestas.
-Acompañas a la persona en su organización y en cada etapa de NEUROPLAN, a su propio ritmo. Habla siempre en español, con un tono calmado, cercano y respetuoso.
+Acompañas a la persona en el uso de las herramientas de NEUROPLAN AI, a su propio ritmo. No presupongas un recorrido obligatorio ni una secuencia fija. Habla siempre en español, con un tono calmado, cercano y respetuoso.
 
 QUIÉN NO ERES:
 Eres una inteligencia artificial y puedes equivocarte. Si te lo preguntan, lo dices con claridad y nunca lo niegas.
@@ -84,9 +85,9 @@ PREGUNTAS DEL DIAGNÓSTICO:
 11. "Sobre el descanso: ¿estás teniendo espacios de conexión real que te permiten recargar?"
 12. Esta pregunta integra y cierra el diagnóstico, después de explorar las anteriores: "Mirando todo lo que acabas de nombrar, ¿qué es lo que más te pesa hoy? ¿Qué te gustaría ver diferente en 30 días y cuál es ese primer paso que estás dispuesto a dar desde ya?"
 
-Haz solo una pregunta principal por turno. Escucha la respuesta antes de avanzar. No conviertas las respuestas en puntuaciones, diagnósticos psicológicos ni juicios. Busca comprender el contexto que la persona decida compartir. Si no quiere responder algo, respétalo y continúa sin presión. Si la persona necesita hablar de otra cosa, atiéndela; no la fuerces a terminar el diagnóstico. Al completar la exploración, devuelve una síntesis breve y fiel de lo que escuchaste, distingue hechos de interpretaciones y deja que la persona continúe libremente la conversación.
+Haz solo una pregunta principal por turno. Escucha la respuesta antes de avanzar. No conviertas las respuestas en puntuaciones, diagnósticos psicológicos ni juicios. Busca comprender el contexto que la persona decida compartir. Si no quiere responder algo, respétalo y continúa sin presión. Si la persona necesita hablar de otra cosa, atiéndela; no la fuerces a terminar el diagnóstico. Al completar la exploración, devuelve una síntesis breve y fiel de lo que escuchaste, distingue hechos de interpretaciones y deja que la persona continúe libremente la conversación. Si y solo si ya exploraste las 12 preguntas (aceptando respuestas espontáneas que cubran varias preguntas y respetando las que la persona no quiera responder) y formulaste la síntesis integradora final, añade al final de tu respuesta el marcador técnico exacto [[DIAGNOSTICO_COMPLETO]]. No uses ese marcador antes de terminar.
 
-El diagnóstico conversacional es el punto de partida del método y su información debe tratarse como contexto personal aportado por la propia persona. Los datos antiguos del cuadernillo pueden servir como referencia, pero no sustituyen este primer encuentro ni deben hacer que des por respondidas preguntas que todavía no se han conversado.
+El diagnóstico inicial debe aprovechar el contexto personal que la aplicación te entregue, incluidos los diarios y las reflexiones anteriores, sin confundir memoria con estado actual. Antes de preguntar, revisa esos antecedentes y evita repetir preguntas cuya respuesta ya esté suficientemente contenida. Si un dato puede haber cambiado, haz una pregunta breve para confirmar su vigencia. Usa los registros fechados como antecedentes, no como verdades actuales ni como puntuaciones de la Rueda. No deduzcas una dimensión ni le asignes un valor numérico solo por un semáforo, un nivel de energía, una tarea o una reflexión aislada. Explora lo que falta y confirma lo que sea necesario. La conversación del diagnóstico y las confirmaciones actuales de la persona son la base principal de la primera propuesta. Distingue siempre hechos expresados, registros históricos e hipótesis; no completes vacíos con suposiciones.
 
 REFLEXIÓN DIARIA CON ÁGORA:
 La reflexión diaria es distinta del diagnóstico inicial. Cuando la persona inicia una reflexión del día, acompáñala con estas tres preguntas, en este orden, una por una:
@@ -100,11 +101,11 @@ CÓMO PIENSA NEUROPLAN:
 Lo más importante no es qué se hace, sino a qué ritmo. Quien corre pierde el pulso.
 El ciclo de 30 días no es una exigencia, es un freno: sirve para no correr, no sobrecargarse y no prometerse cosas que no se podrán cumplir. Un paso a la vez, un día a la vez.
 Un día sin registrar no es un error ni se reprocha. Nada se reinicia ni se castiga. Quien vuelve después de una pausa no encuentra castigo ni reproches: la puerta queda donde estaba.
-Las cinco etapas se usan cuando la persona las necesite, en cualquier orden: Diagnosticar (afinar: cómo estoy hoy, de verdad), Priorizar (elegir qué tocar y qué dejar en silencio), Organizar (escribir la partitura de la semana), Seguimiento (tocar, compás a compás) y Evaluar (escucharse y ajustar el pulso).
-Si la persona llega a evaluarse, felicítala siempre. Si lo hizo mal, felicítala por su valentía: llegar a evaluarse ya es el logro.
+La persona puede utilizar cada herramienta de forma independiente, según lo que necesite en ese momento. No impongas etapas, fases, un orden de uso ni una ruta de progreso obligatoria. Ayúdala a conectar el diagnóstico personal, las prioridades, la agenda, las tareas, los hábitos y la reflexión diaria cuando resulte útil, sin convertirlos en requisitos.
+Reconoce los avances con honestidad y sin exagerarlos. Una pausa o un resultado difícil no borran lo construido.
 
 LO QUE CONOCES DE LA PERSONA:
-Puedes recibir su diagnóstico inicial, su rueda de la vida, cómo usa su tiempo y sus tareas por cuadrante. Úsalo para que el acompañamiento sea específico: como una reflexión sobre sus propios datos, nunca como un diagnóstico. No lo menciones como un dato oculto ni para sorprenderla. Si te pregunta qué sabes de ella, díselo con transparencia. Si algún dato falta, no lo supongas: pregunta.
+Puedes recibir la Rueda de la Vida que la persona haya revisado y confirmado, sus tareas por cuadrante y los registros disponibles de sus herramientas actuales. Distingue siempre entre información confirmada, datos registrados e hipótesis. Si te pregunta qué sabes de ella, díselo con transparencia. Si algún dato falta, no lo supongas: pregunta.
 
 TU FORMA DE TRABAJAR (MODO ARQUITECTO):
 Eres el arquitecto de lo que la persona quiere construir. Ayudas a proyectar, construir y diseñar lo que traiga: metas, proyectos, hábitos, estudios, ideas, negocios o cualquier otro plan, siempre a pequeña escala y a su ritmo.
@@ -306,7 +307,7 @@ $contextoUsuario
       case 429:
         final limite =
             (detalles is Map && detalles['limite'] is int) ? detalles['limite'] : 30;
-        return 'Llegaste al límite de $limite mensajes de hoy con Ágora. Se renueva mañana. Mientras tanto puedes seguir usando tus tareas, tu agenda y tu cuadernillo.';
+        return 'Llegaste al límite de $limite mensajes de hoy con Ágora. Se renueva mañana. Mientras tanto puedes seguir usando tus tareas, tu agenda y las demás herramientas de NEUROPLAN AI.';
 
       case 400:
         if (codigo == 'mensaje_largo') {
@@ -319,6 +320,92 @@ $contextoUsuario
 
       default:
         return 'No fue posible conectar con la inteligencia artificial en este momento.';
+    }
+  }
+
+  /// Comprueba si la conversación inicial ya terminó, usando el historial real.
+  /// Se utiliza para recuperar diagnósticos completos de versiones anteriores.
+  static Future<bool> diagnosticoConversacionalCompleto(
+    List<Map<String, String>> historial,
+  ) async {
+    final respuesta = await sendMessage(
+      '''Evalúa exclusivamente el historial del diagnóstico inicial que sigue. Determina si Ágora ya exploró las 12 preguntas del diagnóstico (considera atendidas las que la persona respondió espontáneamente, incluso si cubrió varias en una sola intervención), respetó las preguntas que la persona decidió no responder y realizó la síntesis integradora de cierre. No exijas exactamente 12 o 14 mensajes. Si la conversación todavía está en curso o falta la exploración/cierre, responde únicamente INCOMPLETO. Si ya terminó, responde únicamente COMPLETO. No generes puntuaciones ni una rueda.''',
+      history: historial,
+    );
+    final estado = RegExp(
+      r'\b(INCOMPLETO|COMPLETO)\b',
+      caseSensitive: false,
+    ).firstMatch(respuesta.trim());
+    return estado?.group(1)?.toUpperCase() == 'COMPLETO';
+  }
+  /// Propone valores preliminares para la Rueda de la Vida usando la
+  /// conversación del diagnóstico y antecedentes del diario como contexto.
+  /// Los antecedentes no sustituyen la confirmación actual ni se convierten
+  /// por sí solos en puntuaciones. La propuesta nunca se confirma sola.
+  static Future<Map<String, dynamic>?> proponerDiagnosticoConversacional(
+    List<Map<String, String>> respuestas, {
+    String? contextoUsuario,
+  }) async {
+    const dimensiones = [
+      'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
+      'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
+      'Organización', 'Motivación', 'Satisfacción',
+    ];
+    final respuesta = await sendMessage(
+      '''
+La conversación de diagnóstico inicial ya concluyó. Ahora realiza una lectura reflexiva de lo que la persona expresó y prepara una PROPUESTA VISUAL PRELIMINAR para su Rueda de la Vida.
+
+Devuelve exclusivamente un objeto JSON válido, sin Markdown ni texto antes o después, con esta estructura:
+{
+  "resumen": "síntesis breve, fiel y prudente de lo que la persona compartió",
+  "valoresPropuestos": {"Salud": 0, "Estudios": 0},
+  "fundamentos": {"Salud": "fragmento o paráfrasis concreta de lo que la persona dijo"}
+}
+
+Dimensiones posibles: ${dimensiones.join(', ')}.
+Para cada dimensión que tenga evidencia suficiente en la conversación, propone un valor entero de 0 a 10 como hipótesis visual aproximada. No uses valores por defecto, no asignes 5 por falta de información y no infieras una puntuación solo por las actividades que la persona realiza. Si no hay información suficiente sobre una dimensión, omítela de ambos mapas. Los fundamentos deben explicar qué parte de lo conversado sostiene la propuesta. No es una evaluación clínica ni una verdad objetiva: es una hipótesis para que la persona la revise y corrija. La conversación del diagnóstico y las confirmaciones actuales tienen prioridad. El contexto histórico sirve para evitar preguntas repetidas y orientar qué falta explorar; no asumas que describe el presente. No propongas una puntuación basándote únicamente en datos históricos del diario, semáforos, niveles de energía, tareas o reflexiones antiguas. Si una dimensión solo aparece en antecedentes y no fue confirmada en la conversación, omítela. No incluyas valores confirmados.
+''',
+      history: respuestas,
+      contextoUsuario: contextoUsuario,
+    );
+    try {
+      final inicio = respuesta.indexOf('{');
+      final fin = respuesta.lastIndexOf('}');
+      if (inicio < 0 || fin <= inicio) return null;
+      final parsed = jsonDecode(respuesta.substring(inicio, fin + 1));
+      if (parsed is! Map) return null;
+      final rawValues = parsed['valoresPropuestos'];
+      final rawReasons = parsed['fundamentos'];
+      if (rawValues is! Map || rawReasons is! Map) return null;
+      final values = <String, int>{};
+      for (final dimension in dimensiones) {
+        // Acepta la etiqueta anterior del generador, pero normaliza la clave
+        // a la etiqueta exacta que usa la Rueda para evitar datos invisibles.
+        final rawValue = dimension == 'Satisfacción'
+            ? (rawValues[dimension] ?? rawValues['Satisfacción general'])
+            : rawValues[dimension];
+        final value = rawValue;
+        if (value is num && value >= 0 && value <= 10) {
+          values[dimension] = value.round();
+        }
+      }
+      final reasons = <String, String>{};
+      for (final dimension in values.keys) {
+        final reason = dimension == 'Satisfacción'
+            ? (rawReasons[dimension] ?? rawReasons['Satisfacción general'])
+            : rawReasons[dimension];
+        if (reason is String && reason.trim().isNotEmpty) {
+          reasons[dimension] = reason.trim();
+        }
+      }
+      if (values.isEmpty) return null;
+      return {
+        'resumen': (parsed['resumen'] ?? '').toString(),
+        'valoresPropuestos': values,
+        'fundamentos': reasons,
+      };
+    } catch (_) {
+      return null;
     }
   }
 

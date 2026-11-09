@@ -7,6 +7,8 @@ class AgendaEvent {
   bool aviso;
   String frecuencia; // unica, diaria, semanal, personalizada
   List<int> diasSemana; // DateTime.monday=1 ... sunday=7
+  /// Estado de cada ocurrencia recurrente, indexado por yyyy-MM-dd.
+  Map<String, bool> cumplimientos;
 
   AgendaEvent({
     required this.id,
@@ -16,10 +18,19 @@ class AgendaEvent {
     this.aviso = false,
     this.frecuencia = 'unica',
     List<int>? diasSemana,
+    Map<String, bool>? cumplimientos,
   })  : endDate = endDate ?? date.add(const Duration(hours: 1)),
-        diasSemana = diasSemana ?? <int>[];
+        diasSemana = diasSemana ?? <int>[],
+        cumplimientos = cumplimientos ?? <String, bool>{};
 
   Duration get duracion => endDate.difference(date);
+
+  String claveOcurrencia([DateTime? dia]) {
+    final d = dia ?? date;
+    return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  bool realizadaEn([DateTime? dia]) => cumplimientos[claveOcurrencia(dia)] ?? false;
 
   bool ocurreEl(DateTime dia) {
     final d = DateTime(dia.year, dia.month, dia.day);
@@ -58,6 +69,7 @@ class AgendaEvent {
       aviso: aviso,
       frecuencia: frecuencia,
       diasSemana: diasSemana,
+      cumplimientos: cumplimientos,
     );
   }
 
@@ -69,6 +81,7 @@ class AgendaEvent {
         'aviso': aviso,
         'frecuencia': frecuencia,
         'diasSemana': diasSemana,
+        'cumplimientos': cumplimientos,
       };
 
   factory AgendaEvent.fromJson(Map<String, dynamic> json) {
@@ -82,6 +95,7 @@ class AgendaEvent {
           : DateTime.parse(json['endDate'] as String),
       aviso: json['aviso'] == true,
       frecuencia: json['frecuencia'] as String? ?? 'unica',
+      cumplimientos: (json['cumplimientos'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v == true)) ?? <String, bool>{},
       diasSemana: (json['diasSemana'] as List<dynamic>?)
               ?.map((e) => e as int)
               .toList() ??

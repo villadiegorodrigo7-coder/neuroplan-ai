@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/agenda-calendario-organizacion-dia
 
 permissions:
   contents: read
@@ -46,6 +47,9 @@ jobs:
   deploy:
     needs: build-web
     runs-on: ubuntu-latest
+    concurrency:
+      group: neuroplan-github-pages
+      cancel-in-progress: false
 
     environment:
       name: github-pages
