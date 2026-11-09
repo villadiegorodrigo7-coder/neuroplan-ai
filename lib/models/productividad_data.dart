@@ -223,6 +223,9 @@ class DiagnosticoConversacional {
   Map<String, String> fundamentos;
   String resumen;
   bool confirmado;
+  /// Datos del esquema antiguo conservados como antecedentes, nunca como
+  /// puntuaciones actuales ni como valores confirmados de la Rueda.
+  Map<String, dynamic> antecedentesHistoricos;
 
   DiagnosticoConversacional({
     Map<String, int>? valoresPropuestos,
@@ -230,9 +233,11 @@ class DiagnosticoConversacional {
     Map<String, String>? fundamentos,
     this.resumen = '',
     this.confirmado = false,
+    Map<String, dynamic>? antecedentesHistoricos,
   })  : valoresPropuestos = valoresPropuestos ?? {},
         valoresConfirmados = valoresConfirmados ?? {},
-        fundamentos = fundamentos ?? {};
+        fundamentos = fundamentos ?? {},
+        antecedentesHistoricos = antecedentesHistoricos ?? {};
 
   Map<String, dynamic> toJson() => {
         'valoresPropuestos': valoresPropuestos,
@@ -240,6 +245,8 @@ class DiagnosticoConversacional {
         'fundamentos': fundamentos,
         'resumen': resumen,
         'confirmado': confirmado,
+        if (antecedentesHistoricos.isNotEmpty)
+          'antecedentesHistoricos': antecedentesHistoricos,
       };
 
   factory DiagnosticoConversacional.fromJson(Map<String, dynamic> json) =>
@@ -249,5 +256,8 @@ class DiagnosticoConversacional {
         fundamentos: Map<String, String>.from(json['fundamentos'] ?? {}),
         resumen: (json['resumen'] ?? '').toString(),
         confirmado: json['confirmado'] == true,
+        antecedentesHistoricos: json['antecedentesHistoricos'] is Map
+            ? Map<String, dynamic>.from(json['antecedentesHistoricos'])
+            : {},
       );
 }
