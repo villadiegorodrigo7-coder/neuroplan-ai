@@ -151,7 +151,8 @@ class HerramientasService {
         final tieneDiagnosticoActual = diagnosticoActual != null &&
             (diagnosticoActual.valoresPropuestos.isNotEmpty ||
                 diagnosticoActual.valoresConfirmados.isNotEmpty ||
-                diagnosticoActual.confirmado);
+                diagnosticoActual.confirmado ||
+                diagnosticoActual.antecedentesHistoricos.isNotEmpty);
 
         if (!tieneDiagnosticoActual) {
           DiagnosticoConversacional? diagnosticoAnterior;
