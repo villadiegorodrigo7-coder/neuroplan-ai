@@ -322,8 +322,21 @@ class _ChatScreenState extends State<ChatScreen> {
           diagnostico.messages.any(
             (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
           );
-      final completo = tieneMarcador ||
-          await GeminiService.diagnosticoConversacionalCompleto(historial);
+      var completo = tieneMarcador;
+      if (!completo) {
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (uid == null) return;
+        final prefs = await SharedPreferences.getInstance();
+        final claveRevision =
+            'agora_diagnostico_recuperacion_v1_${uid}_${diagnostico.id}';
+        final hoy = EntradaDiario.claveFecha(DateTime.now());
+        // Si el sondeo sigue abierto, no volvemos a clasificarlo cada vez
+        // que se abre el chat. Se permite una nueva comprobación al día.
+        if (prefs.getString(claveRevision) == hoy) return;
+        completo =
+            await GeminiService.diagnosticoConversacionalCompleto(historial);
+        await prefs.setString(claveRevision, hoy);
+      }
       if (!completo) return;
 
       diagnostico.diagnosticoCompleto = true;
