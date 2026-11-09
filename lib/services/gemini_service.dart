@@ -349,7 +349,7 @@ $contextoUsuario
     const dimensiones = [
       'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
       'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
-      'Organización', 'Motivación', 'Satisfacción general',
+      'Organización', 'Motivación', 'Satisfacción',
     ];
     final respuesta = await sendMessage(
       '''
@@ -379,14 +379,21 @@ Para cada dimensión que tenga evidencia suficiente en la conversación, propone
       if (rawValues is! Map || rawReasons is! Map) return null;
       final values = <String, int>{};
       for (final dimension in dimensiones) {
-        final value = rawValues[dimension];
+        // Acepta la etiqueta anterior del generador, pero normaliza la clave
+        // a la etiqueta exacta que usa la Rueda para evitar datos invisibles.
+        final rawValue = dimension == 'Satisfacción'
+            ? (rawValues[dimension] ?? rawValues['Satisfacción general'])
+            : rawValues[dimension];
+        final value = rawValue;
         if (value is num && value >= 0 && value <= 10) {
           values[dimension] = value.round();
         }
       }
       final reasons = <String, String>{};
       for (final dimension in values.keys) {
-        final reason = rawReasons[dimension];
+        final reason = dimension == 'Satisfacción'
+            ? (rawReasons[dimension] ?? rawReasons['Satisfacción general'])
+            : rawReasons[dimension];
         if (reason is String && reason.trim().isNotEmpty) {
           reasons[dimension] = reason.trim();
         }
