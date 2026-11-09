@@ -473,6 +473,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         valoresPropuestos: Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
         fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
         resumen: (propuesta['resumen'] ?? '').toString(),
+        antecedentesHistoricos:
+            existente?.antecedentesHistoricos ?? <String, dynamic>{},
       );
       await HerramientasService.guardar(data);
 
