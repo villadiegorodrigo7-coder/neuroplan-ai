@@ -326,7 +326,12 @@ class _TasksScreenState extends State<TasksScreen> {
           : ListenableBuilder(
               listenable: _service,
               builder: (context, _) {
-                final tasks = _service.tasks;
+                final hoy = EntradaDiario.claveFecha(DateTime.now());
+                // Las completadas se muestran solo el día en que se hicieron.
+                // Su registro histórico permanece disponible en Mi Pulso.
+                final tasks = _service.tasks
+                    .where((t) => !t.done || t.fecha == hoy)
+                    .toList();
                 final pending = tasks.where((t) => !t.done).length;
                 final sinClasificar = tasks
                     .where((t) => !TasksService.cuadrantesSincronizados
