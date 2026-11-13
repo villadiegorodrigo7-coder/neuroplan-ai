@@ -158,6 +158,11 @@ class TasksService extends ChangeNotifier {
 
   void alternar(Task task) {
     task.done = !task.done;
+    if (task.done) {
+      // La fecha registra el día real en que se completó la tarea.
+      // Mi Pulso la conserva en ese día aunque después salga de la lista activa.
+      task.fecha = EntradaDiario.claveFecha(DateTime.now());
+    }
     _notificar();
     unawaited(_guardar());
   }
