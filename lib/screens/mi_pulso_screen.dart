@@ -13,6 +13,7 @@ import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
 import '../services/agenda_store.dart';
 import '../services/concierto_final_service.dart';
+import 'chat_screen.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
 /// (Mi ritmo) y las intenciones elegidas (Mis intenciones).
@@ -309,52 +310,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       final snapshot = await ConciertoFinalService.preparar(cicloId: ciclo.id);
       if (!mounted) return;
 
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Tu recorrido está listo para ser mirado'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Esta es una primera recopilación de tus registros durante el ciclo. '
-                  'No es una calificación ni una conclusión sobre ti.',
-                ),
-                const SizedBox(height: 16),
-                _datoConcierto('Días con registro en el diario', snapshot.diasConDiario),
-                _datoConcierto('Registros de energía', snapshot.diasConEnergia),
-                _datoConcierto('Registros de estado emocional', snapshot.diasConEstado),
-                _datoConcierto('Tareas completadas', snapshot.tareasCompletadas),
-                _datoConcierto('Tareas pendientes registradas', snapshot.tareasPendientesRegistradas),
-                _datoConcierto('Compromisos cumplidos', snapshot.compromisosCumplidos),
-                _datoConcierto('Registros de hábitos', snapshot.registrosHabitos),
-                _datoConcierto('Evaluaciones de bloques', snapshot.evaluaciones.length),
-                const SizedBox(height: 12),
-                Text(
-                  snapshot.historialActividadesDisponible
-                      ? 'También se pudo consultar el historial de actividad.'
-                      : 'El historial de actividad no está disponible en este momento; '
-                        'no se utilizará como si estuviera vacío.',
-                  style: Theme.of(dialogContext).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Esta revisión todavía no cierra tu ciclo. Tus datos permanecen intactos.',
-                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Volver a Mi Pulso'),
-            ),
-          ],
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(conciertoFinalSnapshot: snapshot),
         ),
       );
     } catch (error) {
@@ -398,12 +356,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           Icon(Icons.auto_awesome_rounded, color: scheme.primary, size: 28),
           const SizedBox(height: 10),
           const Text(
-            'Tu ciclo de 30 días ha llegado a su cierre temporal',
+            'Ágora te invita a mirar tu recorrido',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Cuando quieras, podemos mirar lo que has vivido: tus registros, '
+            'Cuando quieras, Ágora puede acompañarte a mirar lo que has vivido: tus registros, '
             'tus avances, tus pausas y aquello que merece una conversación. '
             'No hay notas ni juicios.',
             style: TextStyle(height: 1.4),
