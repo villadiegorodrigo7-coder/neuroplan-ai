@@ -163,6 +163,53 @@ class HerramientasService {
     return true;
   }
 
+  /// Si la copia nueva perdió la fecha, busca únicamente esa fecha en
+  /// las fuentes anteriores. Los registros actuales nunca se reemplazan.
+  static Future<void> _restaurarFechaInicioLegada(
+    HerramientasData data,
+    SharedPreferences prefs,
+  ) async {
+    if (data.ciclos.isNotEmpty || data.seguimiento.fechaInicio.trim().isNotEmpty) {
+      return;
+    }
+
+    final legadoLocal = prefs.getString('cuadernillo_neuroplan_data');
+    if (legadoLocal != null && legadoLocal.isNotEmpty) {
+      try {
+        final anterior = HerramientasData.desdeDatosAnteriores(
+          Map<String, dynamic>.from(jsonDecode(legadoLocal)),
+        );
+        final fecha = anterior.seguimiento.fechaInicio.trim();
+        if (fecha.isNotEmpty && DateTime.tryParse(fecha) != null) {
+          data.seguimiento.fechaInicio = fecha;
+          return;
+        }
+      } catch (_) {}
+    }
+
+    if (_uid == null) return;
+    try {
+      final fila = await _db
+          .from(_tablaAntigua)
+          .select('datos')
+          .eq('user_id', _uid!)
+          .maybeSingle();
+      if (fila == null || fila['datos'] is! Map) return;
+
+      final datos = Map<String, dynamic>.from(fila['datos']);
+      final guardadas = datos[_claveHerramientas];
+      final anterior = guardadas is Map
+          ? HerramientasData.fromJson(Map<String, dynamic>.from(guardadas))
+          : HerramientasData.desdeDatosAnteriores(datos);
+      final fecha = anterior.seguimiento.fechaInicio.trim();
+      if (fecha.isNotEmpty && DateTime.tryParse(fecha) != null) {
+        data.seguimiento.fechaInicio = fecha;
+      }
+    } catch (_) {
+      // La copia actual permanece intacta si la fuente histórica no responde.
+    }
+  }
+
   static Future<HerramientasData> cargar() async {
     final prefs = await SharedPreferences.getInstance();
     final localJson = prefs.getString(_localKey);
@@ -170,6 +217,7 @@ class HerramientasService {
       try {
         final data = HerramientasData.fromJson(
             Map<String, dynamic>.from(jsonDecode(localJson)));
+        await _restaurarFechaInicioLegada(data, prefs);
         final cicloRecuperado = _recuperarCicloDesdeSeguimiento(data);
 
         // Una copia nueva puede haberse creado antes de migrar el diagnóstico
