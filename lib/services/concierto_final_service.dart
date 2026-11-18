@@ -80,7 +80,9 @@ class ConciertoFinalSnapshot {
         if (e.energia > 0) partes.add('energía: ${e.energia}');
         if (e.estado > 0) partes.add('estado: ${e.estado}');
         if (e.reflexion.trim().isNotEmpty) partes.add('reflexión: ${e.reflexion}');
-        if (e.notas.trim().isNotEmpty) partes.add('notas: ${e.notas}');
+        if (e.notas.isNotEmpty) {
+          partes.add('notas: ${e.notas.map((n) => n.texto).where((t) => t.trim().isNotEmpty).join(' | ')}');
+        }
         if (partes.isNotEmpty) salida.writeln('- ${e.fecha}: ${partes.join('; ')}');
       }
     }
