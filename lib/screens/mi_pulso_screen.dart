@@ -66,8 +66,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     // Nunca inferimos el inicio a partir de entradas antiguas del diario.
     var herramientas = await HerramientasService.cargar();
     herramientas = await _recuperarRuedaDesdeDiagnostico(herramientas);
-    final ciclo = HerramientasService.cicloActivo(herramientas);
-    final inicio = ciclo?.inicio;
+    final cicloEncontrado = HerramientasService.cicloActivo(herramientas);
+    final inicio = cicloEncontrado?.inicio;
+    final ciclo = inicio == null ? null : cicloEncontrado;
     final inicioLocal = inicio == null
         ? null
         : DateTime(inicio.year, inicio.month, inicio.day);
@@ -165,8 +166,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   Future<void> _actualizarHerramientas() async {
     final data = await HerramientasService.cargar();
-    final ciclo = HerramientasService.cicloActivo(data);
-    final inicio = ciclo?.inicio;
+    final cicloEncontrado = HerramientasService.cicloActivo(data);
+    final inicio = cicloEncontrado?.inicio;
+    final ciclo = inicio == null ? null : cicloEncontrado;
     final inicioLocal = inicio == null
         ? null
         : DateTime(inicio.year, inicio.month, inicio.day);
@@ -177,7 +179,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         _inicioCiclo = inicioLocal;
         if (inicioLocal == null) {
           _seleccionado = DateTime.now();
-        } else {
+        } else if (_dias.isNotEmpty) {
           final hoy = DateTime.now();
           final diferencia = DateTime(hoy.year, hoy.month, hoy.day)
               .difference(inicioLocal).inDays;
