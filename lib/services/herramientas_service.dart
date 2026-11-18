@@ -144,6 +144,25 @@ class HerramientasService {
   static SupabaseClient get _db => Supabase.instance.client;
   static String? get _uid => _db.auth.currentUser?.id;
 
+  /// Recupera el ciclo anterior cuando la migración guardó el seguimiento
+  /// pero todavía no creó su entrada en la lista nueva de ciclos.
+  /// Conserva la fecha original y no altera registros ni marca el ciclo cerrado.
+  static bool _recuperarCicloDesdeSeguimiento(HerramientasData data) {
+    if (data.ciclos.isNotEmpty) return false;
+
+    final fecha = data.seguimiento.fechaInicio.trim();
+    if (fecha.isEmpty || DateTime.tryParse(fecha) == null) return false;
+
+    data.ciclos.add(CicloNeuroplan(
+      id: 'ciclo_migrado_$fecha',
+      fechaInicio: fecha,
+      duracionDias: 30,
+      conciertoFinalCompletado: false,
+      estado: 'activo',
+    ));
+    return true;
+  }
+
   static Future<HerramientasData> cargar() async {
     final prefs = await SharedPreferences.getInstance();
     final localJson = prefs.getString(_localKey);
@@ -151,6 +170,7 @@ class HerramientasService {
       try {
         final data = HerramientasData.fromJson(
             Map<String, dynamic>.from(jsonDecode(localJson)));
+        final cicloRecuperado = _recuperarCicloDesdeSeguimiento(data);
 
         // Una copia nueva puede haberse creado antes de migrar el diagnóstico
         // que seguía guardado en el cuadernillo anterior. Recuperamos solo ese
@@ -212,8 +232,12 @@ class HerramientasService {
                 diagnosticoAnterior.antecedentesHistoricos.isNotEmpty);
           if (tieneDiagnosticoAnterior) {
             data.diagnosticoConversacional = diagnosticoAnterior;
-            await guardar(data);
           }
+        }
+        if (cicloRecuperado ||
+            (!tieneDiagnosticoActual &&
+                data.diagnosticoConversacional != null)) {
+          await guardar(data);
         }
         return data;
       } catch (_) {
@@ -261,6 +285,7 @@ class HerramientasService {
     final data = origen['version'] == 1
         ? HerramientasData.fromJson(origen)
         : HerramientasData.desdeDatosAnteriores(origen);
+    _recuperarCicloDesdeSeguimiento(data);
     await guardar(data);
     return data;
   }
