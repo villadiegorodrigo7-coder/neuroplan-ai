@@ -111,10 +111,13 @@ class ConciertoFinalService {
     final conversacionesFuture = ChatHistoryService.loadConversations();
 
     final herramientas = await herramientasFuture;
-    final ciclo = herramientas.ciclos
-        .where((c) => c.id == cicloId)
-        .cast<CicloNeuroplan?>()
-        .firstWhere((c) => c != null, orElse: () => null);
+    CicloNeuroplan? ciclo;
+    for (final candidato in herramientas.ciclos) {
+      if (candidato.id == cicloId) {
+        ciclo = candidato;
+        break;
+      }
+    }
 
     if (ciclo == null) {
       throw StateError('No se encontró el ciclo solicitado.');
