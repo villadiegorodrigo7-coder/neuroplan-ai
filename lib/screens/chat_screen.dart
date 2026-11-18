@@ -53,6 +53,8 @@ class _ChatScreenState extends State<ChatScreen> {
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
   ];
   bool _loadingHistory = true;
+  bool _proponerInicioCiclo = false;
+  bool _iniciandoCiclo = false;
 
   @override
   void initState() {
@@ -282,6 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     await _generarInformeHabitosSiCorresponde();
     await _recuperarDiagnosticoCompleto();
+    await _actualizarPropuestaInicioCiclo();
   }
 
   /// Recupera una conversación que ya terminó pero cuya rueda no se generó.
@@ -351,6 +354,58 @@ class _ChatScreenState extends State<ChatScreen> {
       await _generarPropuestaDiagnostico(diagnostico);
     } catch (_) {
       // La recuperación nunca debe impedir entrar a la aplicación.
+    }
+  }
+
+  /// La propuesta solo aparece al completar el diagnóstico y si no existe
+  /// un ciclo activo. La persona debe confirmar con un botón explícito.
+  Future<void> _actualizarPropuestaInicioCiclo() async {
+    try {
+      final conv = _current;
+      if (conv == null || conv.title != 'Diagnóstico inicial' ||
+          !conv.diagnosticoCompleto) {
+        if (mounted) setState(() => _proponerInicioCiclo = false);
+        return;
+      }
+      final data = await HerramientasService.cargar();
+      final activo = HerramientasService.cicloActivo(data);
+      if (mounted) {
+        setState(() => _proponerInicioCiclo = activo == null);
+      }
+    } catch (_) {
+      // Un fallo al consultar el ciclo no debe bloquear la conversación.
+    }
+  }
+
+  Future<void> _confirmarInicioCiclo() async {
+    if (_iniciandoCiclo || !_proponerInicioCiclo) return;
+    setState(() => _iniciandoCiclo = true);
+    try {
+      final ciclo = await HerramientasService.iniciarCiclo(duracionDias: 30);
+      if (!mounted) return;
+      final fecha = ciclo.inicio;
+      final fechaTexto = fecha == null
+          ? ciclo.fechaInicio
+          : '${fecha.day.toString().padLeft(2, '0')}/${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
+      final conv = _current;
+      setState(() {
+        _proponerInicioCiclo = false;
+        _iniciandoCiclo = false;
+        if (conv != null) {
+          conv.messages.add(ChatMessageData(
+            role: 'model',
+            content: 'Tu primer ciclo de NEUROPLAN ha comenzado el $fechaTexto y tendrá una duración de 30 días. No se trata de hacerlo todo perfecto: vamos a observar tu tiempo, tu energía y aquello que quieras transformar, un día a la vez.',
+          ));
+        }
+      });
+      await _persist();
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _iniciandoCiclo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pude iniciar el ciclo. Inténtalo de nuevo.')),
+      );
     }
   }
 
@@ -632,6 +687,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
     if (diagnosticoCompleto) {
       await _generarPropuestaDiagnostico(conv);
+      await _actualizarPropuestaInicioCiclo();
     }
 
     if (_voiceReplyEnabled) {
@@ -1137,6 +1193,59 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                         },
                       ),
           ),
+          if (_proponerInicioCiclo &&
+              _current?.title == 'Diagnóstico inicial')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded, color: scheme.primary),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Una propuesta de Ágora',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.',
+                      style: TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _iniciandoCiclo ? null : _confirmarInicioCiclo,
+                        icon: _iniciandoCiclo
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.play_arrow_rounded),
+                        label: Text(_iniciandoCiclo
+                            ? 'Iniciando…'
+                            : 'Comenzar mi primer ciclo'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
