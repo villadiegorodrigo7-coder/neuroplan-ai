@@ -303,6 +303,53 @@ class HerramientasService {
     await tarea;
   }
 
+  /// Devuelve el ciclo que está en curso. Los ciclos cerrados permanecen
+  /// en la lista como historial.
+  static CicloNeuroplan? cicloActivo(HerramientasData data) {
+    for (final ciclo in data.ciclos.reversed) {
+      if (ciclo.estado == 'activo') return ciclo;
+    }
+    return null;
+  }
+
+  /// Inicia un ciclo únicamente cuando la persona confirma la acción desde
+  /// una experiencia explícita de Ágora. No deduce fechas desde el diario.
+  static Future<CicloNeuroplan> iniciarCiclo({int duracionDias = 30}) async {
+    if (duracionDias < 1) {
+      throw ArgumentError.value(duracionDias, 'duracionDias', 'Debe ser mayor que cero.');
+    }
+    final data = await cargar();
+    final existente = cicloActivo(data);
+    if (existente != null) return existente;
+
+    final ahora = DateTime.now();
+    final fecha = ahora.year.toString().padLeft(4, '0') + '-' +
+        ahora.month.toString().padLeft(2, '0') + '-' +
+        ahora.day.toString().padLeft(2, '0');
+    final ciclo = CicloNeuroplan(
+      id: 'ciclo_' + ahora.microsecondsSinceEpoch.toString(),
+      fechaInicio: fecha,
+      duracionDias: duracionDias,
+    );
+    data.ciclos.add(ciclo);
+    await guardar(data);
+    return ciclo;
+  }
+
+  /// Registra el cierre humano del ciclo después del Concierto Final.
+  static Future<void> cerrarCiclo(String cicloId) async {
+    final data = await cargar();
+    final indice = data.ciclos.indexWhere((c) => c.id == cicloId);
+    if (indice < 0) throw StateError('No se encontró el ciclo solicitado.');
+    final ciclo = data.ciclos[indice];
+    if (!ciclo.periodoCompletado(DateTime.now())) {
+      throw StateError('El período del ciclo todavía no ha terminado.');
+    }
+    ciclo.conciertoFinalCompletado = true;
+    ciclo.estado = 'cerrado';
+    await guardar(data);
+  }
+
   static Future<bool> tieneDatosGuardados() async {
     final prefs = await SharedPreferences.getInstance();
     final local = prefs.getString(_localKey);
