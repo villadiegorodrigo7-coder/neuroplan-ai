@@ -160,6 +160,58 @@ class RegistroDiario {
   }
 }
 
+/// Representa un ciclo independiente de NEUROPLAN.
+/// Las fechas se guardan como YYYY-MM-DD en hora local; fechaFin es inclusiva.
+class CicloNeuroplan {
+  final String id;
+  final String fechaInicio;
+  final int duracionDias;
+  bool conciertoFinalCompletado;
+
+  CicloNeuroplan({
+    required this.id,
+    required this.fechaInicio,
+    this.duracionDias = 30,
+    this.conciertoFinalCompletado = false,
+  }) : assert(duracionDias > 0);
+
+  DateTime? get inicio => DateTime.tryParse(fechaInicio);
+
+  DateTime? get fechaFin {
+    final fecha = inicio;
+    if (fecha == null) return null;
+    return DateTime(fecha.year, fecha.month, fecha.day)
+        .add(Duration(days: duracionDias - 1));
+  }
+
+  /// El período se considera cumplido al día siguiente del último día,
+  /// para no revelar el cierre antes de que termine el día final.
+  bool periodoCompletado(DateTime ahora) {
+    final fin = fechaFin;
+    if (fin == null) return false;
+    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    return hoy.isAfter(fin);
+  }
+
+  bool get puedeRealizarConciertoFinal =>
+      periodoCompletado(DateTime.now()) && !conciertoFinalCompletado;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'fechaInicio': fechaInicio,
+        'duracionDias': duracionDias,
+        'conciertoFinalCompletado': conciertoFinalCompletado,
+      };
+
+  factory CicloNeuroplan.fromJson(Map<String, dynamic> json) =>
+      CicloNeuroplan(
+        id: (json['id'] ?? '').toString(),
+        fechaInicio: (json['fechaInicio'] ?? '').toString(),
+        duracionDias: (json['duracionDias'] as num?)?.toInt() ?? 30,
+        conciertoFinalCompletado: json['conciertoFinalCompletado'] == true,
+      );
+}
+
 class Seguimiento30Dias {
   List<RegistroDiario> registros;
 
