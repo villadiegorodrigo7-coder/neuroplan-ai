@@ -15,6 +15,19 @@ class VoiceService {
   // ------------------------------------------------------------------
 
   static bool _ttsReady = false;
+
+  /// Estado observable para que la interfaz acompañe el habla real de Ágora.
+  static final ValueNotifier<bool> isSpeaking = ValueNotifier<bool>(false);
+  static bool _handlersConfigured = false;
+
+  static void _configureSpeechHandlers() {
+    if (_handlersConfigured) return;
+    _handlersConfigured = true;
+    _tts.setStartHandler(() => isSpeaking.value = true);
+    _tts.setCompletionHandler(() => isSpeaking.value = false);
+    _tts.setCancelHandler(() => isSpeaking.value = false);
+    _tts.setErrorHandler((_) => isSpeaking.value = false);
+  }
   static int _intentosVoz = 0;
 
   /// Velocidad elegida: 1,05 veces la normal. En la web la normal es 1.0; en
@@ -94,6 +107,7 @@ class VoiceService {
   }
 
   static Future<void> _ensureTts() async {
+    _configureSpeechHandlers();
     if (_ttsReady) return;
     try {
       await _tts.setSpeechRate(_velocidad);
@@ -128,6 +142,7 @@ class VoiceService {
   }
 
   static Future<void> stopSpeaking() async {
+    isSpeaking.value = false;
     await _tts.stop();
   }
 
