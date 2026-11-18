@@ -581,6 +581,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       _current = conv;
       _revisionSemanalSemana = _semanaDeRevision(conv);
     });
+    _actualizarPropuestaInicioCiclo();
     Navigator.of(context).maybePop();
     _scrollToBottom();
   }
