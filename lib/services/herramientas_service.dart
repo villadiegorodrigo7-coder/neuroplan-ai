@@ -14,6 +14,7 @@ class HerramientasData {
   EvaluacionFinal evaluacionFinal;
   List<EvaluacionBloque> evaluacionesBloques;
   List<HabitoSeguimiento> habitos;
+  List<CicloNeuroplan> ciclos;
   DiagnosticoConversacional? diagnostico;
 
   HerramientasData({
@@ -22,12 +23,14 @@ class HerramientasData {
     EvaluacionFinal? evaluacionFinal,
     List<EvaluacionBloque>? evaluacionesBloques,
     List<HabitoSeguimiento>? habitos,
+    List<CicloNeuroplan>? ciclos,
     this.diagnostico,
   })  : matriz = matriz ?? MatrizEisenhower(),
         seguimiento = seguimiento ?? Seguimiento30Dias(),
         evaluacionFinal = evaluacionFinal ?? EvaluacionFinal(),
         evaluacionesBloques = evaluacionesBloques ?? [],
-        habitos = habitos ?? [];
+        habitos = habitos ?? [],
+        ciclos = ciclos ?? [];
 
   MatrizEisenhower get matrizEisenhower => matriz;
   set matrizEisenhower(MatrizEisenhower value) => matriz = value;
@@ -43,6 +46,7 @@ class HerramientasData {
         'evaluacionFinal': evaluacionFinal.toJson(),
         'evaluacionesBloques': evaluacionesBloques.map((e) => e.toJson()).toList(),
         'habitos': habitos.map((h) => h.toJson()).toList(),
+        'ciclos': ciclos.map((c) => c.toJson()).toList(),
         if (diagnostico != null) 'diagnostico': diagnostico!.toJson(),
       };
 
@@ -64,6 +68,10 @@ class HerramientasData {
       habitos: ((json['habitos'] as List?) ?? const [])
           .whereType<Map>()
           .map((h) => HabitoSeguimiento.fromJson(Map<String, dynamic>.from(h)))
+          .toList(),
+      ciclos: ((json['ciclos'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((c) => CicloNeuroplan.fromJson(Map<String, dynamic>.from(c)))
           .toList(),
       diagnostico: json['diagnostico'] is Map
           ? DiagnosticoConversacional.fromJson(
