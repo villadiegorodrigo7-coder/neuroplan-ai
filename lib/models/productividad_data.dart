@@ -167,12 +167,14 @@ class CicloNeuroplan {
   final String fechaInicio;
   final int duracionDias;
   bool conciertoFinalCompletado;
+  String estado;
 
   CicloNeuroplan({
     required this.id,
     required this.fechaInicio,
     this.duracionDias = 30,
     this.conciertoFinalCompletado = false,
+    this.estado = 'activo',
   }) : assert(duracionDias > 0);
 
   DateTime? get inicio => DateTime.tryParse(fechaInicio);
@@ -201,6 +203,7 @@ class CicloNeuroplan {
         'fechaInicio': fechaInicio,
         'duracionDias': duracionDias,
         'conciertoFinalCompletado': conciertoFinalCompletado,
+        'estado': estado,
       };
 
   factory CicloNeuroplan.fromJson(Map<String, dynamic> json) =>
@@ -209,6 +212,7 @@ class CicloNeuroplan {
         fechaInicio: (json['fechaInicio'] ?? '').toString(),
         duracionDias: (json['duracionDias'] as num?)?.toInt() ?? 30,
         conciertoFinalCompletado: json['conciertoFinalCompletado'] == true,
+        estado: (json['estado'] ?? 'activo').toString(),
       );
 }
 
