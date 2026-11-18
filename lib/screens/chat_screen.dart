@@ -1226,7 +1226,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       _esPrimerCiclo
                           ? 'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.'
                           : 'Si estás de acuerdo, podemos comenzar un nuevo ciclo de 30 días. Tu recorrido anterior seguirá conservado como historia.',
