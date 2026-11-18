@@ -15,9 +15,15 @@ import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
 import '../services/herramientas_service.dart';
 import '../services/tasks_service.dart';
+import '../services/concierto_final_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({
+    super.key,
+    this.conciertoFinalSnapshot,
+  });
+
+  final ConciertoFinalSnapshot? conciertoFinalSnapshot;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -286,6 +292,61 @@ class _ChatScreenState extends State<ChatScreen> {
     await _generarInformeHabitosSiCorresponde();
     await _recuperarDiagnosticoCompleto();
     await _actualizarPropuestaInicioCiclo();
+    await _abrirConciertoFinalSiCorresponde();
+  }
+
+  /// Crea o recupera la conversación especial del ciclo. El contexto queda
+  /// guardado en Supabase junto con la conversación para poder retomarla.
+  Future<void> _abrirConciertoFinalSiCorresponde() async {
+    final snapshot = widget.conciertoFinalSnapshot;
+    if (snapshot == null || !mounted) return;
+
+    final marcaCiclo = 'CONCIERTO_FINAL_CICLO:${snapshot.ciclo.id}';
+    ChatConversation? existente;
+    for (final candidata in _conversations) {
+      if (candidata.messages.any((m) =>
+          m.role == 'system' && m.content.trim() == marcaCiclo)) {
+        existente = candidata;
+        break;
+      }
+    }
+
+    final esNueva = existente == null;
+    final conv = existente ?? await ChatHistoryService.createConversation();
+    conv.title = 'Concierto Final';
+
+    final indiceContexto = conv.messages.indexWhere((m) =>
+        m.role == 'system' &&
+        m.content.startsWith('CONCIERTO_FINAL_CONTEXTO:'));
+    final contextoGuardado =
+        'CONCIERTO_FINAL_CONTEXTO:\n${snapshot.contextoParaAgora}';
+    if (indiceContexto >= 0) {
+      conv.messages[indiceContexto] =
+          ChatMessageData(role: 'system', content: contextoGuardado);
+    } else {
+      conv.messages.add(ChatMessageData(role: 'system', content: marcaCiclo));
+      conv.messages.add(
+        ChatMessageData(role: 'system', content: contextoGuardado),
+      );
+    }
+
+    if (esNueva) {
+      conv.messages.add(ChatMessageData(
+        role: 'model',
+        content: 'Estoy aquí. Vamos a mirar juntos lo que has vivido. Treinta días no definen quién eres, pero pueden ayudarnos a reconocer algunas cosas de tu recorrido. No vamos a ponerte una nota ni a juzgar los días sin registro. Si algo de lo que observemos no representa tu experiencia, puedes corregirlo. ¿Qué te gustaría reconocer primero de estos días?',
+      ));
+      _conversations.insert(0, conv);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _current = conv;
+      _reflexionFecha = null;
+      _revisionSemanalSemana = null;
+      _proponerInicioCiclo = false;
+    });
+    await _persist();
+    _scrollToBottom();
   }
 
   /// Recupera una conversación que ya terminó pero cuya rueda no se generó.
@@ -754,13 +815,40 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       );
     }
 
-    // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
-    final tareas = await _construirContextoTareas();
-    if (tareas != null) partes.add(tareas);
+    // --- Contexto persistente del Concierto Final ---
+    final conversacionActual = _current;
+    if (conversacionActual?.title == 'Concierto Final') {
+      String? contextoConcierto;
+      for (final mensaje in conversacionActual!.messages) {
+        if (mensaje.role == 'system' &&
+            mensaje.content.startsWith('CONCIERTO_FINAL_CONTEXTO:')) {
+          contextoConcierto = mensaje.content
+              .substring('CONCIERTO_FINAL_CONTEXTO:'.length)
+              .trim();
+          break;
+        }
+      }
+      partes.insert(
+        0,
+        'MODO CONCIERTO FINAL. Estás acompañando a la persona a revisar un ciclo ya completado. '
+        'No cierres el ciclo, no propongas empezar otro y no presentes esta conversación como examen. '
+        'Primero escucha qué quiere mirar la persona. Puedes ayudar a reconocer patrones, momentos '
+        'significativos, cambios y preguntas abiertas. Haz una sola pregunta por turno. Diferencia '
+        'datos registrados, palabras de la persona e interpretaciones tentativas. Invita a corregir '
+        'cualquier interpretación. La conversación debe ser cálida, honesta y sin juicios.'
+        '${contextoConcierto == null ? '' : '\n\nRECORRIDO RECOPILADO PARA ESTA CONVERSACIÓN:\n$contextoConcierto'}',
+      );
+    }
 
-    // --- Mi diario ---
-    final diario = await _construirContextoDiario();
-    if (diario != null) partes.add(diario);
+    // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
+    if (conversacionActual?.title != 'Concierto Final') {
+      final tareas = await _construirContextoTareas();
+      if (tareas != null) partes.add(tareas);
+
+      // --- Mi diario ---
+      final diario = await _construirContextoDiario();
+      if (diario != null) partes.add(diario);
+    }
 
     // --- Contexto del diagnóstico para las revisiones semanales ---
     if (_revisionSemanalSemana != null) {
