@@ -57,6 +57,91 @@ class ConciertoFinalSnapshot {
       agenda.where((e) => e.marcada && !e.cumplida).length;
   int get compromisosSinMarca => agenda.where((e) => !e.marcada).length;
   int get registrosHabitos => habitos.length;
+
+  /// Síntesis estructurada y prudente que Ágora recibe como contexto.
+  /// Los registros originales permanecen intactos; esto no es una evaluación.
+  String get contextoParaAgora {
+    final salida = StringBuffer()
+      ..writeln('CONCIERTO FINAL · RECORRIDO DEL CICLO')
+      ..writeln('Período: ${ciclo.fechaInicio} a ${ciclo.fechaFin ?? 'sin fecha final'}.')
+      ..writeln('Duración prevista: ${ciclo.duracionDias} días.')
+      ..writeln('Estos datos son registros disponibles, no una medida del valor ni del esfuerzo de la persona.')
+      ..writeln('Días con diario: $diasConDiario. Registros de energía: $diasConEnergia. Registros de estado emocional: $diasConEstado.')
+      ..writeln('Tareas completadas: $tareasCompletadas. Tareas pendientes registradas: $tareasPendientesRegistradas.')
+      ..writeln('Ocurrencias de agenda cumplidas: $compromisosCumplidos. Marcadas como no cumplidas: $compromisosMarcadosNoCumplidos. Sin marca: $compromisosSinMarca.')
+      ..writeln('Registros de hábitos: $registrosHabitos. Evaluaciones de bloques: ${evaluaciones.length}.')
+      ..writeln('Historial de actividad: ${!historialActividadesConsultado ? 'no consultado' : (historialActividadesDisponible ? 'disponible' : 'no disponible')}.');
+    if (diarios.isNotEmpty) {
+      salida.writeln('REGISTROS DEL DIARIO:');
+      for (final e in diarios.where((e) => e.tieneAlgo).take(20)) {
+        final partes = <String>[];
+        if (e.prioridad.trim().isNotEmpty) partes.add('prioridad: ${e.prioridad}');
+        if (e.semaforo.trim().isNotEmpty) partes.add('semáforo: ${e.semaforo}');
+        if (e.energia > 0) partes.add('energía: ${e.energia}');
+        if (e.estado > 0) partes.add('estado: ${e.estado}');
+        if (e.reflexion.trim().isNotEmpty) partes.add('reflexión: ${e.reflexion}');
+        if (e.notas.trim().isNotEmpty) partes.add('notas: ${e.notas}');
+        if (partes.isNotEmpty) salida.writeln('- ${e.fecha}: ${partes.join('; ')}');
+      }
+    }
+    if (tareas.isNotEmpty) {
+      salida.writeln('TAREAS REGISTRADAS:');
+      for (final t in tareas.take(40)) {
+        salida.writeln('- ${t.fecha}: ${t.done ? 'completada' : 'pendiente registrada'} · ${t.title}');
+      }
+    }
+    if (agenda.isNotEmpty) {
+      salida.writeln('AGENDA:');
+      for (final a in agenda.take(40)) {
+        final estado = !a.marcada ? 'sin marca' : (a.cumplida ? 'cumplida' : 'marcada como no cumplida');
+        salida.writeln('- ${a.fecha}: ${a.titulo} · $estado');
+      }
+    }
+    if (habitos.isNotEmpty) {
+      salida.writeln('HÁBITOS:');
+      for (final h in habitos.take(40)) {
+        salida.writeln('- ${h.fecha}: ${h.nombre} (${h.tipo}) · ${h.realizado ? 'registro realizado' : 'registro no realizado'}');
+      }
+    }
+    if (evaluaciones.isNotEmpty) {
+      salida.writeln('EVALUACIONES DE BLOQUES:');
+      for (final e in evaluaciones.take(20)) {
+        final bloque = e.bloque == 'manana' ? 'mañana' : e.bloque;
+        final detalles = <String>[];
+        if (e.porQueDiaSalioAsi.trim().isNotEmpty) detalles.add('por qué: ${e.porQueDiaSalioAsi}');
+        if (e.comoSalieronActividades.trim().isNotEmpty) detalles.add('actividades: ${e.comoSalieronActividades}');
+        if (e.satisfaccion > 0) detalles.add('satisfacción declarada: ${e.satisfaccion}/5');
+        if (e.porQueSatisfaccion.trim().isNotEmpty) detalles.add('motivo: ${e.porQueSatisfaccion}');
+        salida.writeln('- ${e.fecha}, $bloque: ${detalles.join('; ')}');
+      }
+    }
+    if (conversaciones.isNotEmpty) {
+      salida.writeln('CONVERSACIONES CREADAS DURANTE EL CICLO (los mensajes no tienen fecha individual; no se puede asegurar que todos se escribieran dentro del período):');
+      var incluidos = 0;
+      for (final c in conversaciones) {
+        for (final m in c.messages.where((m) => m.role == 'user')) {
+          if (incluidos >= 16) break;
+          final texto = m.content.trim().replaceAll(RegExp(r'\s+'), ' ');
+          if (texto.isNotEmpty) {
+            salida.writeln('- ${c.title}: ${texto.length > 220 ? '${texto.substring(0, 220)}…' : texto}');
+            incluidos++;
+          }
+        }
+        if (incluidos >= 16) break;
+      }
+    }
+    if (historialActividadesDisponible && historialActividades.isNotEmpty) {
+      salida.writeln('TRAZA DE ACTIVIDAD:');
+      for (final a in historialActividades.take(30)) {
+        final fecha = (a['fecha'] ?? '').toString();
+        final accion = (a['accion'] ?? '').toString();
+        final titulo = (a['titulo'] ?? '').toString();
+        salida.writeln('- $fecha: ${accion.isEmpty ? 'actividad' : accion}${titulo.isEmpty ? '' : ' · $titulo'}');
+      }
+    }
+    salida.writeln('CRITERIOS DE LECTURA: un día sin registro significa ausencia de información, no incumplimiento. Una tarea pendiente no define a la persona. Distingue los hechos registrados de cualquier interpretación. No inventes datos ni atribuyas causas. No emitas una nota ni un diagnóstico. Haz una sola pregunta a la vez y deja que la persona corrija cualquier lectura.');
+    return salida.toString();
+  }
 }
 
 /// Una ocurrencia concreta, no el evento recurrente completo.
