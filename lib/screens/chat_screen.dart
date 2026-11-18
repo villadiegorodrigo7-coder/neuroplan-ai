@@ -219,7 +219,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   Future<void> _toggleDictado() async {
     if (_isListening) {
       await VoiceService.stopListening();
-      if (mounted) setState(() => _isListening = false);
+      if (mounted) {
+        setState(() => _isListening = false);
+        if (_immersiveVoiceMode && _controller.text.trim().isNotEmpty) {
+          final dictado = _controller.text.trim();
+          _sendMessage(dictado);
+        }
+      }
       return;
     }
 
