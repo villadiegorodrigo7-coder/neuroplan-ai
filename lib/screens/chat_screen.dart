@@ -1130,8 +1130,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         final escuchando = _isListening;
         final pensando = _isLoading;
         final activo = hablando || escuchando || pensando;
-        final diametro = hablando ? 126.0 : (escuchando ? 76.0 : 58.0);
-        final alto = hablando ? 174.0 : 82.0;
+        final diametro = hablando ? 116.0 : (escuchando ? 82.0 : (pensando ? 68.0 : 58.0));
+        final alto = hablando ? 164.0 : 104.0;
         final estado = hablando
             ? 'Ágora está hablando'
             : escuchando
@@ -1139,9 +1139,14 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 : pensando
                     ? 'Ágora está pensando'
                     : 'Ágora está aquí';
+        final colorPulso = hablando
+            ? const Color(0xFF8B5CF6)
+            : escuchando
+                ? const Color(0xFF22D3EE)
+                : const Color(0xFF6366F1);
 
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 520),
+          duration: const Duration(milliseconds: 700),
           curve: Curves.easeInOutCubic,
           height: alto,
           width: double.infinity,
@@ -1149,21 +1154,34 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           child: Stack(
             alignment: Alignment.center,
             children: [
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 450),
-                opacity: hablando ? 1 : 0,
-                child: Container(
-                  width: 190,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF8B5CF6).withValues(alpha: 0.22),
-                        const Color(0xFF22D3EE).withValues(alpha: 0.10),
-                        Colors.transparent,
-                      ],
-                    ),
+              // Capas suaves que dan profundidad sin convertir la esfera
+              // en un simple indicador de estado.
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 850),
+                curve: Curves.easeInOut,
+                width: hablando ? 188 : (escuchando ? 142 : 112),
+                height: hablando ? 138 : (escuchando ? 94 : 76),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      colorPulso.withValues(alpha: hablando ? 0.24 : 0.13),
+                      const Color(0xFF22D3EE).withValues(alpha: activo ? 0.09 : 0.045),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 750),
+                curve: Curves.easeInOutCubic,
+                width: diametro + (hablando ? 34 : 22),
+                height: diametro + (hablando ? 34 : 22),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorPulso.withValues(alpha: activo ? 0.22 : 0.10),
+                    width: 1,
                   ),
                 ),
               ),
@@ -1171,67 +1189,94 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AnimatedScale(
-                    scale: hablando ? 1.0 : (pensando || escuchando ? 0.92 : 0.82),
-                    duration: const Duration(milliseconds: 520),
+                    scale: hablando ? 1.04 : (escuchando ? 1.0 : (pensando ? 0.96 : 0.92)),
+                    duration: const Duration(milliseconds: 650),
                     curve: Curves.easeInOutCubic,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 520),
-                      curve: Curves.easeInOutCubic,
-                      width: diametro,
-                      height: diametro,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          center: const Alignment(-0.32, -0.38),
-                          radius: 0.92,
-                          colors: hablando
-                              ? const [
-                                  Color(0xFFE0FBFF),
-                                  Color(0xFF67E8F9),
-                                  Color(0xFF6366F1),
-                                  Color(0xFF312E81),
-                                ]
-                              : const [
-                                  Color(0xFFB7F3FF),
-                                  Color(0xFF22D3EE),
-                                  Color(0xFF6366F1),
-                                  Color(0xFF312E81),
-                                ],
-                          stops: const [0.0, 0.28, 0.68, 1.0],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF22D3EE)
-                                .withValues(alpha: hablando ? 0.48 : 0.20),
-                            blurRadius: hablando ? 42 : 20,
-                            spreadRadius: hablando ? 8 : 2,
+                    child: AnimatedRotation(
+                      turns: hablando ? 0.018 : (pensando ? -0.012 : 0),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeInOut,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 700),
+                        curve: Curves.easeInOutCubic,
+                        width: diametro,
+                        height: diametro,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            center: const Alignment(-0.34, -0.42),
+                            radius: 0.96,
+                            colors: hablando
+                                ? const [
+                                    Color(0xFFF0FDFF),
+                                    Color(0xFF67E8F9),
+                                    Color(0xFF818CF8),
+                                    Color(0xFF4C1D95),
+                                  ]
+                                : escuchando
+                                    ? const [
+                                        Color(0xFFE0FBFF),
+                                        Color(0xFF67E8F9),
+                                        Color(0xFF6366F1),
+                                        Color(0xFF312E81),
+                                      ]
+                                    : const [
+                                        Color(0xFFCCFBFF),
+                                        Color(0xFF38BDF8),
+                                        Color(0xFF6366F1),
+                                        Color(0xFF312E81),
+                                      ],
+                            stops: const [0.0, 0.30, 0.70, 1.0],
                           ),
-                          BoxShadow(
-                            color: const Color(0xFF8B5CF6)
-                                .withValues(alpha: hablando ? 0.34 : 0.14),
-                            blurRadius: hablando ? 54 : 26,
-                            spreadRadius: hablando ? 4 : 0,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF22D3EE)
+                                  .withValues(alpha: hablando ? 0.42 : (escuchando ? 0.30 : 0.18)),
+                              blurRadius: hablando ? 42 : 26,
+                              spreadRadius: hablando ? 7 : 2,
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFF8B5CF6)
+                                  .withValues(alpha: hablando ? 0.34 : 0.16),
+                              blurRadius: hablando ? 52 : 30,
+                              spreadRadius: hablando ? 4 : 0,
+                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: hablando ? 0.76 : 0.46),
+                            width: hablando ? 1.8 : 1.1,
                           ),
-                        ],
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: hablando ? 0.72 : 0.38),
-                          width: hablando ? 1.8 : 1.0,
                         ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.auto_awesome_rounded,
-                          size: hablando ? 38 : 22,
-                          color: const Color(0xFF172554).withValues(alpha: 0.82),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              top: diametro * 0.19,
+                              left: diametro * 0.23,
+                              child: Container(
+                                width: diametro * 0.22,
+                                height: diametro * 0.12,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(99),
+                                  color: Colors.white.withValues(alpha: 0.30),
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.auto_awesome_rounded,
+                              size: hablando ? 34 : 25,
+                              color: const Color(0xFF172554).withValues(alpha: 0.78),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 300),
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: activo ? 0.94 : 0.62),
+                      color: Colors.white.withValues(alpha: activo ? 0.96 : 0.66),
                       fontSize: hablando ? 12.5 : 11.5,
                       fontWeight: hablando ? FontWeight.w600 : FontWeight.w500,
                       letterSpacing: 0.45,
