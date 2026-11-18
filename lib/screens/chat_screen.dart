@@ -54,6 +54,7 @@ class _ChatScreenState extends State<ChatScreen> {
   ];
   bool _loadingHistory = true;
   bool _proponerInicioCiclo = false;
+  bool _esPrimerCiclo = true;
   bool _iniciandoCiclo = false;
 
   @override
@@ -370,7 +371,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final data = await HerramientasService.cargar();
       final activo = HerramientasService.cicloActivo(data);
       if (mounted) {
-        setState(() => _proponerInicioCiclo = activo == null);
+        setState(() {
+          _proponerInicioCiclo = activo == null;
+          _esPrimerCiclo = data.ciclos.isEmpty;
+        });
       }
     } catch (_) {
       // Un fallo al consultar el ciclo no debe bloquear la conversación.
@@ -394,7 +398,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (conv != null) {
           conv.messages.add(ChatMessageData(
             role: 'model',
-            content: 'Tu primer ciclo de NEUROPLAN ha comenzado el $fechaTexto y tendrá una duración de 30 días. No se trata de hacerlo todo perfecto: vamos a observar tu tiempo, tu energía y aquello que quieras transformar, un día a la vez.',
+            content: '${_esPrimerCiclo ? 'Tu primer ciclo' : 'Tu nuevo ciclo'} de NEUROPLAN ha comenzado el $fechaTexto y tendrá una duración de 30 días. No se trata de hacerlo todo perfecto: vamos a observar tu tiempo, tu energía y aquello que quieras transformar, un día a la vez.',
           ));
         }
       });
@@ -1223,7 +1227,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.',
+                      _esPrimerCiclo
+                          ? 'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.'
+                          : 'Si estás de acuerdo, podemos comenzar un nuevo ciclo de 30 días. Tu recorrido anterior seguirá conservado como historia.',
                       style: TextStyle(fontSize: 13, height: 1.4),
                     ),
                     const SizedBox(height: 12),
@@ -1240,7 +1246,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                             : const Icon(Icons.play_arrow_rounded),
                         label: Text(_iniciandoCiclo
                             ? 'Iniciando…'
-                            : 'Comenzar mi primer ciclo'),
+                            : (_esPrimerCiclo ? 'Comenzar mi primer ciclo' : 'Comenzar un nuevo ciclo')),
                       ),
                     ),
                   ],
