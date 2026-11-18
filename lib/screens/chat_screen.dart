@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,9 +31,10 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final AnimationController _agoraMotionController;
 
   List<ChatConversation> _conversations = [];
   ChatConversation? _current;
@@ -66,6 +69,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _agoraMotionController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat();
     _loadHistory();
     _loadVoicePreference();
     ReflexionService.instance.senal.addListener(_alSolicitarReflexion);
@@ -1029,6 +1036,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
   @override
   void dispose() {
+    _agoraMotionController.dispose();
     _controller.dispose();
     _scrollController.dispose();
     ReflexionService.instance.senal.removeListener(_alSolicitarReflexion);
@@ -1168,6 +1176,44 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // Órbita viva: movimiento continuo incluso cuando Ágora está en reposo.
+              AnimatedBuilder(
+                animation: _agoraMotionController,
+                builder: (context, _) {
+                  final t = _agoraMotionController.value * math.pi * 2;
+                  return Transform.rotate(
+                    angle: t * 0.22,
+                    child: SizedBox(
+                      width: 226,
+                      height: 142,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            top: 5 + math.sin(t) * 5,
+                            left: 26,
+                            child: _agoraOrbitDot(const Color(0xFF67E8F9), 0.72, 5),
+                          ),
+                          Positioned(
+                            right: 18,
+                            top: 52 + math.cos(t * 1.2) * 8,
+                            child: _agoraOrbitDot(const Color(0xFFA78BFA), 0.82, 7),
+                          ),
+                          Positioned(
+                            bottom: 8 + math.sin(t * 0.8) * 6,
+                            left: 70,
+                            child: _agoraOrbitDot(const Color(0xFF38BDF8), 0.68, 4),
+                          ),
+                          Positioned(
+                            bottom: 20,
+                            right: 52 + math.cos(t) * 7,
+                            child: _agoraOrbitDot(const Color(0xFFC4B5FD), 0.55, 3.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 700),
                 curve: Curves.easeInOut,
@@ -1427,17 +1473,17 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       body: Column(
         children: [
           if (_reflexionFecha != null) _bannerReflexion(scheme),
-          _buildAgoraPresence(scheme),
           Expanded(
             child: _loadingHistory
                 ? const Center(child: CircularProgressIndicator())
                 : messages.isEmpty
                     ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              _buildAgoraPresence(scheme),
                               Container(
                                 width: 76,
                                 height: 76,
@@ -1501,10 +1547,13 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: messages.length,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: messages.length + 1,
                         itemBuilder: (context, index) {
-                          final msg = messages[index];
+                          if (index == 0) {
+                            return _buildAgoraPresence(scheme);
+                          }
+                          final msg = messages[index - 1];
                           if (msg.role == 'system') return const SizedBox.shrink();
                           final isUser = msg.role == 'user';
                           return Align(
