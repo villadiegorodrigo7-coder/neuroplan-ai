@@ -1123,6 +1123,157 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     );
   }
 
+  Widget _buildAgoraPresence(ColorScheme scheme) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: VoiceService.isSpeaking,
+      builder: (context, hablando, _) {
+        final escuchando = _isListening;
+        final pensando = _isLoading;
+        final activo = hablando || escuchando || pensando;
+        final diametro = hablando ? 126.0 : (escuchando ? 76.0 : 58.0);
+        final alto = hablando ? 174.0 : 82.0;
+        final estado = hablando
+            ? 'Ágora está hablando'
+            : escuchando
+                ? 'Ágora te está escuchando'
+                : pensando
+                    ? 'Ágora está pensando'
+                    : 'Ágora está aquí';
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeInOutCubic,
+          height: alto,
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 450),
+                opacity: hablando ? 1 : 0,
+                child: Container(
+                  width: 190,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF8B5CF6).withValues(alpha: 0.22),
+                        const Color(0xFF22D3EE).withValues(alpha: 0.10),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedScale(
+                    scale: hablando ? 1.0 : (pensando || escuchando ? 0.92 : 0.82),
+                    duration: const Duration(milliseconds: 520),
+                    curve: Curves.easeInOutCubic,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 520),
+                      curve: Curves.easeInOutCubic,
+                      width: diametro,
+                      height: diametro,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.32, -0.38),
+                          radius: 0.92,
+                          colors: hablando
+                              ? const [
+                                  Color(0xFFE0FBFF),
+                                  Color(0xFF67E8F9),
+                                  Color(0xFF6366F1),
+                                  Color(0xFF312E81),
+                                ]
+                              : const [
+                                  Color(0xFFB7F3FF),
+                                  Color(0xFF22D3EE),
+                                  Color(0xFF6366F1),
+                                  Color(0xFF312E81),
+                                ],
+                          stops: const [0.0, 0.28, 0.68, 1.0],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF22D3EE)
+                                .withValues(alpha: hablando ? 0.48 : 0.20),
+                            blurRadius: hablando ? 42 : 20,
+                            spreadRadius: hablando ? 8 : 2,
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6)
+                                .withValues(alpha: hablando ? 0.34 : 0.14),
+                            blurRadius: hablando ? 54 : 26,
+                            spreadRadius: hablando ? 4 : 0,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: hablando ? 0.72 : 0.38),
+                          width: hablando ? 1.8 : 1.0,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.auto_awesome_rounded,
+                          size: hablando ? 38 : 22,
+                          color: const Color(0xFF172554).withValues(alpha: 0.82),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 250),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: activo ? 0.94 : 0.62),
+                      fontSize: hablando ? 12.5 : 11.5,
+                      fontWeight: hablando ? FontWeight.w600 : FontWeight.w500,
+                      letterSpacing: 0.45,
+                    ),
+                    child: Text(estado),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _headerAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    Color? color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, size: 19),
+        style: IconButton.styleFrom(
+          foregroundColor: color ?? Colors.white.withValues(alpha: 0.86),
+          backgroundColor: Colors.white.withValues(alpha: 0.055),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.075)),
+          ),
+          fixedSize: const Size(42, 42),
+          padding: EdgeInsets.zero,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -1137,31 +1288,31 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         centerTitle: false,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
+          _headerAction(
+            icon: Icons.history_rounded,
             tooltip: 'Historial',
             onPressed: _loadingHistory ? null : _openHistoryDrawer,
           ),
-          IconButton(
-            icon: const Icon(Icons.add_comment_outlined),
+          _headerAction(
+            icon: Icons.add_comment_rounded,
             tooltip: 'Nuevo chat',
             onPressed: _loadingHistory ? null : _startNewChat,
           ),
-          IconButton(
-            icon: Icon(
-              _voiceReplyEnabled ? Icons.volume_up : Icons.volume_off,
-              color: _voiceReplyEnabled ? scheme.primary : AppColors.textoTenue,
-            ),
+          _headerAction(
+            icon: _voiceReplyEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             tooltip: _voiceReplyEnabled
                 ? 'Ágora habla: toca para silenciar'
                 : 'Activar la voz de Ágora',
             onPressed: _toggleVoiceReply,
+            color: _voiceReplyEnabled ? const Color(0xFF67E8F9) : AppColors.textoTenue,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
           if (_reflexionFecha != null) _bannerReflexion(scheme),
+          _buildAgoraPresence(scheme),
           Expanded(
             child: _loadingHistory
                 ? const Center(child: CircularProgressIndicator())
@@ -1410,8 +1561,23 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                       tooltip: _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
                       onPressed: _isLoading ? null : _toggleDictado,
                       icon: Icon(
-                        _isListening ? Icons.stop_circle_outlined : Icons.mic_none_rounded,
-                        color: _isListening ? Colors.redAccent : scheme.primary,
+                        _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
+                        color: _isListening ? Colors.redAccent : const Color(0xFF67E8F9),
+                        size: 21,
+                      ),
+                      style: IconButton.styleFrom(
+                        fixedSize: const Size(44, 44),
+                        backgroundColor: _isListening
+                            ? Colors.redAccent.withValues(alpha: 0.13)
+                            : const Color(0xFF22D3EE).withValues(alpha: 0.09),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          side: BorderSide(
+                            color: _isListening
+                                ? Colors.redAccent.withValues(alpha: 0.35)
+                                : const Color(0xFF22D3EE).withValues(alpha: 0.20),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 2),
@@ -1419,18 +1585,30 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Container(
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              scheme.primary,
-                              scheme.primary.withValues(alpha: 0.75),
-                            ],
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF22D3EE), Color(0xFF6366F1), Color(0xFF8B5CF6)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.30),
+                              blurRadius: 16,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
                         child: IconButton(
+                          tooltip: 'Enviar mensaje',
                           onPressed: _isLoading ? null : () => _sendMessage(),
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size(46, 46),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
+                            ),
+                          ),
                           icon: _isLoading
                               ? const SizedBox(
                                   width: 18,
@@ -1441,7 +1619,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                                   ),
                                 )
                               : const Icon(Icons.arrow_upward_rounded,
-                                  color: Colors.white, size: 20),
+                                  color: Colors.white, size: 21),
                         ),
                       ),
                     ),
