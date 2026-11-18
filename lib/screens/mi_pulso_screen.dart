@@ -27,16 +27,21 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   DateTime _seleccionado = DateTime.now();
   bool _cargando = true;
   bool _ruedaAlFrente = true;
-  late DateTime _inicioCiclo;
+  DateTime? _inicioCiclo;
+  CicloNeuroplan? _cicloActual;
   HerramientasData? _herramientas;
 
   DateTime get _hoy => DateTime.now();
-  DateTime get _inicio => _inicioCiclo;
+  int get _duracionCiclo => _cicloActual?.duracionDias ?? 30;
 
-  List<DateTime> get _dias => List.generate(
-        30,
-        (i) => _inicio.add(Duration(days: i)),
-      );
+  List<DateTime> get _dias {
+    final inicio = _inicioCiclo;
+    if (inicio == null) return [];
+    return List.generate(
+      _duracionCiclo,
+      (i) => inicio.add(Duration(days: i)),
+    );
+  }
 
   String _clave(DateTime d) => EntradaDiario.claveFecha(d);
 
@@ -57,28 +62,25 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       AgendaStore.instance.cargar(),
     ]);
 
-    // Mi Pulso utiliza su propio seguimiento de 30 días.
+    // La existencia y las fechas del ciclo provienen del servicio central.
+    // Nunca inferimos el inicio a partir de entradas antiguas del diario.
     var herramientas = await HerramientasService.cargar();
     herramientas = await _recuperarRuedaDesdeDiagnostico(herramientas);
-    var fechaInicio = herramientas.seguimiento30Dias.fechaInicio;
-    if (fechaInicio.isEmpty) {
-      final fechas = DiarioStore.instance.entradas.map((e) => e.fecha).toList()
-        ..sort();
-      fechaInicio = fechas.isNotEmpty
-          ? fechas.first
-          : EntradaDiario.claveFecha(DateTime.now());
-      herramientas.seguimiento30Dias.fechaInicio = fechaInicio;
-      await HerramientasService.guardar(herramientas);
-    }
-
-    final inicio = DateTime.tryParse(fechaInicio) ?? DateTime.now();
+    final ciclo = HerramientasService.cicloActivo(herramientas);
+    final inicio = ciclo?.inicio;
+    final inicioLocal = inicio == null
+        ? null
+        : DateTime(inicio.year, inicio.month, inicio.day);
     final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
-    final diferencia = hoy.difference(DateTime(inicio.year, inicio.month, inicio.day)).inDays;
+    final diferencia = inicioLocal == null ? 0 : hoy.difference(inicioLocal).inDays;
     if (mounted) {
       setState(() {
         _herramientas = herramientas;
-        _inicioCiclo = DateTime(inicio.year, inicio.month, inicio.day);
-        _seleccionado = _dias[diferencia.clamp(0, 29)];
+        _cicloActual = ciclo;
+        _inicioCiclo = inicioLocal;
+        if (inicioLocal != null && _dias.isNotEmpty) {
+          _seleccionado = _dias[diferencia.clamp(0, _dias.length - 1)];
+        }
         _cargando = false;
       });
     }
@@ -163,7 +165,26 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   Future<void> _actualizarHerramientas() async {
     final data = await HerramientasService.cargar();
-    if (mounted) setState(() => _herramientas = data);
+    final ciclo = HerramientasService.cicloActivo(data);
+    final inicio = ciclo?.inicio;
+    final inicioLocal = inicio == null
+        ? null
+        : DateTime(inicio.year, inicio.month, inicio.day);
+    if (mounted) {
+      setState(() {
+        _herramientas = data;
+        _cicloActual = ciclo;
+        _inicioCiclo = inicioLocal;
+        if (inicioLocal == null) {
+          _seleccionado = DateTime.now();
+        } else {
+          final hoy = DateTime.now();
+          final diferencia = DateTime(hoy.year, hoy.month, hoy.day)
+              .difference(inicioLocal).inDays;
+          _seleccionado = _dias[diferencia.clamp(0, _dias.length - 1)];
+        }
+      });
+    }
   }
 
   @override
@@ -190,9 +211,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   static const Color _diaTranscurrido = Color(0xFFFF9800);
 
   int get _diasTranscurridos {
+    final inicio = _inicioCiclo;
+    if (inicio == null) return 0;
     final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
-    final diferencia = hoy.difference(_inicio).inDays;
-    return (diferencia + 1).clamp(0, 30);
+    final diferencia = hoy.difference(inicio).inDays;
+    return (diferencia + 1).clamp(0, _duracionCiclo);
   }
 
   // El anillo representa el paso del tiempo, no una calificación del día.
@@ -248,18 +271,55 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     // debajo del seguimiento de 30 días.
                     _composicionDiagnostica(scheme),
                     const SizedBox(height: 22),
-                    Text(
-                      'Tu recorrido · ciclo de 30 días',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
-                    ),
-                    const SizedBox(height: 14),
-                    resumen,
-                    const SizedBox(height: 22),
-                    _tareasDelDia(scheme),
+                    if (_cicloActual == null) ...[
+                      _invitacionIniciarCiclo(scheme),
+                    ] else ...[
+                      Text(
+                        'Tu recorrido · ciclo de $_duracionCiclo días',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
+                      ),
+                      const SizedBox(height: 14),
+                      resumen,
+                      const SizedBox(height: 22),
+                      _tareasDelDia(scheme),
+                    ],
                   ],
                 );
               },
             ),
+    );
+  }
+
+  Widget _invitacionIniciarCiclo(ColorScheme scheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.hourglass_empty_rounded, color: scheme.primary, size: 28),
+          const SizedBox(height: 12),
+          const Text(
+            'Tu recorrido todavía no ha comenzado',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cuando estés listo, conversa con Ágora. Ella te acompañará a '
+            'decidir cuándo iniciar tu primer ciclo. Tus registros anteriores '
+            'se conservan; no se utilizan para inventar una fecha de inicio.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.76),
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -292,7 +352,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 const SizedBox(height: 5),
                 Text('$_diasTranscurridos',
                     style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700)),
-                Text('días transcurridos de 30',
+                Text('días transcurridos de $_duracionCiclo',
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
               ],
             ),
@@ -832,7 +892,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   Widget _puntoInteractivo(int index, ColorScheme scheme) {
     const center = 145.0;
     const radius = 118.0;
-    final angle = (index * 2 * 3.141592653589793 / 30) - 3.141592653589793 / 2;
+    final angle = (index * 2 * 3.141592653589793 / _duracionCiclo) - 3.141592653589793 / 2;
     final x = center + radius * math.cos(angle) - 13;
     final y = center + radius * math.sin(angle) - 13;
     final seleccionado = _clave(_dias[index]) == _clave(_seleccionado);
@@ -1283,7 +1343,7 @@ class _RadarDiagnosticoPainter extends CustomPainter {
       oldDelegate.missingIndices != missingIndices;
 }
 
-/// Dibuja los 30 segmentos del anillo; el selector táctil se superpone encima.
+/// Dibuja un segmento por cada día del ciclo; el selector táctil se superpone encima.
 class _PulsoPainter extends CustomPainter {
   final List<Color> colores;
   final int seleccionado;
@@ -1307,12 +1367,12 @@ class _PulsoPainter extends CustomPainter {
       ..strokeWidth = grosor
       ..strokeCap = StrokeCap.round;
 
-    for (var i = 0; i < 30; i++) {
-      final inicio = -3.141592653589793 / 2 +
-          i * 2 * 3.141592653589793 / 30 + separacion;
+    final cantidad = colores.isEmpty ? 30 : colores.length;
+    for (var i = 0; i < cantidad; i++) {
+      final barrido = 2 * 3.141592653589793 / cantidad;
+      final inicio = -3.141592653589793 / 2 + i * barrido + separacion;
       paint.color = i < colores.length ? colores[i] : base;
-      canvas.drawArc(rect, inicio, 2 * 3.141592653589793 / 30 - separacion * 2,
-          false, paint);
+      canvas.drawArc(rect, inicio, barrido - separacion * 2, false, paint);
     }
   }
 
