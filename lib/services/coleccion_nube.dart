@@ -110,7 +110,10 @@ class ColeccionNube<T> {
       debugPrint('ColeccionNube[$tabla]: no se pudo leer la nube: $e');
     }
 
-    // Si cambió la cuenta durante la consulta, no mezclar ni guardar datos.\n    if (_uid != uid) return <T>[];\n\n    // 2) Importar lo que había antes de tener cuenta (una sola vez).
+    // Si cambió la cuenta durante la consulta, no mezclar ni guardar datos.
+    if (_uid != uid) return <T>[];
+
+    // 2) Importar lo que había antes de tener cuenta (una sola vez).
     var huboImportacion = false;
     final yaMigrado = prefs.getBool(_kMigrado(uid)) ?? false;
     if (!yaMigrado &&
@@ -244,7 +247,8 @@ class ColeccionNube<T> {
   /// Sube cambios y borrados pendientes. Devuelve true si no queda nada
   /// pendiente. Debe llamarse dentro de la cola.
   Future<bool> _empujar(SharedPreferences prefs, String uid) async {
-    if (_uid != uid) return false;\n    final sucias = prefs.getStringList(_kSucias(uid)) ?? <String>[];
+    if (_uid != uid) return false;
+    final sucias = prefs.getStringList(_kSucias(uid)) ?? <String>[];
     final borradas = prefs.getStringList(_kBorradas(uid)) ?? <String>[];
     if (sucias.isEmpty && borradas.isEmpty) return true;
 
@@ -263,7 +267,9 @@ class ColeccionNube<T> {
       if (filas.isNotEmpty) {
         await _db.from(tabla).upsert(filas);
       }
-      // Una sesión distinta no debe limpiar los cambios pendientes anteriores.\n      if (_uid != uid) return false;\n      // Como todo va en cola, nada cambió mientras tanto: se limpia todo.
+      // Una sesión distinta no debe limpiar los cambios pendientes anteriores.
+      if (_uid != uid) return false;
+      // Como todo va en cola, nada cambió mientras tanto: se limpia todo.
       await prefs.setStringList(_kSucias(uid), <String>[]);
       await prefs.setStringList(_kBorradas(uid), <String>[]);
       return true;
