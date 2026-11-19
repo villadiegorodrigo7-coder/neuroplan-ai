@@ -693,13 +693,25 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   }
 
   Future<void> _startNewChat() async {
-    final conv = await ChatHistoryService.createConversation();
+    // Una conversación vacía es un borrador, no un chat que deba
+    // duplicarse o guardarse cada vez que se pulsa «Nuevo chat».
+    ChatConversation? conv;
+    for (final candidata in _conversations) {
+      if (candidata.title == 'Nueva conversación' &&
+          candidata.messages.isEmpty) {
+        conv = candidata;
+        break;
+      }
+    }
+    conv ??= await ChatHistoryService.createConversation();
+    if (!mounted) return;
+    final yaExiste = _conversations.any((c) => c.id == conv!.id);
     setState(() {
-      _conversations.insert(0, conv);
+      if (!yaExiste) _conversations.insert(0, conv!);
       _current = conv;
       _revisionSemanalSemana = null;
     });
-    await _persist();
+    // El borrador solo se persiste cuando se envía el primer mensaje.
     if (mounted) Navigator.of(context).maybePop();
   }
 
