@@ -75,11 +75,16 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
+  int _ultimaSeccionPrincipal = 1;
+
+  void _salirDeAgora() {
+    if (mounted) setState(() => _currentIndex = _ultimaSeccionPrincipal);
+  }
   Timer? _vigilante;
   String? _avisoClave; // qué invitación está a la vista ('diario' o 'agenda:id')
 
-  final List<Widget> _screens = [
-    const ChatScreen(),
+  late final List<Widget> _screens = [
+    ChatScreen(onExit: _salirDeAgora),
     const TasksScreen(),
     const AgendaScreen(),
     const MiPulsoScreen(),
@@ -226,10 +231,13 @@ class _MainNavigationState extends State<MainNavigation>
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _currentIndex == 0 ? null : NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
+          setState(() {
+            if (index != 0) _ultimaSeccionPrincipal = index;
+            _currentIndex = index;
+          });
           // Al entrar a Tareas se sincroniza la matriz independiente.
           if (index == 1) TasksScreen.recargar.value++;
         },
