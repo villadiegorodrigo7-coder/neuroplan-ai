@@ -33,8 +33,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   CicloNeuroplan? _cicloActual;
   HerramientasData? _herramientas;
   bool _preparandoConcierto = false;
-  bool _mostrarEstado = false;
-  bool _mostrarEnergia = false;
 
   DateTime get _hoy => DateTime.now();
   int get _duracionCiclo => _cicloActual?.duracionDias ?? 30;
@@ -544,101 +542,78 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final estado = entrada?.estado ?? 0;
     final energia = entrada?.energia ?? 0;
 
-    Widget escalaEmojis({
+    Widget selectorEmoji({
       required String titulo,
       required int valor,
       required List<String> emojis,
       required List<String> etiquetas,
-      required bool abierto,
-      required VoidCallback alternar,
       required void Function(int) guardar,
     }) {
       final actual = valor >= 1 && valor <= 5 ? valor - 1 : null;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo, style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 5),
-          Semantics(
-            button: true,
-            label: '$titulo: ${actual == null ? "sin registro" : etiquetas[actual]}. Toca para elegir',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(13),
-              onTap: alternar,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.28)),
-                ),
-                child: Row(children: [
-                  Text(actual == null ? '▫️' : emojis[actual],
-                      style: const TextStyle(fontSize: 25)),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(
-                    actual == null ? 'Sin registro' : etiquetas[actual],
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                    maxLines: 2,
-                  )),
-                  Icon(abierto ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      color: scheme.primary, size: 17),
-                ]),
-              ),
-            ),
-          ),
-          if (abierto) ...[
-            const SizedBox(height: 7),
-            for (var i = 0; i < 5; i++)
-              InkWell(
-                borderRadius: BorderRadius.circular(9),
-                onTap: () => guardar(i + 1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 3),
+          Text(titulo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 7),
+          PopupMenuButton<int>(
+            tooltip: 'Elegir $titulo',
+            initialValue: valor,
+            onSelected: guardar,
+            color: const Color(0xFF242424),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+            itemBuilder: (context) => [
+              for (var i = 0; i < 5; i++)
+                PopupMenuItem<int>(
+                  value: i + 1,
                   child: Row(children: [
-                    Text(emojis[i], style: const TextStyle(fontSize: 19)),
-                    const SizedBox(width: 5),
-                    Expanded(child: Text(etiquetas[i],
-                      style: TextStyle(fontSize: 10,
-                        fontWeight: valor == i + 1 ? FontWeight.w800 : FontWeight.w400))),
+                    Text(emojis[i], style: const TextStyle(fontSize: 23)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(etiquetas[i], style: const TextStyle(fontSize: 13))),
                     if (valor == i + 1)
-                      Icon(Icons.check_rounded, size: 15, color: scheme.primary),
+                      Icon(Icons.check_rounded, color: scheme.primary, size: 18),
                   ]),
                 ),
+              const PopupMenuItem<int>(
+                value: 0,
+                child: Text('Sin registro', style: TextStyle(fontSize: 12)),
               ),
-            TextButton(
-              onPressed: () => guardar(0),
-              child: const Text('Sin registro', style: TextStyle(fontSize: 10)),
+            ],
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF242424),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Row(children: [
+                Text(actual == null ? '▫️' : emojis[actual],
+                    style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  actual == null ? 'Sin registro' : etiquetas[actual],
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12))),
+                const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
+              ]),
             ),
-          ],
+          ),
         ],
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-      ),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text('Mi ritmo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 3),
-          Text('Día seleccionado', style: TextStyle(
-              fontSize: 10, color: Colors.white.withValues(alpha: 0.62))),
+          const Text('Registro de hoy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           // Figura de semáforo: los tres focos forman una sola pieza estrecha.
           Container(
-            width: 48,
-            padding: const EdgeInsets.symmetric(vertical: 7),
+            width: 83,
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF080E1D),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFF52617E), width: 1.4),
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(43),
+              border: Border.all(color: const Color(0xFF485365), width: 3),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28),
                 blurRadius: 13, offset: const Offset(0, 5))],
             ),
@@ -647,7 +622,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 final activo = semaforo == claves[i] ||
                     (i == 2 && semaforo == 'desafio');
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
                   child: Semantics(
                     button: true,
                     label: 'Semáforo: ${nombres[i]}',
@@ -661,8 +636,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        width: 30,
-                        height: 30,
+                        width: 53,
+                        height: 53,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: tonos[i].withValues(alpha: activo ? 1 : 0.23),
@@ -678,57 +653,37 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               }),
             ),
           ),
-          const SizedBox(height: 7),
-          Text(semaforo.isEmpty ? 'Sin registro' : nombreDeSemaforo(semaforo),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          // Leyenda bajo el semáforo, como referencia; los focos son táctiles.
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: List.generate(3, (i) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 7, height: 7,
-                  decoration: BoxDecoration(color: tonos[i], shape: BoxShape.circle)),
-                const SizedBox(width: 5),
-                Flexible(child: Text(nombres[i], style: TextStyle(fontSize: 9,
-                  color: Colors.white.withValues(alpha: 0.72)))),
-              ]),
-            )),
-          ),
-          const SizedBox(height: 14),
-          escalaEmojis(
+          const SizedBox(height: 12),
+          Text('Toca una luz para registrar tu día',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.78))),
+          const SizedBox(height: 15),
+          Divider(color: Colors.white.withValues(alpha: 0.12)),
+          const SizedBox(height: 13),
+          selectorEmoji(
             titulo: 'Estado emocional',
             valor: estado,
             emojis: estados,
             etiquetas: kNivelesEstado,
-            abierto: _mostrarEstado,
-            alternar: () => setState(() => _mostrarEstado = !_mostrarEstado),
             guardar: (nivel) {
               final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
               registro.estado = nivel;
               DiarioStore.instance.cambio(registro);
-              setState(() => _mostrarEstado = false);
             },
           ),
           const SizedBox(height: 12),
-          escalaEmojis(
+          selectorEmoji(
             titulo: 'Energía',
             valor: energia,
             emojis: energias,
             etiquetas: kNivelesEnergia,
-            abierto: _mostrarEnergia,
-            alternar: () => setState(() => _mostrarEnergia = !_mostrarEnergia),
             guardar: (nivel) {
               final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
               registro.energia = nivel;
               DiarioStore.instance.cambio(registro);
-              setState(() => _mostrarEnergia = false);
             },
           ),
         ],
-      ),
     );
   }
 
