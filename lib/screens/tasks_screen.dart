@@ -341,18 +341,8 @@ class _TasksScreenState extends State<TasksScreen> {
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '$pending pendientes',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                      child: _buildResumen(tasks, pending),
                     ),
                     Expanded(
                       child: ListView(
@@ -381,6 +371,89 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  Widget _buildResumen(List<Task> tasks, int pendientes) {
+    final completadas = tasks.where((t) => t.done).length;
+    final total = tasks.length;
+    final progreso = total == 0 ? 0.0 : completadas / total;
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF202B55), Color(0xFF171D3B), Color(0xFF25204D)],
+        ),
+        border: Border.all(color: const Color(0xFF8C7CFF).withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6657D9).withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8C7CFF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.track_changes_rounded,
+                    color: Color(0xFFB9AEFF), size: 21),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tu espacio de acción',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    SizedBox(height: 2),
+                    Text('Prioriza con intención, avanza a tu ritmo',
+                        style: TextStyle(fontSize: 11, color: Color(0xFFB9C4E5))),
+                  ],
+                ),
+              ),
+              Text('$pendientes pendientes',
+                  style: const TextStyle(
+                    color: Color(0xFFB9AEFF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 17),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(
+              value: progreso,
+              minHeight: 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF55DDF2)),
+            ),
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Text('$completadas completadas',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9FEAF4))),
+              const Spacer(),
+              Text('$total en total',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFFB9C4E5))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Tarjeta de un cuadrante: con la misma estructura de la matriz (lista + campo con +).
   Widget _buildCuadrante(_Cuadrante c, List<Task> delCuadrante, ColorScheme scheme) {
     // Pendientes primero, completadas al final.
@@ -393,9 +466,24 @@ class _TasksScreenState extends State<TasksScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: c.color, width: 4)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(scheme.surfaceContainerHighest, c.color, 0.10)!,
+            scheme.surfaceContainerHighest,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(19),
+        border: Border(
+          left: BorderSide(color: c.color, width: 4),
+          top: BorderSide(color: c.color.withValues(alpha: 0.20)),
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        boxShadow: [
+          BoxShadow(color: c.color.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 6)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
