@@ -613,7 +613,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             children: [
               SizedBox(
                 width: 75,
-                child: Column(
+                child: Padding(
+                  // Iguala la altura interior del semáforo (borde + margen).
+                  // Cada etiqueta queda centrada frente a su propia luz.
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     for (final item in const [
@@ -637,6 +641,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         ),
                       ),
                   ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
