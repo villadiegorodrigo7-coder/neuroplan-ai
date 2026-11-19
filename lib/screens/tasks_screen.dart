@@ -212,33 +212,36 @@ class _TasksScreenState extends State<TasksScreen> {
       final lista = habitos.where((h) => h.tipo == tipo).toList();
       final hechos = lista.where((h) => h.registros[hoy] == true).length;
       return Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
-            Color.lerp(const Color(0xFF151A35), color, 0.14)!,
+            Color.lerp(const Color(0xFF151A35), color, 0.22)!,
             const Color(0xFF151A35),
           ]),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.38)),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.055),
-            blurRadius: 17, offset: const Offset(0, 5))],
+          border: Border.all(color: color.withValues(alpha: 0.55)),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.13),
+            blurRadius: 22, offset: const Offset(0, 6))],
         ),
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
           key: PageStorageKey('habitos_$tipo'),
           initiallyExpanded: false,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           collapsedIconColor: color,
           iconColor: color,
           leading: Container(
-            width: 45, height: 45,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.17),
-              borderRadius: BorderRadius.circular(14)),
-            child: Icon(icono, color: color, size: 25),
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.27),
+              borderRadius: BorderRadius.circular(13),
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.30),
+                blurRadius: 15, spreadRadius: 1)]),
+            child: Icon(icono, color: color, size: 24),
           ),
           title: Text(titulo, style: const TextStyle(
-            fontWeight: FontWeight.w800, fontSize: 14)),
+            fontWeight: FontWeight.w800, fontSize: 12.5)),
           subtitle: Text(tipo == 'incorporar'
               ? '${lista.length} hábitos activos'
               : '${lista.length} hábitos en proceso',
@@ -286,12 +289,20 @@ class _TasksScreenState extends State<TasksScreen> {
       );
     }
 
-    return Column(children: [
-      grupo('incorporar', 'Seguimiento de hábitos',
-          const Color(0xFF5DE5AB), Icons.spa_rounded),
-      grupo('alejar', 'Hábitos por alejar',
-          const Color(0xFFC38AFF), Icons.track_changes_rounded),
-    ]);
+    return LayoutBuilder(builder: (context, constraints) {
+      final incorporar = grupo('incorporar', 'Seguimiento de hábitos',
+          const Color(0xFF54F0AF), Icons.spa_rounded);
+      final alejar = grupo('alejar', 'Hábitos por alejar',
+          const Color(0xFFD08BFF), Icons.track_changes_rounded);
+      if (constraints.maxWidth < 510) {
+        return Column(children: [incorporar, alejar]);
+      }
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: incorporar),
+        const SizedBox(width: 12),
+        Expanded(child: alejar),
+      ]);
+    });
   }
 
   void _addTask(String cuadrante) {
@@ -363,8 +374,16 @@ class _TasksScreenState extends State<TasksScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
                   children: [
                     const SizedBox(height: 6),
-                    const Center(child: Icon(Icons.check_circle_outline_rounded,
-                      color: Color(0xFFCC81FF), size: 37)),
+                    Center(child: Container(
+                      width: 55, height: 55,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF9C43E6).withValues(alpha: 0.22),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFD276FF).withValues(alpha: 0.72)),
+                        boxShadow: [BoxShadow(color: const Color(0xFFC65CFF).withValues(alpha: 0.33),
+                          blurRadius: 24, spreadRadius: 2)]),
+                      child: const Icon(Icons.check_circle_rounded,
+                        color: Color(0xFFDF9EFF), size: 32))),
                     const SizedBox(height: 9),
                     const Center(child: Text('Tu espacio de acción',
                       style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800))),
@@ -383,7 +402,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         physics: const NeverScrollableScrollPhysics(),
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
-                        childAspectRatio: constraints.maxWidth < 370 ? 1.00 : 1.15,
+                        mainAxisExtent: constraints.maxWidth < 370 ? 139 : 130,
                         children: [
                           for (final c in _cuadrantes)
                             _buildCuadranteTarjeta(
@@ -423,27 +442,29 @@ class _TasksScreenState extends State<TasksScreen> {
         borderRadius: BorderRadius.circular(18),
         onTap: () => _abrirCuadrante(c, scheme),
         child: Ink(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              Color.lerp(const Color(0xFF151A35), c.color, 0.16)!,
+              Color.lerp(const Color(0xFF151A35), c.color, 0.26)!,
               const Color(0xFF171B37),
             ]),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: c.color.withValues(alpha: 0.62)),
-            boxShadow: [BoxShadow(color: c.color.withValues(alpha: 0.075),
-              blurRadius: 15, offset: const Offset(0, 5))],
+            border: Border.all(color: c.color.withValues(alpha: 0.72)),
+            boxShadow: [BoxShadow(color: c.color.withValues(alpha: 0.14),
+              blurRadius: 18, offset: const Offset(0, 5))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 38, height: 38,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
-                  color: c.color.withValues(alpha: 0.17),
-                  borderRadius: BorderRadius.circular(12)),
-                child: Icon(icono, color: c.color, size: 22)),
-              const SizedBox(height: 9),
+                  color: c.color.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: c.color.withValues(alpha: 0.28),
+                    blurRadius: 13, spreadRadius: 1)]),
+                child: Icon(icono, color: c.color, size: 23)),
+              const SizedBox(height: 7),
               Expanded(child: Text(c.titulo, maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800))),
@@ -535,11 +556,11 @@ class _TasksScreenState extends State<TasksScreen> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8C7CFF).withValues(alpha: 0.18),
+                  color: const Color(0xFFB969F8).withValues(alpha: 0.30),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.track_changes_rounded,
-                    color: Color(0xFFB9AEFF), size: 21),
+                    color: Color(0xFFECADFF), size: 23),
               ),
               const SizedBox(width: 11),
               const Expanded(
@@ -569,7 +590,7 @@ class _TasksScreenState extends State<TasksScreen> {
               value: progreso,
               minHeight: 6,
               backgroundColor: Colors.white.withValues(alpha: 0.10),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFF55DDF2)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFB969F8)),
             ),
           ),
           const SizedBox(height: 9),
