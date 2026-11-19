@@ -203,70 +203,95 @@ class _TasksScreenState extends State<TasksScreen> {
     if (mounted) setState(() => _herramientas = data);
   }
 
+
   Widget _buildHabitos(ColorScheme scheme) {
     final habitos = _herramientas?.habitos ?? [];
     final hoy = EntradaDiario.claveFecha(DateTime.now());
-    Widget grupo(String tipo, String titulo, String ayuda) {
+
+    Widget grupo(String tipo, String titulo, Color color, IconData icono) {
       final lista = habitos.where((h) => h.tipo == tipo).toList();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600))),
-              TextButton.icon(
-                onPressed: lista.length >= 3 ? null : () => _agregarHabito(tipo),
-                icon: const Icon(Icons.add, size: 17),
-                label: const Text('Agregar'),
-              ),
-            ],
+      final hechos = lista.where((h) => h.registros[hoy] == true).length;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [
+            Color.lerp(const Color(0xFF151A35), color, 0.14)!,
+            const Color(0xFF151A35),
+          ]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.38)),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.055),
+            blurRadius: 17, offset: const Offset(0, 5))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          key: PageStorageKey('habitos_$tipo'),
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          collapsedIconColor: color,
+          iconColor: color,
+          leading: Container(
+            width: 45, height: 45,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.17),
+              borderRadius: BorderRadius.circular(14)),
+            child: Icon(icono, color: color, size: 25),
           ),
-          Text(ayuda, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
-          for (final h in lista)
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: h.registros[hoy] ?? false,
-              onChanged: (v) => _registrarHabito(h, v ?? false),
-              title: Text(h.nombre),
-              subtitle: Text(h.tipo == 'incorporar' ? 'Lo hice hoy' : 'Hoy logré evitarlo'),
-              controlAffinity: ListTileControlAffinity.leading,
-              secondary: IconButton(
-                tooltip: 'Eliminar hábito',
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: () => _confirmarEliminarHabito(h),
+          title: Text(titulo, style: const TextStyle(
+            fontWeight: FontWeight.w800, fontSize: 14)),
+          subtitle: Text(tipo == 'incorporar'
+              ? '${lista.length} hábitos activos'
+              : '${lista.length} hábitos en proceso',
+            style: const TextStyle(color: Color(0xFFC1C8E1), fontSize: 11)),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('$hechos/${lista.length}', style: TextStyle(
+              color: color, fontSize: 12, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down_rounded, color: color),
+          ]),
+          children: [
+            for (final h in lista)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: h.registros[hoy] ?? false,
+                onChanged: (v) => _registrarHabito(h, v ?? false),
+                title: Text(h.nombre, style: const TextStyle(fontSize: 13)),
+                subtitle: Text(tipo == 'incorporar'
+                    ? 'Lo hice hoy' : 'Hoy logré evitarlo',
+                    style: const TextStyle(fontSize: 11)),
+                controlAffinity: ListTileControlAffinity.leading,
+                secondary: IconButton(
+                  tooltip: 'Eliminar hábito',
+                  icon: const Icon(Icons.delete_outline, color: Color(0xFFFF7891)),
+                  onPressed: () => _confirmarEliminarHabito(h),
+                ),
+              ),
+            if (lista.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(10),
+                child: Text('Todavía no hay hábitos aquí.',
+                  style: TextStyle(color: Color(0xFFC1C8E1), fontSize: 12)),
+              ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: lista.length >= 3 ? null : () => _agregarHabito(tipo),
+                icon: const Icon(Icons.add_rounded, size: 17),
+                label: const Text('Agregar hábito'),
               ),
             ),
-          if (lista.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: Text('Todavía no agregas hábitos aquí.',
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
-            ),
-        ],
+          ],
+        ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Seguimiento de hábitos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text('Un hábito no es una tarea. Observa su evolución sin convertirla en una calificación.',
-            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
-          const SizedBox(height: 12),
-          grupo('incorporar', 'Hábitos por incorporar', 'Empieza con uno o dos; máximo tres.'),
-          const Divider(height: 22),
-          grupo('alejar', 'Hábitos por alejar', 'Elige comportamientos que quieres reducir o dejar; máximo tres.'),
-        ],
-      ),
-    );
+    return Column(children: [
+      grupo('incorporar', 'Seguimiento de hábitos',
+          const Color(0xFF5DE5AB), Icons.spa_rounded),
+      grupo('alejar', 'Hábitos por alejar',
+          const Color(0xFFC38AFF), Icons.track_changes_rounded),
+    ]);
   }
 
   void _addTask(String cuadrante) {
@@ -315,10 +340,10 @@ class _TasksScreenState extends State<TasksScreen> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Tareas')),
       body: _loading
@@ -327,49 +352,157 @@ class _TasksScreenState extends State<TasksScreen> {
               listenable: _service,
               builder: (context, _) {
                 final hoy = EntradaDiario.claveFecha(DateTime.now());
-                // Las completadas se muestran solo el día en que se hicieron.
-                // Su registro histórico permanece disponible en Mi Pulso.
                 final tasks = _service.tasks
                     .where((t) => !t.done || t.fecha == hoy)
                     .toList();
                 final pending = tasks.where((t) => !t.done).length;
                 final sinClasificar = tasks
                     .where((t) => !TasksService.cuadrantesSincronizados
-                        .containsKey(t.cuadrante))
-                    .toList();
-
-                return Column(
+                        .containsKey(t.cuadrante)).toList();
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                      child: _buildResumen(tasks, pending),
-                    ),
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    const SizedBox(height: 6),
+                    const Center(child: Icon(Icons.check_circle_outline_rounded,
+                      color: Color(0xFFCC81FF), size: 37)),
+                    const SizedBox(height: 9),
+                    const Center(child: Text('Tu espacio de acción',
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800))),
+                    const SizedBox(height: 5),
+                    const Center(child: Text('Prioriza, organiza y avanza a tu ritmo',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFC1C8E1)))),
+                    const SizedBox(height: 19),
+                    _buildResumen(tasks, pending),
+                    const SizedBox(height: 15),
+                    _buildHabitos(scheme),
+                    const SizedBox(height: 6),
+                    LayoutBuilder(builder: (context, constraints) {
+                      return GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: constraints.maxWidth < 370 ? 1.00 : 1.15,
                         children: [
-                          _buildHabitos(scheme),
-                          const SizedBox(height: 18),
-                          for (final c in _cuadrantes) ...[
-
-                            _buildCuadrante(
+                          for (final c in _cuadrantes)
+                            _buildCuadranteTarjeta(
                               c,
                               tasks.where((t) => t.cuadrante == c.clave).toList(),
                               scheme,
                             ),
-                            const SizedBox(height: 14),
-                          ],
-                          if (sinClasificar.isNotEmpty)
-                            _buildSinClasificar(sinClasificar, scheme),
                         ],
-                      ),
-                    ),
+                      );
+                    }),
+                    if (sinClasificar.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _buildSinClasificarResumido(sinClasificar, scheme),
+                    ],
+                    const SizedBox(height: 20),
+                    const Center(child: Text('Un paso, un día, un compás.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFFB9A4DF)))),
                   ],
                 );
               },
             ),
     );
   }
+
+  Widget _buildCuadranteTarjeta(
+      _Cuadrante c, List<Task> tareas, ColorScheme scheme) {
+    final icono = c.clave == 'urgenteImportante'
+        ? Icons.bolt_rounded
+        : c.clave == 'importanteNoUrgente'
+            ? Icons.flag_rounded
+            : c.clave == 'urgenteNoImportante'
+                ? Icons.hourglass_bottom_rounded
+                : Icons.nights_stay_rounded;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _abrirCuadrante(c, scheme),
+        child: Ink(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              Color.lerp(const Color(0xFF151A35), c.color, 0.16)!,
+              const Color(0xFF171B37),
+            ]),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: c.color.withValues(alpha: 0.62)),
+            boxShadow: [BoxShadow(color: c.color.withValues(alpha: 0.075),
+              blurRadius: 15, offset: const Offset(0, 5))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: c.color.withValues(alpha: 0.17),
+                  borderRadius: BorderRadius.circular(12)),
+                child: Icon(icono, color: c.color, size: 22)),
+              const SizedBox(height: 9),
+              Expanded(child: Text(c.titulo, maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800))),
+              Row(children: [
+                Expanded(child: Text(
+                  '${tareas.length} ${tareas.length == 1 ? "tarea" : "tareas"}',
+                  style: TextStyle(fontSize: 11, color: c.color,
+                    fontWeight: FontWeight.w700))),
+                Icon(Icons.keyboard_arrow_down_rounded, color: c.color, size: 18),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _abrirCuadrante(_Cuadrante c, ColorScheme scheme) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF10162C),
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.73,
+        child: ListenableBuilder(
+          listenable: _service,
+          builder: (context, _) {
+            final hoy = EntradaDiario.claveFecha(DateTime.now());
+            final tareas = _service.tasks.where((t) =>
+              t.cuadrante == c.clave && (!t.done || t.fecha == hoy)).toList();
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 30),
+              children: [
+                Center(child: Container(width: 42, height: 4,
+                  decoration: BoxDecoration(color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4)))),
+                const SizedBox(height: 17),
+                _buildCuadrante(c, tareas, scheme),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSinClasificarResumido(List<Task> tareas, ColorScheme scheme) =>
+      ExpansionTile(
+        initiallyExpanded: false,
+        collapsedIconColor: scheme.primary,
+        title: const Text('Sin clasificar',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        subtitle: Text('${tareas.length} tareas pendientes de clasificación',
+          style: const TextStyle(fontSize: 11)),
+        children: [_buildSinClasificar(tareas, scheme)],
+      );
 
   Widget _buildResumen(List<Task> tasks, int pendientes) {
     final completadas = tasks.where((t) => t.done).length;
