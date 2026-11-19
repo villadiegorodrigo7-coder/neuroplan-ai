@@ -175,7 +175,7 @@ class HerramientasService {
       return;
     }
 
-    final legadoLocal = prefs.getString('cuadernillo_neuroplan_data');
+    final legadoLocal = _uid == null\n        ? prefs.getString('cuadernillo_neuroplan_data')\n        : null;
     if (legadoLocal != null && legadoLocal.isNotEmpty) {
       try {
         final anterior = HerramientasData.desdeDatosAnteriores(
@@ -236,7 +236,7 @@ class HerramientasService {
         if (!tieneDiagnosticoActual) {
           DiagnosticoConversacional? diagnosticoAnterior;
 
-          final legadoLocal = prefs.getString('cuadernillo_neuroplan_data');
+          final legadoLocal = uidAlIniciar == null\n              ? prefs.getString('cuadernillo_neuroplan_data')\n              : null;
           if (legadoLocal != null && legadoLocal.isNotEmpty) {
             try {
               final jsonAnterior =
