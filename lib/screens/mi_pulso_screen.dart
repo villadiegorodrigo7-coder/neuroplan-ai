@@ -69,7 +69,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     // Nunca inferimos el inicio a partir de entradas antiguas del diario.
     var herramientas = await HerramientasService.cargar();
     herramientas = await _recuperarRuedaDesdeDiagnostico(herramientas);
-    final cicloEncontrado = HerramientasService.cicloActivo(herramientas);
+    final cicloEncontrado = _cicloVisible(herramientas);
     final inicio = cicloEncontrado?.inicio;
     final ciclo = inicio == null ? null : cicloEncontrado;
     final inicioLocal = inicio == null
@@ -163,13 +163,22 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     }
   }
 
+  CicloNeuroplan? _cicloVisible(HerramientasData data) {
+    final activo = HerramientasService.cicloActivo(data);
+    if (activo != null) return activo;
+    return data.ciclos.isEmpty ? null : data.ciclos.last;
+  }
+
+  bool get _cicloFinalizado =>
+      _cicloActual?.periodoCompletado(_hoy) ?? false;
+
   void _actualizar() {
     if (mounted) setState(() {});
   }
 
   Future<void> _actualizarHerramientas() async {
     final data = await HerramientasService.cargar();
-    final cicloEncontrado = HerramientasService.cicloActivo(data);
+    final cicloEncontrado = _cicloVisible(data);
     final inicio = cicloEncontrado?.inicio;
     final ciclo = inicio == null ? null : cicloEncontrado;
     final inicioLocal = inicio == null
@@ -223,8 +232,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     return (diferencia + 1).clamp(0, _duracionCiclo);
   }
 
-  // El anillo representa el paso del tiempo, no una calificación del día.
+  // Durante el ciclo muestra el avance; al completarlo conserva la historia
+  // diaria mediante los colores del semáforo registrados en el diario.
   Color _colorDia(DateTime d) {
+    if (_cicloFinalizado) {
+      final semaforo = _entrada(d)?.semaforo ?? '';
+      return colorDeSemaforo(semaforo) ?? _sinRegistro;
+    }
     final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
     return !d.isAfter(hoy) ? _diaTranscurrido : _sinRegistro;
   }
@@ -307,7 +321,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final progreso = ciclo == null ? 0.0 : transcurridos / _duracionCiclo;
     final subtitulo = ciclo == null
         ? 'Un espacio para observar tu tiempo, tu energía y tus decisiones.'
-        : 'Tu ciclo está en marcha. Cada día forma parte de tu recorrido.';
+        : _cicloFinalizado
+            ? 'Este fue tu recorrido. Cada color conserva la memoria de tus días.'
+            : 'Tu ciclo está en marcha. Cada día forma parte de tu recorrido.';
     return Container(
       padding: const EdgeInsets.fromLTRB(19, 19, 19, 17),
       decoration: BoxDecoration(
@@ -328,8 +344,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             Text('Tu vida, en su propio ritmo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           ])),
           if (ciclo != null) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFFFFA94D).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(30), border: Border.all(color: const Color(0xFFFFA94D).withValues(alpha: 0.35))),
-            child: const Text('CICLO ACTIVO', style: TextStyle(color: Color(0xFFFFC078), fontSize: 9, letterSpacing: 0.7, fontWeight: FontWeight.w800))),
+            decoration: BoxDecoration(color: (_cicloFinalizado ? const Color(0xFF34D399) : const Color(0xFFFFA94D)).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(30), border: Border.all(color: (_cicloFinalizado ? const Color(0xFF34D399) : const Color(0xFFFFA94D)).withValues(alpha: 0.35))),
+            child: Text(_cicloFinalizado ? 'CICLO COMPLETADO' : 'CICLO ACTIVO', style: TextStyle(color: _cicloFinalizado ? const Color(0xFF7BE5B7) : const Color(0xFFFFC078), fontSize: 9, letterSpacing: 0.7, fontWeight: FontWeight.w800))),
         ]),
         const SizedBox(height: 13),
         Text(subtitulo, style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 12, height: 1.4)),
@@ -499,7 +515,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 const SizedBox(height: 5),
                 Text('$_diasTranscurridos',
                     style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700)),
-                Text('días transcurridos de $_duracionCiclo',
+                Text(_cicloFinalizado ? 'días del recorrido' : 'días transcurridos de $_duracionCiclo',
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
               ],
             ),
