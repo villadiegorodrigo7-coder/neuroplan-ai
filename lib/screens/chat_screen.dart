@@ -1829,9 +1829,13 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: _immersiveVoiceMode,
-        title: _immersiveVoiceMode ? const SizedBox.shrink() : const Text(
-          'NEUROPLAN',
-          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        title: _immersiveVoiceMode ? const SizedBox.shrink() : const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Ágora', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+            Text('NEUROPLAN AI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: Color(0xFF9CA3AF))),
+          ],
         ),
         centerTitle: false,
         elevation: 0,
@@ -2094,11 +2098,12 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.78),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
                   ),
+                  boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 6))],
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
