@@ -1960,15 +1960,17 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 : messages.isEmpty
                     ? Center(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 76,
-                                height: 76,
+                                width: 88,
+                                height: 88,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.34)),
+                                  boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.18), blurRadius: 36, spreadRadius: 5)],
                                   gradient: LinearGradient(
                                     colors: [
                                       scheme.primary.withValues(alpha: 0.25),
@@ -1981,14 +1983,15 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                                 child: Icon(Icons.auto_awesome_rounded,
                                     color: scheme.primary, size: 34),
                               ),
-                              const SizedBox(height: 22),
+                              const SizedBox(height: 26),
                               const Text(
-                                'Soy Ágora, tu asistente de\ninteligencia artificial',
+                                'Un espacio para pensar,\norganizar y avanzar',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 17,
+                                  fontSize: 21,
                                   fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.2,
+                                  height: 1.2,
+                                  letterSpacing: -0.45,
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -2038,9 +2041,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
                             child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 5),
+                              margin: const EdgeInsets.symmetric(vertical: 6),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
+                                  horizontal: 17, vertical: 13),
                               constraints: BoxConstraints(
                                 maxWidth: MediaQuery.of(context).size.width * 0.78,
                               ),
@@ -2055,7 +2058,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                                         end: Alignment.bottomRight,
                                       )
                                     : null,
-                                color: isUser ? null : scheme.surfaceContainerHighest,
+                                color: isUser ? null : scheme.surfaceContainerHighest.withValues(alpha: 0.86),
+                                border: Border.all(color: isUser ? Colors.white.withValues(alpha: 0.10) : const Color(0xFF8B5CF6).withValues(alpha: 0.16)),
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(18),
                                   topRight: const Radius.circular(18),
