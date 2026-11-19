@@ -104,13 +104,13 @@ class ColeccionNube<T> {
     // 1) Leer la nube (null = sin conexión o error).
     List<Map<String, dynamic>>? remotas;
     try {
-      final res = await _db.from(tabla).select();
+      final res = await _db.from(tabla).select().eq('user_id', uid);
       remotas = List<Map<String, dynamic>>.from(res);
     } catch (e) {
       debugPrint('ColeccionNube[$tabla]: no se pudo leer la nube: $e');
     }
 
-    // 2) Importar lo que había antes de tener cuenta (una sola vez).
+    // Si cambió la cuenta durante la consulta, no mezclar ni guardar datos.\n    if (_uid != uid) return <T>[];\n\n    // 2) Importar lo que había antes de tener cuenta (una sola vez).
     var huboImportacion = false;
     final yaMigrado = prefs.getBool(_kMigrado(uid)) ?? false;
     if (!yaMigrado &&
@@ -244,7 +244,7 @@ class ColeccionNube<T> {
   /// Sube cambios y borrados pendientes. Devuelve true si no queda nada
   /// pendiente. Debe llamarse dentro de la cola.
   Future<bool> _empujar(SharedPreferences prefs, String uid) async {
-    final sucias = prefs.getStringList(_kSucias(uid)) ?? <String>[];
+    if (_uid != uid) return false;\n    final sucias = prefs.getStringList(_kSucias(uid)) ?? <String>[];
     final borradas = prefs.getStringList(_kBorradas(uid)) ?? <String>[];
     if (sucias.isEmpty && borradas.isEmpty) return true;
 
@@ -258,12 +258,12 @@ class ColeccionNube<T> {
 
     try {
       if (borradas.isNotEmpty) {
-        await _db.from(tabla).delete().inFilter('id', borradas);
+        await _db.from(tabla).delete().eq('user_id', uid).inFilter('id', borradas);
       }
       if (filas.isNotEmpty) {
         await _db.from(tabla).upsert(filas);
       }
-      // Como todo va en cola, nada cambió mientras tanto: se limpia todo.
+      // Una sesión distinta no debe limpiar los cambios pendientes anteriores.\n      if (_uid != uid) return false;\n      // Como todo va en cola, nada cambió mientras tanto: se limpia todo.
       await prefs.setStringList(_kSucias(uid), <String>[]);
       await prefs.setStringList(_kBorradas(uid), <String>[]);
       return true;
