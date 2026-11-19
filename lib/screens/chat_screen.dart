@@ -695,6 +695,76 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     await _persist();
   }
 
+  bool get _esConciertoFinal =>
+      widget.conciertoFinalSnapshot != null &&
+      _current?.title == 'Concierto Final';
+
+  bool get _cierreConciertoDisponible {
+    final id = widget.conciertoFinalSnapshot?.ciclo.id;
+    if (id == null || !_esConciertoFinal) return false;
+    return _current!.messages.any((m) =>
+        m.role == 'system' &&
+        m.content == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:$id');
+  }
+
+  bool get _conciertoFinalYaCerrado {
+    final id = widget.conciertoFinalSnapshot?.ciclo.id;
+    if (id == null || !_esConciertoFinal) return false;
+    return _current!.messages.any((m) =>
+        m.role == 'system' && m.content == 'CONCIERTO_FINAL_CERRADO:$id');
+  }
+
+  Future<void> _confirmarCierreConciertoFinal() async {
+    final snapshot = widget.conciertoFinalSnapshot;
+    if (snapshot == null || !_cierreConciertoDisponible ||
+        _conciertoFinalYaCerrado || _isLoading) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cerrar este ciclo'),
+        content: const Text(
+          'La reflexión del Concierto Final quedará concluida y el recorrido '
+          'se conservará en Mi Pulso. Esta decisión no elimina tus registros. '
+          '¿Deseas cerrar el ciclo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Todavía no'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sí, cerrar ciclo'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await HerramientasService.cerrarCiclo(snapshot.ciclo.id);
+      final conv = _current;
+      if (conv != null) {
+        conv.messages.add(ChatMessageData(
+          role: 'system',
+          content: 'CONCIERTO_FINAL_CERRADO:${snapshot.ciclo.id}',
+        ));
+        await _persist();
+      }
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tu ciclo quedó cerrado. El recorrido permanece en Mi Pulso.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cerrar el ciclo: $error')),
+      );
+    }
+  }
+
   Future<void> _sendMessage([String? voiceText]) async {
     // Se cierra el dictado y se ignora lo que el micrófono todavía entregue.
     _sesionDictado++;
@@ -772,8 +842,21 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         ));
       }
     }
+    final conciertoFinalListo =
+        conv.title == 'Concierto Final' &&
+        respuestaAgora.contains('[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]');
+    if (conciertoFinalListo &&
+        !conv.messages.any((m) =>
+            m.role == 'system' &&
+            m.content == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:${widget.conciertoFinalSnapshot?.ciclo.id ?? ''}')) {
+      conv.messages.add(ChatMessageData(
+        role: 'system',
+        content: 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:${widget.conciertoFinalSnapshot?.ciclo.id ?? ''}',
+      ));
+    }
     final response = respuestaAgora
         .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
+        .replaceAll('[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]', '')
         .trim();
 
     if (!mounted) return;
@@ -869,7 +952,13 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         'Primero escucha qué quiere mirar la persona. Puedes ayudar a reconocer patrones, momentos '
         'significativos, cambios y preguntas abiertas. Haz una sola pregunta por turno. Diferencia '
         'datos registrados, palabras de la persona e interpretaciones tentativas. Invita a corregir '
-        'cualquier interpretación. La conversación debe ser cálida, honesta y sin juicios.'
+        'cualquier interpretación. La conversación debe ser cálida, honesta y sin juicios. '
+        'No conviertas el Concierto Final en una lista de preguntas ni en una evaluación. '
+        'Cuando la reflexión haya llegado naturalmente a una síntesis suficiente, comparte una '
+        'síntesis breve y pregunta si la persona siente que desea cerrar este ciclo. Solo en ese '
+        'momento, al final de tu respuesta, añade exactamente el marcador técnico '
+        '[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]. No añadas ese marcador antes de haber escuchado '
+        'y sintetizado el recorrido. La persona decide si cierra; nunca cierres por ella.'
         '${contextoConcierto == null ? '' : '\n\nRECORRIDO RECOPILADO PARA ESTA CONVERSACIÓN:\n$contextoConcierto'}',
       );
     }
@@ -1721,6 +1810,17 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           ),
           const SizedBox(width: 8),
         ] : [
+          if (_cierreConciertoDisponible && !_conciertoFinalYaCerrado)
+            TextButton.icon(
+              onPressed: _isLoading ? null : _confirmarCierreConciertoFinal,
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: const Text('Cerrar ciclo'),
+            ),
+          if (_conciertoFinalYaCerrado)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(Icons.check_circle_rounded, color: Color(0xFF34D399)),
+            ),
           _headerAction(
             icon: Icons.history_rounded,
             tooltip: 'Historial',
