@@ -106,7 +106,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     if (e != null && e.prioridad.isNotEmpty) {
       partes.add('Tu prioridad era: ${e.prioridad}.');
     }
-    partes.add('Cuéntame, hablando o escribiendo: ¿por qué crees que el día salió así?');
+    partes.add('Cuéntame, hablando o escribiendo: ¿cómo te sentiste hoy?');
     return partes.join(' ');
   }
 
@@ -117,6 +117,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final entrada = DiarioStore.instance.de(fecha);
     final conv = await ChatHistoryService.createConversation();
     conv.title = 'Reflexión del ${_nombreFecha(fecha)}';
+    conv.messages.add(ChatMessageData(
+      role: 'system',
+      content: 'REFLEXION_DIARIA_FECHA:$fecha',
+    ));
     conv.messages.add(
       ChatMessageData(role: 'model', content: _aperturaReflexion(entrada)),
     );
@@ -902,6 +906,18 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   }
 
   /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
+  String? get _fechaReflexionDeConversacionActual {
+    if (_reflexionFecha != null) return _reflexionFecha;
+    final conv = _current;
+    if (conv == null) return null;
+    for (final m in conv.messages) {
+      if (m.role == 'system' && m.content.startsWith('REFLEXION_DIARIA_FECHA:')) {
+        return m.content.substring('REFLEXION_DIARIA_FECHA:'.length).trim();
+      }
+    }
+    return null;
+  }
+
   Future<String?> _construirContextoUsuario({
     bool incluirAntecedentesDiagnostico = false,
   }) async {
@@ -1040,7 +1056,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
 
     // --- Modo reflexión del día ---
-    if (_reflexionFecha != null) {
+    if (_fechaReflexionDeConversacionActual != null) {
       partes.insert(
         0,
         'MODO REFLEXIÓN DIARIA. La persona está haciendo su reflexión del día. '
