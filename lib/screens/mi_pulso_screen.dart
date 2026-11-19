@@ -534,9 +534,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   Widget _panelIndicadores(ColorScheme scheme) {
     final entrada = _entrada(_seleccionado);
     final semaforo = entrada?.semaforo ?? '';
-    const tonos = [kColorBien, kColorAtencion, kColorDesafio];
-    const claves = ['bien', 'atencion', 'riesgo'];
-    const nombres = ['Bien', 'Atención', 'Desafío'];
+    const tonos = [kColorDesafio, kColorAtencion, kColorBien];
+    const claves = ['riesgo', 'atencion', 'bien'];
+    const nombres = ['Desafío', 'Atención', 'Bien'];
     const estados = ['😞', '😕', '😐', '🙂', '😄'];
     const energias = ['🪫', '😴', '🌤️', '⚡', '🔥'];
     final estado = entrada?.estado ?? 0;
@@ -620,7 +620,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             child: Column(
               children: List.generate(3, (i) {
                 final activo = semaforo == claves[i] ||
-                    (i == 2 && semaforo == 'desafio');
+                    (i == 0 && semaforo == 'desafio');
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   child: Semantics(
@@ -640,7 +640,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         height: 53,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: tonos[i].withValues(alpha: activo ? 1 : 0.23),
+                          color: tonos[i].withValues(alpha: activo ? 1 : 0.78),
                           border: Border.all(color: tonos[i].withValues(alpha: activo ? 1 : 0.4)),
                           boxShadow: activo ? [BoxShadow(
                             color: tonos[i].withValues(alpha: 0.52),
