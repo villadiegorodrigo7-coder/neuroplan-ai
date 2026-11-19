@@ -172,7 +172,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
         colors: [Color(0xFF202B55), Color(0xFF171D3B), Color(0xFF211F49)]),
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: const Color(0xFF8C7CFF).withValues(alpha: 0.25)),
+      border: Border.all(color: const Color(0xFFB784FF).withValues(alpha: 0.44)),
       boxShadow: [BoxShadow(color: const Color(0xFF6255D8).withValues(alpha: 0.10), blurRadius: 22, offset: const Offset(0, 8))]),
       child:Column(children:[
         Row(children:[
@@ -197,7 +197,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             return InkWell(borderRadius:BorderRadius.circular(11),onTap:()=>setState((){_seleccion=_fecha(d);_mes=DateTime(d.year,d.month);}),
               child:Container(decoration:BoxDecoration(
                 gradient: sel ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [Color(0xFF8C7CFF), Color(0xFF5D55C8)]) : null,
+                  colors: [Color(0xFFA387FF), Color(0xFF6553D2)]) : null,
                 color: sel ? null : (actual ? Colors.white.withValues(alpha: 0.055) : null),
                 borderRadius:BorderRadius.circular(11),
                 border:actual&&!sel?Border.all(color:const Color(0xFF55DDF2).withValues(alpha:0.75)):null),
@@ -229,6 +229,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
       ])));
     if(elegida!=null)_tasks.llevarAFecha(elegida,f,bloque);
   }
+  Color _tonoBloque(String clave) => clave == 'manana'
+      ? const Color(0xFFFFC46B)
+      : clave == 'tarde' ? const Color(0xFF72DDF3) : const Color(0xFFB59BFF);
+
   Widget _jornada(ColorScheme s){
     final eventos=AgendaStore.instance.eventosEnDia(_seleccion);
     final fecha=_clave(_seleccion);
@@ -241,16 +245,27 @@ class _AgendaScreenState extends State<AgendaScreen> {
         Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(14),
           decoration:BoxDecoration(
             gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-              colors: [Color.lerp(s.surfaceContainerHighest, const Color(0xFF8C7CFF), 0.055)!, s.surfaceContainerHighest]),
+              colors: [Color.lerp(const Color(0xFF171D39), _tonoBloque(b.clave), 0.17)!, const Color(0xFF151B36)]),
             borderRadius:BorderRadius.circular(19),
-            border:Border.all(color:Colors.white.withValues(alpha:0.065)),
+            border:Border.all(color:_tonoBloque(b.clave).withValues(alpha:0.40)),
             boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:0.10),blurRadius:14,offset:const Offset(0,5))]),
           child:Column(children:[
-            Row(children:[Icon(b.icono,color:s.secondary,size:19),const SizedBox(width:8),
-              Expanded(child:Text(b.titulo,style:const TextStyle(fontWeight:FontWeight.w700))),
-              Text(b.rango,style:TextStyle(fontSize:10,color:s.onSurface.withValues(alpha:.6))),
-              IconButton(tooltip:'Agregar tarea de la matriz',onPressed:()=>_agregarTarea(b.clave),icon:Icon(Icons.add_circle_outline,color:s.primary)),
+            Row(children:[
+              Container(width:38,height:38,
+                decoration:BoxDecoration(
+                  color:_tonoBloque(b.clave).withValues(alpha:0.24),
+                  borderRadius:BorderRadius.circular(12),
+                  boxShadow:[BoxShadow(color:_tonoBloque(b.clave).withValues(alpha:0.18),blurRadius:14)]),
+                child:Icon(b.icono,color:_tonoBloque(b.clave),size:22)),
+              const SizedBox(width:10),
+              Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(b.titulo,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:14)),
+                Text(b.rango,style:TextStyle(fontSize:10,color:s.onSurface.withValues(alpha:.65))),
+              ])),
+              IconButton(tooltip:'Agregar tarea de la matriz',onPressed:()=>_agregarTarea(b.clave),
+                icon:Icon(Icons.add_circle_outline,color:_tonoBloque(b.clave))),
             ]),
+            const SizedBox(height:8),
             for(final e in eventos.where((e)=>_bloqueHora(e.date)==b.clave))
               Row(children:[
                 GestureDetector(
@@ -297,11 +312,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
           begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: [Color(0xFF172A49), Color(0xFF17203E), Color(0xFF29204D)],
         ),
-        border: Border.all(color: const Color(0xFF55DDF2).withValues(alpha: 0.18)),
+        border: Border.all(color: const Color(0xFF55DDF2).withValues(alpha: 0.38)),
       ),
       child: Row(children: [
         Container(width: 43, height: 43,
-          decoration: BoxDecoration(color: const Color(0xFF55DDF2).withValues(alpha: 0.12),
+          decoration: BoxDecoration(color: const Color(0xFF55DDF2).withValues(alpha: 0.24),
             borderRadius: BorderRadius.circular(14)),
           child: const Icon(Icons.waves_rounded, color: Color(0xFF72E4F2), size: 23)),
         const SizedBox(width: 12),
@@ -325,6 +340,13 @@ class _AgendaScreenState extends State<AgendaScreen> {
       floatingActionButton:FloatingActionButton(onPressed:_addEvent,backgroundColor:s.primary,child:const Icon(Icons.add)),
       body:_loading?const Center(child:CircularProgressIndicator()):ListView(
         padding:const EdgeInsets.fromLTRB(16,10,16,90),
-        children:[_resumenDia(s),_calendario(s),_jornada(s)]));
+        children:[
+          const Center(child:Icon(Icons.calendar_month_rounded,color:Color(0xFFC18AFF),size:35)),
+          const SizedBox(height:8),
+          const Center(child:Text('Tu tiempo, a tu ritmo',style:TextStyle(fontSize:20,fontWeight:FontWeight.w800))),
+          const SizedBox(height:5),
+          const Center(child:Text('Dale espacio a lo que importa',style:TextStyle(fontSize:12,color:Color(0xFFC4C9E2)))),
+          const SizedBox(height:18),
+          _resumenDia(s),_calendario(s),_jornada(s)]));
   }
 }
