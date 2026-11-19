@@ -272,10 +272,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 final resumen = Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(flex: 5, child: _panelIndicadores(scheme)),
+                    Expanded(flex: 6, child: _panelIndicadores(scheme)),
                     const SizedBox(width: 8),
                     Expanded(
-                      flex: 6,
+                      flex: 5,
                       child: FittedBox(
                         fit: BoxFit.contain,
                         child: _anillo(scheme),
