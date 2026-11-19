@@ -288,6 +288,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Future<void> _loadHistory() async {
     final list = await ChatHistoryService.loadConversations();
+    // Los borradores vacíos de compilaciones anteriores no son conversaciones.
+    // Se ocultan sin eliminarlos de la base de datos.
+    list.removeWhere((c) => c.title == 'Nueva conversación' && c.messages.isEmpty);
 
     // El diagnóstico conversacional se inicia una sola vez por cuenta.
     // La conversación queda guardada en el historial para poder retomarla
@@ -319,7 +322,19 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     }
 
     final revisionSemanal = await _crearRevisionSemanalSiCorresponde(list);
-    final conversacionInicial = revisionSemanal ?? (list.isNotEmpty ? list.first : null);
+    final prefsSeleccion = await SharedPreferences.getInstance();
+    final usuarioSeleccion = Supabase.instance.client.auth.currentUser?.id ?? 'local';
+    final idSeleccionado = prefsSeleccion.getString('agora_chat_activo_$usuarioSeleccion');
+    ChatConversation? conversacionInicial = revisionSemanal;
+    if (conversacionInicial == null && idSeleccionado != null) {
+      for (final candidata in list) {
+        if (candidata.id == idSeleccionado) {
+          conversacionInicial = candidata;
+          break;
+        }
+      }
+    }
+    conversacionInicial ??= list.isNotEmpty ? list.first : null;
 
     if (!mounted) return;
     setState(() {
@@ -692,6 +707,16 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     await ChatHistoryService.saveConversations(_conversations);
   }
 
+  Future<void> _recordarChatActivo(ChatConversation? conv) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id ?? 'local';
+    final prefs = await SharedPreferences.getInstance();
+    if (conv == null) {
+      await prefs.remove('agora_chat_activo_$uid');
+    } else {
+      await prefs.setString('agora_chat_activo_$uid', conv.id);
+    }
+  }
+
   Future<void> _startNewChat() async {
     // Una conversación vacía es un borrador, no un chat que deba
     // duplicarse o guardarse cada vez que se pulsa «Nuevo chat».
@@ -712,7 +737,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       _revisionSemanalSemana = null;
     });
     // El borrador solo se persiste cuando se envía el primer mensaje.
-    if (mounted) Navigator.of(context).maybePop();
+    await _recordarChatActivo(conv);
+    // El historial ya se cerró desde su propio botón «Nuevo».
   }
 
   void _selectConversation(ChatConversation conv) {
@@ -721,6 +747,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       _revisionSemanalSemana = _semanaDeRevision(conv);
     });
     _actualizarPropuestaInicioCiclo();
+    _recordarChatActivo(conv);
     Navigator.of(context).maybePop();
     _scrollToBottom();
   }
@@ -837,6 +864,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     });
     _scrollToBottom();
     await _persist();
+    await _recordarChatActivo(conv);
 
     // El último mensaje (el que acaba de escribir el usuario) se envía aparte
     // en sendMessage, así que se excluye del historial para no duplicarlo.
