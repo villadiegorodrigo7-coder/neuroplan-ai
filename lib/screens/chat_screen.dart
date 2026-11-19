@@ -328,7 +328,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       _revisionSemanalSemana = _semanaDeRevision(conversacionInicial);
       _loadingHistory = false;
     });
-    await _generarInformeHabitosSiCorresponde();
+    // No crear seguimientos automáticamente al abrir Ágora: la apertura
+    // puede repetirse en distintas sesiones y generar conversaciones duplicadas.
+    // Los seguimientos existentes permanecen disponibles en el historial.
     await _recuperarDiagnosticoCompleto();
     await _actualizarPropuestaInicioCiclo();
     await _abrirConciertoFinalSiCorresponde();
