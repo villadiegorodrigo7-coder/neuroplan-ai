@@ -606,14 +606,15 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         children: [
           const Text('Registro de hoy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
-          // Significado a la izquierda, alineado con cada luz del semáforo.
+          // Etiquetas visibles junto a cada foco (rojo, amarillo y verde).
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 56,
+                width: 75,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     for (final item in const [
                       ('Desafío', 'Reconocer'),
@@ -621,64 +622,65 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                       ('Bien', 'Satisfacción'),
                     ])
                       SizedBox(
-                        height: 67,
+                        height: 63,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(item.$1,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(fontSize: 9,
-                                  fontWeight: FontWeight.w800)),
-                            Text(item.$2,
-                              textAlign: TextAlign.right,
-                              style: TextStyle(fontSize: 8,
-                                  color: Colors.white.withValues(alpha: 0.64))),
+                            Text(item.$1, textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12,
+                                fontWeight: FontWeight.w800)),
+                            Text(item.$2, textAlign: TextAlign.right,
+                              style: TextStyle(fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.8))),
                           ],
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 8),
               Container(
-                width: 83,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                width: 70,
+                padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(43),
+                  borderRadius: BorderRadius.circular(36),
                   border: Border.all(color: const Color(0xFF485365), width: 3),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28),
-                    blurRadius: 13, offset: const Offset(0, 5))],
                 ),
                 child: Column(
                   children: List.generate(3, (i) {
                     final activo = semaforo == claves[i] ||
                         (i == 0 && semaforo == 'desafio');
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Semantics(
-                        button: true,
-                        label: 'Semáforo: ${nombres[i]}',
-                        selected: activo,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
-                            registro.semaforo = claves[i];
-                            DiarioStore.instance.cambio(registro);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 53,
-                            height: 53,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: tonos[i].withValues(alpha: activo ? 1 : 0.78),
-                              border: Border.all(color: tonos[i].withValues(alpha: activo ? 1 : 0.4)),
-                              boxShadow: activo ? [BoxShadow(
-                                color: tonos[i].withValues(alpha: 0.52),
-                                blurRadius: 12, spreadRadius: 2)] : null,
+                    return SizedBox(
+                      height: 63,
+                      child: Center(
+                        child: Semantics(
+                          button: true,
+                          label: 'Registrar día: ${nombres[i]}',
+                          selected: activo,
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () {
+                              final registro = DiarioStore.instance.obtenerOCrear(
+                                _clave(_seleccionado));
+                              registro.semaforo = claves[i];
+                              DiarioStore.instance.cambio(registro);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: tonos[i].withValues(alpha: activo ? 1 : 0.78),
+                                border: Border.all(color: tonos[i].withValues(
+                                  alpha: activo ? 1 : 0.4)),
+                                boxShadow: activo ? [
+                                  BoxShadow(color: tonos[i].withValues(alpha: 0.52),
+                                    blurRadius: 12, spreadRadius: 2),
+                                ] : null,
+                              ),
                             ),
                           ),
                         ),
