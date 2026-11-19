@@ -271,6 +271,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                   children: [
+                    _encabezadoPulso(scheme),
+                    const SizedBox(height: 18),
                     // La Rueda de la Vida queda al frente para que sea
                     // visible al entrar a Mi pulso, sin tener que buscarla
                     // debajo del seguimiento de 30 días.
@@ -296,6 +298,54 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _encabezadoPulso(ColorScheme scheme) {
+    final ciclo = _cicloActual;
+    final transcurridos = _diasTranscurridos;
+    final progreso = ciclo == null ? 0.0 : transcurridos / _duracionCiclo;
+    final subtitulo = ciclo == null
+        ? 'Un espacio para observar tu tiempo, tu energía y tus decisiones.'
+        : 'Tu ciclo está en marcha. Cada día forma parte de tu recorrido.';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(19, 19, 19, 17),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF172B4B), Color(0xFF171D3B), Color(0xFF29204D)]),
+        border: Border.all(color: const Color(0xFF6FDFF2).withValues(alpha: 0.22)),
+        boxShadow: [BoxShadow(color: const Color(0xFF6957D8).withValues(alpha: 0.14), blurRadius: 25, offset: const Offset(0, 9))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(width: 43, height: 43, decoration: BoxDecoration(color: const Color(0xFF62DDF0).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(15)),
+            child: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF75E5F2), size: 24)),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('MI PULSO', style: TextStyle(color: Color(0xFF8CEBFF), fontSize: 10, letterSpacing: 2.1, fontWeight: FontWeight.w800)),
+            SizedBox(height: 3),
+            Text('Tu vida, en su propio ritmo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ])),
+          if (ciclo != null) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: const Color(0xFFFFA94D).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(30), border: Border.all(color: const Color(0xFFFFA94D).withValues(alpha: 0.35))),
+            child: const Text('CICLO ACTIVO', style: TextStyle(color: Color(0xFFFFC078), fontSize: 9, letterSpacing: 0.7, fontWeight: FontWeight.w800))),
+        ]),
+        const SizedBox(height: 13),
+        Text(subtitulo, style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 12, height: 1.4)),
+        if (ciclo != null) ...[
+          const SizedBox(height: 17),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('$transcurridos', style: const TextStyle(fontSize: 31, height: 1, fontWeight: FontWeight.w800, color: Color(0xFFFFB45C))),
+            const SizedBox(width: 7),
+            Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('de $_duracionCiclo días', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.70)))),
+            const Spacer(),
+            Text('${(progreso * 100).round()}%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF8CEBFF))),
+          ]),
+          const SizedBox(height: 9),
+          ClipRRect(borderRadius: BorderRadius.circular(20), child: LinearProgressIndicator(value: progreso.clamp(0.0, 1.0), minHeight: 6, backgroundColor: Colors.white.withValues(alpha: 0.11), valueColor: const AlwaysStoppedAnimation(Color(0xFFFFA94D)))),
+        ],
+      ]),
     );
   }
 
@@ -685,12 +735,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               constraints: const BoxConstraints(maxWidth: 430),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF101A32),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF121E3B), Color(0xFF10172F), Color(0xFF211D43)]),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: const Color(0xFF8CEBFF).withValues(alpha: 0.13)),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.13),
-                    blurRadius: 24, spreadRadius: 1),
+                  BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15), blurRadius: 26, spreadRadius: 1),
                 ],
               ),
               child: Column(
