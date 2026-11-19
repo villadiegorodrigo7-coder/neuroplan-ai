@@ -168,7 +168,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final dias=_diasCalendario();
     final titulo=_mensual?'${_meses[_mes.month-1][0].toUpperCase()}${_meses[_mes.month-1].substring(1)} ${_mes.year}':
       '${DateFormat('d MMM').format(dias.first)} – ${DateFormat('d MMM yyyy').format(dias.last)}';
-    return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:s.surfaceContainerHighest,borderRadius:BorderRadius.circular(18)),
+    return Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xFF202B55), Color(0xFF171D3B), Color(0xFF211F49)]),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFF8C7CFF).withValues(alpha: 0.25)),
+      boxShadow: [BoxShadow(color: const Color(0xFF6255D8).withValues(alpha: 0.10), blurRadius: 22, offset: const Offset(0, 8))]),
       child:Column(children:[
         Row(children:[
           const Expanded(child:Text('Mis compromisos',style:TextStyle(fontSize:17,fontWeight:FontWeight.w700))),
@@ -189,9 +194,13 @@ class _AgendaScreenState extends State<AgendaScreen> {
             final d=dias[i],sel=_fecha(d)==_seleccion,actual=_fecha(d)==_fecha(DateTime.now());
             final tiene=AgendaStore.instance.eventosEnDia(d).isNotEmpty;
             final delMes=d.month==_mes.month;
-            return InkWell(borderRadius:BorderRadius.circular(9),onTap:()=>setState((){_seleccion=_fecha(d);_mes=DateTime(d.year,d.month);}),
-              child:Container(decoration:BoxDecoration(color:sel?s.primaryContainer:null,borderRadius:BorderRadius.circular(9),
-                border:actual&&!sel?Border.all(color:s.primary):null),
+            return InkWell(borderRadius:BorderRadius.circular(11),onTap:()=>setState((){_seleccion=_fecha(d);_mes=DateTime(d.year,d.month);}),
+              child:Container(decoration:BoxDecoration(
+                gradient: sel ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF8C7CFF), Color(0xFF5D55C8)]) : null,
+                color: sel ? null : (actual ? Colors.white.withValues(alpha: 0.055) : null),
+                borderRadius:BorderRadius.circular(11),
+                border:actual&&!sel?Border.all(color:const Color(0xFF55DDF2).withValues(alpha:0.75)):null),
                 child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
                   Text('${d.day}',style:TextStyle(fontSize:13,fontWeight:sel||actual?FontWeight.bold:FontWeight.normal,
                     color:!delMes&&_mensual?s.onSurface.withValues(alpha:.25):sel?s.onPrimaryContainer:s.onSurface)),
@@ -229,8 +238,13 @@ class _AgendaScreenState extends State<AgendaScreen> {
         '${_diasFull[_seleccion.weekday-1]} ${DateFormat('d MMMM yyyy').format(_seleccion)}',
         style:const TextStyle(fontSize:17,fontWeight:FontWeight.w700))),
       for(final b in _bloques)
-        Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(13),
-          decoration:BoxDecoration(color:s.surfaceContainerHighest,borderRadius:BorderRadius.circular(16)),
+        Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(14),
+          decoration:BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color.lerp(s.surfaceContainerHighest, const Color(0xFF8C7CFF), 0.055)!, s.surfaceContainerHighest]),
+            borderRadius:BorderRadius.circular(19),
+            border:Border.all(color:Colors.white.withValues(alpha:0.065)),
+            boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:0.10),blurRadius:14,offset:const Offset(0,5))]),
           child:Column(children:[
             Row(children:[Icon(b.icono,color:s.secondary,size:19),const SizedBox(width:8),
               Expanded(child:Text(b.titulo,style:const TextStyle(fontWeight:FontWeight.w700))),
@@ -267,12 +281,50 @@ class _AgendaScreenState extends State<AgendaScreen> {
     ]);
   }
 
+  Widget _resumenDia(ColorScheme s) {
+    final eventos = AgendaStore.instance.eventosEnDia(_seleccion);
+    final fecha = _clave(_seleccion);
+    final tareas = _tasks.tasks.where((t) => t.fecha == fecha).toList();
+    final total = eventos.length + tareas.length;
+    final realizados = eventos.where((e) => e.realizadaEn(_seleccion)).length +
+        tareas.where((t) => t.done).length;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(17, 15, 17, 15),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(21),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF172A49), Color(0xFF17203E), Color(0xFF29204D)],
+        ),
+        border: Border.all(color: const Color(0xFF55DDF2).withValues(alpha: 0.18)),
+      ),
+      child: Row(children: [
+        Container(width: 43, height: 43,
+          decoration: BoxDecoration(color: const Color(0xFF55DDF2).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.waves_rounded, color: Color(0xFF72E4F2), size: 23)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Tu ritmo de hoy', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 3),
+          Text(total == 0 ? 'Un espacio abierto para organizar tu tiempo'
+            : '${realizados} de ${total} compromisos y tareas realizados',
+            style: TextStyle(fontSize: 11, color: s.onSurface.withValues(alpha: 0.70))),
+        ])),
+        Text('${total == 0 ? 0 : (realizados * 100 / total).round()}%',
+          style: const TextStyle(color: Color(0xFF72E4F2), fontSize: 19, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context){
     final s=Theme.of(context).colorScheme;
     return Scaffold(appBar:AppBar(title:const Text('Agenda')),
       floatingActionButton:FloatingActionButton(onPressed:_addEvent,backgroundColor:s.primary,child:const Icon(Icons.add)),
       body:_loading?const Center(child:CircularProgressIndicator()):ListView(
-        padding:const EdgeInsets.fromLTRB(16,8,16,90),children:[_calendario(s),_jornada(s)]));
+        padding:const EdgeInsets.fromLTRB(16,10,16,90),
+        children:[_resumenDia(s),_calendario(s),_jornada(s)]));
   }
 }
