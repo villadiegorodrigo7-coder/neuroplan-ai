@@ -67,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
   ];
   bool _loadingHistory = true;
+  bool _cerrandoConcierto = false;
   bool _proponerInicioCiclo = false;
   bool _esPrimerCiclo = true;
   bool _iniciandoCiclo = false;
@@ -295,6 +296,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     // Se ocultan sin eliminarlos de la base de datos.
     list.removeWhere((c) => c.title == 'Nueva conversación' && c.messages.isEmpty);
 
+    if (!mounted) return;
+    if (widget.conciertoFinalSnapshot != null) {
+      _conversations = list;
+      await _abrirConciertoFinalSiCorresponde();
+      return;
+    }
+
     // El diagnóstico conversacional se inicia una sola vez por cuenta.
     // La conversación queda guardada en el historial para poder retomarla
     // si la persona cierra la aplicación antes de terminar.
@@ -351,7 +359,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     // Los seguimientos existentes permanecen disponibles en el historial.
     await _recuperarDiagnosticoCompleto();
     await _actualizarPropuestaInicioCiclo();
-    await _abrirConciertoFinalSiCorresponde();
   }
 
   /// Crea o recupera la conversación especial del ciclo. El contexto queda
@@ -392,7 +399,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     if (esNueva) {
       conv.messages.add(ChatMessageData(
         role: 'model',
-        content: 'Estoy aquí. Vamos a mirar juntos lo que has vivido. Treinta días no definen quién eres, pero pueden ayudarnos a reconocer algunas cosas de tu recorrido. No vamos a ponerte una nota ni a juzgar los días sin registro. Si algo de lo que observemos no representa tu experiencia, puedes corregirlo. ¿Qué te gustaría reconocer primero de estos días?',
+        content: 'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
       ));
       _conversations.insert(0, conv);
     }
@@ -400,6 +407,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     if (!mounted) return;
     setState(() {
       _current = conv;
+      _loadingHistory = false;
       _reflexionFecha = null;
       _revisionSemanalSemana = null;
       _proponerInicioCiclo = false;
@@ -766,29 +774,85 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     await _persist();
   }
 
-  bool get _esConciertoFinal =>
-      widget.conciertoFinalSnapshot != null &&
-      _current?.title == 'Concierto Final';
-
-  bool get _cierreConciertoDisponible {
-    final id = widget.conciertoFinalSnapshot?.ciclo.id;
-    if (id == null || !_esConciertoFinal) return false;
-    return _current!.messages.any((m) =>
-        m.role == 'system' &&
-        m.content == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:$id');
+  String? _cicloDeConcierto(ChatConversation? conversacion) {
+    const prefijo = 'CONCIERTO_FINAL_CICLO:';
+    for (final mensaje in conversacion?.messages ?? <ChatMessageData>[]) {
+      if (mensaje.role == 'system' && mensaje.content.startsWith(prefijo)) {
+        final id = mensaje.content.substring(prefijo.length).trim();
+        if (id.isNotEmpty) return id;
+      }
+    }
+    return null;
   }
 
-  bool get _conciertoFinalYaCerrado {
-    final id = widget.conciertoFinalSnapshot?.ciclo.id;
-    if (id == null || !_esConciertoFinal) return false;
-    return _current!.messages.any((m) =>
-        m.role == 'system' && m.content == 'CONCIERTO_FINAL_CERRADO:$id');
+  Widget _panelConciertoFinal(ColorScheme scheme) {
+    final cerrado = _conciertoFinalYaCerrado;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            cerrado ? Icons.check_circle_outline_rounded : Icons.music_note_rounded,
+            color: scheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Concierto Final',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(
+                  cerrado
+                      ? 'Ciclo cerrado · Disponible en tu historial'
+                      : _cierreConciertoDisponible
+                          ? 'Puedes cerrar tu ciclo cuando quieras.'
+                          : 'Reflexión de cierre con Ágora',
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
+  bool _tieneMarcaConcierto(String marca) {
+    final id = _cicloDeConcierto(_current);
+    return id != null &&
+        _current!.messages.any((m) =>
+            m.role == 'system' &&
+            (m.content == '$marca:$id' ||
+                (marca == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE' &&
+                    m.content == '$marca:')));
+  }
+
+  bool get _cierreConciertoDisponible =>
+      _tieneMarcaConcierto('CONCIERTO_FINAL_CIERRE_DISPONIBLE');
+
+  bool get _conciertoFinalYaCerrado =>
+      _tieneMarcaConcierto('CONCIERTO_FINAL_CERRADO');
 
   Future<void> _confirmarCierreConciertoFinal() async {
-    final snapshot = widget.conciertoFinalSnapshot;
-    if (snapshot == null || !_cierreConciertoDisponible ||
-        _conciertoFinalYaCerrado || _isLoading) return;
+    final conv = _current;
+    final cicloId = _cicloDeConcierto(conv);
+    if (conv == null ||
+        cicloId == null ||
+        !_cierreConciertoDisponible ||
+        _conciertoFinalYaCerrado ||
+        _cerrandoConcierto ||
+        _isLoading) {
+      return;
+    }
 
     final confirmar = await showDialog<bool>(
       context: context,
@@ -811,32 +875,53 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         ],
       ),
     );
-    if (confirmar != true || !mounted) return;
+    if (confirmar != true ||
+        !mounted ||
+        _current != conv ||
+        _isLoading ||
+        _cerrandoConcierto ||
+        _conciertoFinalYaCerrado) {
+      return;
+    }
 
+    _sesionDictado++;
+    if (_isListening) VoiceService.stopListening();
+    setState(() {
+      _isListening = false;
+      _cerrandoConcierto = true;
+    });
     try {
-      await HerramientasService.cerrarCiclo(snapshot.ciclo.id);
-      final conv = _current;
-      if (conv != null) {
-        conv.messages.add(ChatMessageData(
-          role: 'system',
-          content: 'CONCIERTO_FINAL_CERRADO:${snapshot.ciclo.id}',
-        ));
-        await _persist();
-      }
+      await HerramientasService.cerrarCiclo(cicloId);
+      conv.messages.add(ChatMessageData(
+        role: 'system',
+        content: 'CONCIERTO_FINAL_CERRADO:$cicloId',
+      ));
+      await _persist();
       if (!mounted) return;
-      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tu ciclo quedó cerrado. El recorrido permanece en Mi Pulso.')),
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Concierto Final: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo cerrar el ciclo: $error')),
+        const SnackBar(
+          content: Text('No se pudo guardar el cierre. Vuelve a intentarlo.'),
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _cerrandoConcierto = false);
     }
   }
 
   Future<void> _sendMessage([String? voiceText]) async {
+    if (_loadingHistory ||
+        _isLoading ||
+        _cerrandoConcierto ||
+        _conciertoFinalYaCerrado) {
+      return;
+    }
     // Se cierra el dictado y se ignora lo que el micrófono todavía entregue.
     _sesionDictado++;
     if (_isListening) {
@@ -892,6 +977,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
 
     final contexto = await _construirContextoUsuario(
+      conv,
       incluirAntecedentesDiagnostico: conv.title == 'Diagnóstico inicial',
     );
 
@@ -914,21 +1000,18 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         ));
       }
     }
-    final conciertoFinalListo =
-        conv.title == 'Concierto Final' &&
-        respuestaAgora.contains('[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]');
-    if (conciertoFinalListo &&
-        !conv.messages.any((m) =>
-            m.role == 'system' &&
-            m.content == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:${widget.conciertoFinalSnapshot?.ciclo.id ?? ''}')) {
-      conv.messages.add(ChatMessageData(
-        role: 'system',
-        content: 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:${widget.conciertoFinalSnapshot?.ciclo.id ?? ''}',
-      ));
+    const marcadorCierre = '[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]';
+    final cicloConcierto = _cicloDeConcierto(conv);
+    if (cicloConcierto != null &&
+        respuestaAgora.trimRight().endsWith(marcadorCierre)) {
+      final marca = 'CONCIERTO_FINAL_CIERRE_DISPONIBLE:$cicloConcierto';
+      if (!conv.messages.any((m) => m.role == 'system' && m.content == marca)) {
+        conv.messages.add(ChatMessageData(role: 'system', content: marca));
+      }
     }
     final response = respuestaAgora
         .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
-        .replaceAll('[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]', '')
+        .replaceAll(marcadorCierre, '')
         .trim();
 
     if (!mounted) return;
@@ -963,7 +1046,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     return null;
   }
 
-  Future<String?> _construirContextoUsuario({
+  Future<String?> _construirContextoUsuario(ChatConversation conversacionActual, {
     bool incluirAntecedentesDiagnostico = false,
   }) async {
     final data = await HerramientasService.cargar();
@@ -1017,10 +1100,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
 
     // --- Contexto persistente del Concierto Final ---
-    final conversacionActual = _current;
-    if (conversacionActual?.title == 'Concierto Final') {
+    if (_cicloDeConcierto(conversacionActual) != null) {
       String? contextoConcierto;
-      for (final mensaje in conversacionActual!.messages) {
+      for (final mensaje in conversacionActual.messages) {
         if (mensaje.role == 'system' &&
             mensaje.content.startsWith('CONCIERTO_FINAL_CONTEXTO:')) {
           contextoConcierto = mensaje.content
@@ -1048,7 +1130,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
 
     // --- Tareas del usuario, por cuadrante de la Matriz de Eisenhower ---
-    if (conversacionActual?.title != 'Concierto Final') {
+    if (_cicloDeConcierto(conversacionActual) == null) {
       final tareas = await _construirContextoTareas();
       if (tareas != null) partes.add(tareas);
 
@@ -1871,7 +1953,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading:
+            !_immersiveVoiceMode && widget.conciertoFinalSnapshot != null,
         leading: !_immersiveVoiceMode && widget.onExit != null
             ? IconButton(
                 tooltip: 'Volver a NEUROPLAN',
@@ -1905,26 +1988,19 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           ),
           const SizedBox(width: 8),
         ] : [
-          if (_cierreConciertoDisponible && !_conciertoFinalYaCerrado)
-            TextButton.icon(
-              onPressed: _isLoading ? null : _confirmarCierreConciertoFinal,
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('Cerrar ciclo'),
-            ),
-          if (_conciertoFinalYaCerrado)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(Icons.check_circle_rounded, color: Color(0xFF34D399)),
-            ),
           _headerAction(
             icon: Icons.history_rounded,
             tooltip: 'Historial',
-            onPressed: _loadingHistory ? null : _openHistoryDrawer,
+            onPressed: _loadingHistory || _cerrandoConcierto
+                ? null
+                : _openHistoryDrawer,
           ),
           _headerAction(
             icon: Icons.add_comment_rounded,
             tooltip: 'Nuevo chat',
-            onPressed: _loadingHistory ? null : _startNewChat,
+            onPressed: _loadingHistory || _cerrandoConcierto
+                ? null
+                : _startNewChat,
           ),
           _headerAction(
             icon: _voiceReplyEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
@@ -1964,6 +2040,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           Column(
             children: [
           if (_reflexionFecha != null) _bannerReflexion(scheme),
+          if (_cicloDeConcierto(_current) != null)
+            _panelConciertoFinal(scheme),
           Expanded(
             child: _loadingHistory
                 ? const Center(child: CircularProgressIndicator())
@@ -2092,6 +2170,27 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                         },
                       ),
           ),
+          if (_cierreConciertoDisponible && !_conciertoFinalYaCerrado)
+            SafeArea(
+              top: false,
+              bottom: false,
+              minimum: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isLoading || _cerrandoConcierto
+                      ? null
+                      : _confirmarCierreConciertoFinal,
+                  icon: _cerrandoConcierto
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline_rounded),
+                  label: Text(_cerrandoConcierto ? 'Guardando…' : 'Cerrar mi ciclo'),
+                ),
+              ),
+            ),
           if (_proponerInicioCiclo &&
               _current?.title == 'Diagnóstico inicial')
             Padding(
@@ -2146,6 +2245,7 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 ),
               ),
             ),
+          if (!_loadingHistory && !_conciertoFinalYaCerrado)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),

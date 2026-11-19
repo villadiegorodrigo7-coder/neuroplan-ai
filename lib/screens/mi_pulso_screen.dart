@@ -301,11 +301,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
                       ),
                       const SizedBox(height: 14),
-                      resumen,
                       if (_cicloActual?.puedeRealizarConciertoFinal == true) ...[
-                        const SizedBox(height: 22),
                         _invitacionConciertoFinal(scheme),
+                        const SizedBox(height: 22),
                       ],
+                      resumen,
                       const SizedBox(height: 22),
                       _tareasDelDia(scheme),
                     ],
@@ -382,71 +382,84 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           builder: (_) => ChatScreen(conciertoFinalSnapshot: snapshot),
         ),
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Concierto Final: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo preparar el Concierto Final: $error')),
+        const SnackBar(
+          content: Text('No pudimos preparar tu recorrido. Inténtalo de nuevo.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _preparandoConcierto = false);
     }
   }
 
-  Widget _datoConcierto(String etiqueta, int valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(child: Text(etiqueta)),
-          const SizedBox(width: 12),
-          Text(
-            '$valor',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _invitacionConciertoFinal(ColorScheme scheme) {
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.30),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.primary.withValues(alpha: 0.42)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primaryContainer, scheme.surfaceContainerHighest],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.auto_awesome_rounded, color: scheme.primary, size: 28),
-          const SizedBox(height: 10),
-          const Text(
-            'Ágora te invita a mirar tu recorrido',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Cuando quieras, Ágora puede acompañarte a mirar lo que has vivido: tus registros, '
-            'tus avances, tus pausas y aquello que merece una conversación. '
-            'No hay notas ni juicios.',
-            style: TextStyle(height: 1.4),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.music_note_rounded, color: scheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Concierto Final',
+                  style: textTheme.titleLarge?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: _preparandoConcierto ? null : _abrirConciertoFinal,
-            icon: _preparandoConcierto
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.play_circle_outline_rounded),
-            label: Text(
-              _preparandoConcierto
-                  ? 'Preparando tu recorrido…'
-                  : 'Mirar mi recorrido',
+          Text(
+            'Tu ciclo llegó a su fin. Repasa con Ágora lo que viviste '
+            'y decide cuándo cerrar esta etapa.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: scheme.onPrimaryContainer,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _preparandoConcierto ? null : _abrirConciertoFinal,
+              icon: _preparandoConcierto
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.arrow_forward_rounded),
+              label: Text(
+                _preparandoConcierto
+                    ? 'Preparando tu recorrido…'
+                    : 'Reflexionar con Ágora',
+              ),
             ),
           ),
         ],
