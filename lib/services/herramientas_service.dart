@@ -322,7 +322,9 @@ class HerramientasService {
     }
 
     Map<String, dynamic>? origen = remoto;
-    if (origen == null) {
+    // El legado sin propietario solo es utilizable sin una cuenta activa.
+    // No se importa a una cuenta distinta por accidente.
+    if (origen == null && uid == null) {
       final antiguo = prefs.getString('cuadernillo_neuroplan_data');
       if (antiguo != null && antiguo.isNotEmpty) {
         try {
@@ -337,6 +339,7 @@ class HerramientasService {
         ? HerramientasData.fromJson(origen)
         : HerramientasData.desdeDatosAnteriores(origen);
     _recuperarCicloDesdeSeguimiento(data);
+    if (_uid != uidAlIniciar) return HerramientasData();
     await guardar(data);
     return data;
   }
@@ -449,9 +452,9 @@ class HerramientasService {
 
   static Future<void> borrarTodo() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_localKey);
-    cambios.value++;
     final uid = _uid;
+    await prefs.remove(_claveCuenta(uid));
+    cambios.value++;
     if (uid != null) {
       try {
         final fila = await _db
