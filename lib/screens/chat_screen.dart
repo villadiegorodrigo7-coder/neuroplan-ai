@@ -67,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   bool _proponerInicioCiclo = false;
   bool _esPrimerCiclo = true;
   bool _iniciandoCiclo = false;
+  bool _generandoInformeHabitos = false;
 
   @override
   void initState() {
@@ -550,19 +551,39 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _generarInformeHabitosSiCorresponde() async {
+    // Evita ejecuciones simultáneas durante aperturas/reconstrucciones.
+    if (_generandoInformeHabitos) return;
+    _generandoInformeHabitos = true;
     try {
       final data = await HerramientasService.cargar();
       if (data.habitos.isEmpty) return;
+
       final prefs = await SharedPreferences.getInstance();
       const claveUltimoInforme = 'agora_ultimo_informe_habitos';
-      final ultimo = DateTime.tryParse(prefs.getString(claveUltimoInforme) ?? '');
       final hoy = DateTime.now();
+      final fechaHoy = EntradaDiario.claveFecha(hoy);
+      final tituloHoy = 'Seguimiento de hábitos · $fechaHoy';
+
+      // La conversación guardada es la fuente de verdad: aunque se borren
+      // preferencias locales o se vuelva a entrar varias veces, una fecha
+      // solo puede tener un seguimiento automático.
+      final existente = _conversations.where((c) => c.title == tituloHoy).toList();
+      if (existente.isNotEmpty) {
+        await prefs.setString(claveUltimoInforme, fechaHoy);
+        return;
+      }
+
+      final ultimo = DateTime.tryParse(
+        prefs.getString(claveUltimoInforme) ?? '',
+      );
       final fechas = data.habitos.expand((h) => h.registros.keys)
           .map(DateTime.tryParse).whereType<DateTime>().toList()..sort();
       if (fechas.isEmpty) return;
       final primerRegistro = fechas.first;
       final desde = ultimo ?? primerRegistro;
-      if (hoy.difference(DateTime(desde.year, desde.month, desde.day)).inDays < 3) return;
+      if (hoy.difference(DateTime(desde.year, desde.month, desde.day)).inDays < 3) {
+        return;
+      }
 
       final inicioVentana = hoy.subtract(const Duration(days: 3));
       final lineas = <String>[];
@@ -585,7 +606,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       if (lineas.isEmpty) return;
 
       final conv = await ChatHistoryService.createConversation();
-      conv.title = 'Seguimiento de hábitos · ${EntradaDiario.claveFecha(hoy)}';
+      conv.title = tituloHoy;
       conv.messages.add(ChatMessageData(
         role: 'model',
         content: '''Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.
@@ -603,10 +624,12 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
         _revisionSemanalSemana = null;
       });
       await _persist();
-      await prefs.setString(claveUltimoInforme, EntradaDiario.claveFecha(hoy));
+      await prefs.setString(claveUltimoInforme, fechaHoy);
       _scrollToBottom();
-    } catch (_) {
-      // Un informe fallido no debe impedir abrir ni usar el chat.
+    } catch (error) {
+      debugPrint('No se pudo generar el seguimiento de hábitos: $error');
+    } finally {
+      _generandoInformeHabitos = false;
     }
   }
 
