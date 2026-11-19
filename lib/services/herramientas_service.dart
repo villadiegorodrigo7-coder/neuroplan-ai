@@ -142,7 +142,7 @@ class HerramientasService {
   static Future<void> _cola = Future.value();
 
   static SupabaseClient get _db => Supabase.instance.client;
-  static String? get _uid => _db.auth.currentUser?.id;
+  static String? get _uid => _db.auth.currentUser?.id;\n  static String _claveCuenta(String? uid) =>\n      uid == null ? _localKey : '${_localKey}__$uid';
 
   /// Recupera el ciclo anterior cuando la migración guardó el seguimiento
   /// pero todavía no creó su entrada en la lista nueva de ciclos.
@@ -212,7 +212,7 @@ class HerramientasService {
 
   static Future<HerramientasData> cargar() async {
     final prefs = await SharedPreferences.getInstance();
-    final localJson = prefs.getString(_localKey);
+    final uidAlIniciar = _uid;\n    final localJson = prefs.getString(_claveCuenta(uidAlIniciar));
     if (localJson != null && localJson.isNotEmpty) {
       try {
         final data = HerramientasData.fromJson(
@@ -342,7 +342,7 @@ class HerramientasService {
     final json = data.toJson();
     final encoded = jsonEncode(json);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localKey, encoded);
+    final uid = _uid;\n    await prefs.setString(_claveCuenta(uid), encoded);
     cambios.value++;
 
     final uid = _uid;
@@ -425,7 +425,7 @@ class HerramientasService {
 
   static Future<bool> tieneDatosGuardados() async {
     final prefs = await SharedPreferences.getInstance();
-    final local = prefs.getString(_localKey);
+    final local = prefs.getString(_claveCuenta(_uid));
     if (local != null && local.isNotEmpty) return true;
     final uid = _uid;
     if (uid == null) {
