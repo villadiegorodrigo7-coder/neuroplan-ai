@@ -170,7 +170,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   bool get _cicloFinalizado =>
-      _cicloActual?.periodoCompletado(_hoy) ?? false;
+      _cicloActual?.estado == 'cerrado' &&
+      (_cicloActual?.conciertoFinalCompletado ?? false);
 
   void _actualizar() {
     if (mounted) setState(() {});
