@@ -23,9 +23,12 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({
     super.key,
     this.conciertoFinalSnapshot,
+    this.onExit,
   });
 
   final ConciertoFinalSnapshot? conciertoFinalSnapshot;
+  /// Regresa a la navegación principal sin destruir el estado del chat.
+  final VoidCallback? onExit;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -1868,7 +1871,14 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: _immersiveVoiceMode,
+        automaticallyImplyLeading: false,
+        leading: !_immersiveVoiceMode && widget.onExit != null
+            ? IconButton(
+                tooltip: 'Volver a NEUROPLAN',
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: widget.onExit,
+              )
+            : null,
         title: _immersiveVoiceMode ? const SizedBox.shrink() : const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
