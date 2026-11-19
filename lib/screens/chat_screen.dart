@@ -214,18 +214,35 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     } catch (_) {}
   }
 
+  /// Envía una sola vez el dictado de una sesión inmersiva. El callback
+  /// onDone y el botón de detener pueden coincidir; la sesión evita duplicados.
+  void _enviarDictadoInmersivoSiCorresponde(int sesion) {
+    if (!mounted ||
+        sesion != _sesionDictado ||
+        !_immersiveVoiceMode ||
+        _isLoading) {
+      return;
+    }
+
+    final dictado = _controller.text.trim();
+    if (dictado.isEmpty) return;
+
+    // Se invalida la sesión antes de enviar: cualquier callback tardío queda
+    // descartado y no puede volver a enviar el mismo reconocimiento.
+    _sesionDictado++;
+    _sendMessage(dictado);
+  }
+
   /// Dictado: pulsa el micrófono, habla con calma y pulsa de nuevo para
-  /// terminar. El texto queda en la caja para que lo revises antes de enviar.
+  /// terminar. En el chat escrito el texto queda disponible para revisarlo.
   Future<void> _toggleDictado() async {
     if (_isListening) {
+      final sesion = _sesionDictado;
       await VoiceService.stopListening();
-      if (mounted) {
-        setState(() => _isListening = false);
-        if (_immersiveVoiceMode && _controller.text.trim().isNotEmpty) {
-          final dictado = _controller.text.trim();
-          _sendMessage(dictado);
-        }
-      }
+      if (!mounted) return;
+
+      setState(() => _isListening = false);
+      _enviarDictadoInmersivoSiCorresponde(sesion);
       return;
     }
 
@@ -243,18 +260,16 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         if (esFinal) _textoAntesDeDictar = unido;
       },
       onDone: () {
-        if (mounted && sesion == _sesionDictado) {
-          setState(() => _isListening = false);
-          if (_immersiveVoiceMode && _controller.text.trim().isNotEmpty) {
-            final dictado = _controller.text.trim();
-            _sendMessage(dictado);
-          }
-        }
+        if (!mounted || sesion != _sesionDictado) return;
+        setState(() => _isListening = false);
+        _enviarDictadoInmersivoSiCorresponde(sesion);
       },
       onError: (_) {},
     );
 
-    if (!activado && mounted) {
+    if (!activado && mounted && sesion == _sesionDictado) {
+      // Invalida cualquier callback tardío de una activación fallida.
+      _sesionDictado++;
       setState(() => _isListening = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
