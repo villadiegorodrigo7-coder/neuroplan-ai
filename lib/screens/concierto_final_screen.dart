@@ -60,7 +60,7 @@ class ConciertoFinalScreen extends StatelessWidget {
         CircleAvatar(radius: 5, backgroundColor: color),
         const SizedBox(width: 8),
         Expanded(child: Text(titulo, style: const TextStyle(fontSize: 12))),
-        Text('$'+'total', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('$total', style: const TextStyle(fontWeight: FontWeight.bold)),
       ]));
   }
 
@@ -111,7 +111,7 @@ class ConciertoFinalScreen extends StatelessWidget {
                     painter: PulsoPainter(colores: colores,
                       seleccionado: -1, base: gris)),
                   Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('$'+'{snapshot.ciclo.duracionDias}', style: const TextStyle(
+                    Text('${snapshot.ciclo.duracionDias}', style: const TextStyle(
                       fontSize: 38, fontWeight: FontWeight.w800)),
                     const Text('días de recorrido', style: TextStyle(fontSize: 11)),
                   ]),
@@ -139,19 +139,19 @@ class ConciertoFinalScreen extends StatelessWidget {
             ])),
           panel('Tareas', Icons.check_circle_outline,
             const Color(0xFF56DFAE), Row(children: [
-              numero('Cumplidas', '$'+'{snapshot.tareasCompletadas}',
+              numero('Cumplidas', '${snapshot.tareasCompletadas}',
                 const Color(0xFF56DFAE), 'Registros disponibles'),
               const SizedBox(width: 9),
-              numero('Pendientes', '$'+'{snapshot.tareasPendientesRegistradas}',
+              numero('Pendientes', '${snapshot.tareasPendientesRegistradas}',
                 violeta, 'Registros disponibles'),
             ])),
           panel('Agenda', Icons.calendar_month_outlined, celeste,
             Column(children: [
               Row(children: [
-                numero('Cumplidos', '$'+'{snapshot.compromisosCumplidos}', celeste,
+                numero('Cumplidos', '${snapshot.compromisosCumplidos}', celeste,
                   'Ocurrencias'),
                 const SizedBox(width: 9),
-                numero('Sin marcar', '$'+'{snapshot.compromisosSinMarca}', violeta,
+                numero('Sin marcar', '${snapshot.compromisosSinMarca}', violeta,
                   'Sin valoración'),
               ]),
               const SizedBox(height: 8),
