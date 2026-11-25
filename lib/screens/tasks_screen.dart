@@ -34,13 +34,6 @@ Color _colorDeTarea(Task t) => _cuadrantes
         orElse: () => const _Cuadrante('', '', '', Color(0xFF8D9BC8)))
     .color;
 
-String _etiquetaCuadrante(Task t) {
-  for (final c in _cuadrantes) {
-    if (c.clave == t.cuadrante) return c.subtitulo;
-  }
-  return 'Sin clasificar';
-}
-
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
 
@@ -106,9 +99,13 @@ class _TasksScreenState extends State<TasksScreen> {
     final data = await HerramientasService.cargar();
     final cantidad = data.habitos.where((h) => h.tipo == tipo).length;
     if (cantidad >= 3) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Puedes llevar hasta tres hábitos en cada categoría.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Puedes llevar hasta tres hábitos en cada categoría.'),
+          ),
+        );
+      }
       return;
     }
     data.habitos.add(HabitoSeguimiento(

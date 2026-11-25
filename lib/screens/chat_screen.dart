@@ -1,32 +1,29 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/entrada_diario.dart';
-import '../theme/app_theme.dart';
-import '../services/diario_store.dart';
-import '../services/reflexion_service.dart';
 import '../models/chat_conversation.dart';
+import '../models/entrada_diario.dart';
 import '../models/productividad_data.dart';
-import '../services/gemini_service.dart';
-import '../services/voice_service.dart';
 import '../services/chat_history_service.dart';
-import '../services/herramientas_service.dart';
-import '../services/tasks_service.dart';
 import '../services/concierto_final_service.dart';
+import '../services/diario_store.dart';
+import '../services/gemini_service.dart';
+import '../services/herramientas_service.dart';
+import '../services/reflexion_service.dart';
+import '../services/tasks_service.dart';
+import '../services/voice_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/agora_constellation_painter.dart';
+import '../widgets/agora_immersive_voice.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({
-    super.key,
-    this.conciertoFinalSnapshot,
-    this.onExit,
-  });
+  const ChatScreen({super.key, this.conciertoFinalSnapshot, this.onExit});
 
   final ConciertoFinalSnapshot? conciertoFinalSnapshot;
+
   /// Regresa a la navegación principal sin destruir el estado del chat.
   final VoidCallback? onExit;
 
@@ -34,7 +31,8 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final AnimationController _agoraMotionController;
@@ -43,9 +41,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   ChatConversation? _current;
 
   bool _isLoading = false;
+
   /// La voz de Ágora empieza apagada: solo habla si la persona activa la bocina.
   /// La elección se recuerda en este dispositivo.
   bool _voiceReplyEnabled = false;
+
   /// La experiencia inmersiva solo se abre cuando Ágora va a responder con voz.
   bool _immersiveVoiceMode = false;
   bool _isListening = false;
@@ -63,15 +63,24 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   int? _revisionSemanalSemana;
 
   static const List<String> _mesesNombre = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
   ];
   bool _loadingHistory = true;
   bool _cerrandoConcierto = false;
   bool _proponerInicioCiclo = false;
   bool _esPrimerCiclo = true;
   bool _iniciandoCiclo = false;
-  bool _generandoInformeHabitos = false;
 
   @override
   void initState() {
@@ -121,10 +130,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final entrada = DiarioStore.instance.de(fecha);
     final conv = await ChatHistoryService.createConversation();
     conv.title = 'Reflexión del ${_nombreFecha(fecha)}';
-    conv.messages.add(ChatMessageData(
-      role: 'system',
-      content: 'REFLEXION_DIARIA_FECHA:$fecha',
-    ));
+    conv.messages.add(
+      ChatMessageData(role: 'system', content: 'REFLEXION_DIARIA_FECHA:$fecha'),
+    );
     conv.messages.add(
       ChatMessageData(role: 'model', content: _aperturaReflexion(entrada)),
     );
@@ -152,7 +160,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         .join('\n\n');
     if (texto.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Todavía no has dicho nada para guardar.')),
+        const SnackBar(
+          content: Text('Todavía no has dicho nada para guardar.'),
+        ),
       );
       return;
     }
@@ -169,9 +179,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     if (!mounted) return;
     setState(() => _reflexionFecha = null);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Guardado en tu diario.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Guardado en tu diario.')));
   }
 
   Widget _bannerReflexion(ColorScheme scheme) {
@@ -294,7 +303,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final list = await ChatHistoryService.loadConversations();
     // Los borradores vacíos de compilaciones anteriores no son conversaciones.
     // Se ocultan sin eliminarlos de la base de datos.
-    list.removeWhere((c) => c.title == 'Nueva conversación' && c.messages.isEmpty);
+    list.removeWhere(
+      (c) => c.title == 'Nueva conversación' && c.messages.isEmpty,
+    );
 
     if (!mounted) return;
     if (widget.conciertoFinalSnapshot != null) {
@@ -334,8 +345,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     final revisionSemanal = await _crearRevisionSemanalSiCorresponde(list);
     final prefsSeleccion = await SharedPreferences.getInstance();
-    final usuarioSeleccion = Supabase.instance.client.auth.currentUser?.id ?? 'local';
-    final idSeleccionado = prefsSeleccion.getString('agora_chat_activo_$usuarioSeleccion');
+    final usuarioSeleccion =
+        Supabase.instance.client.auth.currentUser?.id ?? 'local';
+    final idSeleccionado = prefsSeleccion.getString(
+      'agora_chat_activo_$usuarioSeleccion',
+    );
     ChatConversation? conversacionInicial = revisionSemanal;
     if (conversacionInicial == null && idSeleccionado != null) {
       for (final candidata in list) {
@@ -370,8 +384,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final marcaCiclo = 'CONCIERTO_FINAL_CICLO:${snapshot.ciclo.id}';
     ChatConversation? existente;
     for (final candidata in _conversations) {
-      if (candidata.messages.any((m) =>
-          m.role == 'system' && m.content.trim() == marcaCiclo)) {
+      if (candidata.messages.any(
+        (m) => m.role == 'system' && m.content.trim() == marcaCiclo,
+      )) {
         existente = candidata;
         break;
       }
@@ -381,14 +396,18 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final conv = existente ?? await ChatHistoryService.createConversation();
     conv.title = 'Concierto Final';
 
-    final indiceContexto = conv.messages.indexWhere((m) =>
-        m.role == 'system' &&
-        m.content.startsWith('CONCIERTO_FINAL_CONTEXTO:'));
+    final indiceContexto = conv.messages.indexWhere(
+      (m) =>
+          m.role == 'system' &&
+          m.content.startsWith('CONCIERTO_FINAL_CONTEXTO:'),
+    );
     final contextoGuardado =
         'CONCIERTO_FINAL_CONTEXTO:\n${snapshot.contextoParaAgora}';
     if (indiceContexto >= 0) {
-      conv.messages[indiceContexto] =
-          ChatMessageData(role: 'system', content: contextoGuardado);
+      conv.messages[indiceContexto] = ChatMessageData(
+        role: 'system',
+        content: contextoGuardado,
+      );
     } else {
       conv.messages.add(ChatMessageData(role: 'system', content: marcaCiclo));
       conv.messages.add(
@@ -397,10 +416,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     }
 
     if (esNueva) {
-      conv.messages.add(ChatMessageData(
-        role: 'model',
-        content: 'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
-      ));
+      conv.messages.add(
+        ChatMessageData(
+          role: 'model',
+          content:
+              'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
+        ),
+      );
       _conversations.insert(0, conv);
     }
 
@@ -438,10 +460,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
       final historial = diagnostico.messages
           .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
-          .map((m) => {
-                'role': m.role == 'user' ? 'user' : 'model',
-                'content': m.content,
-              })
+          .map(
+            (m) => {
+              'role': m.role == 'user' ? 'user' : 'model',
+              'content': m.content,
+            },
+          )
           .toList();
       final respuestasUsuario =
           historial.where((m) => m['role'] == 'user').length;
@@ -465,19 +489,20 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         // Si el sondeo sigue abierto, no volvemos a clasificarlo cada vez
         // que se abre el chat. Se permite una nueva comprobación al día.
         if (prefs.getString(claveRevision) == hoy) return;
-        completo =
-            await GeminiService.diagnosticoConversacionalCompleto(historial);
+        completo = await GeminiService.diagnosticoConversacionalCompleto(
+          historial,
+        );
         await prefs.setString(claveRevision, hoy);
       }
       if (!completo) return;
 
       diagnostico.diagnosticoCompleto = true;
-      if (!diagnostico.messages.any((m) =>
-          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
-        diagnostico.messages.add(ChatMessageData(
-          role: 'system',
-          content: 'DIAGNOSTICO_COMPLETO',
-        ));
+      if (!diagnostico.messages.any(
+        (m) => m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO',
+      )) {
+        diagnostico.messages.add(
+          ChatMessageData(role: 'system', content: 'DIAGNOSTICO_COMPLETO'),
+        );
       }
       await _persist();
       await _generarPropuestaDiagnostico(diagnostico);
@@ -491,7 +516,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   Future<void> _actualizarPropuestaInicioCiclo() async {
     try {
       final conv = _current;
-      if (conv == null || conv.title != 'Diagnóstico inicial' ||
+      if (conv == null ||
+          conv.title != 'Diagnóstico inicial' ||
           !conv.diagnosticoCompleto) {
         if (mounted) setState(() => _proponerInicioCiclo = false);
         return;
@@ -524,10 +550,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         _proponerInicioCiclo = false;
         _iniciandoCiclo = false;
         if (conv != null) {
-          conv.messages.add(ChatMessageData(
-            role: 'model',
-            content: '${_esPrimerCiclo ? 'Tu primer ciclo' : 'Tu nuevo ciclo'} de NEUROPLAN ha comenzado el $fechaTexto y tendrá una duración de 30 días. No se trata de hacerlo todo perfecto: vamos a observar tu tiempo, tu energía y aquello que quieras transformar, un día a la vez.',
-          ));
+          conv.messages.add(
+            ChatMessageData(
+              role: 'model',
+              content:
+                  '${_esPrimerCiclo ? 'Tu primer ciclo' : 'Tu nuevo ciclo'} de NEUROPLAN ha comenzado el $fechaTexto y tendrá una duración de 30 días. No se trata de hacerlo todo perfecto: vamos a observar tu tiempo, tu energía y aquello que quieras transformar, un día a la vez.',
+            ),
+          );
         }
       });
       await _persist();
@@ -536,20 +565,24 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       if (!mounted) return;
       setState(() => _iniciandoCiclo = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No pude iniciar el ciclo. Inténtalo de nuevo.')),
+        const SnackBar(
+          content: Text('No pude iniciar el ciclo. Inténtalo de nuevo.'),
+        ),
       );
     }
   }
 
   int? _semanaDeRevision(ChatConversation? conv) {
     if (conv == null) return null;
-    final match = RegExp(r'^Revisión semanal · semana (\d+)$').firstMatch(conv.title);
+    final match =
+        RegExp(r'^Revisión semanal · semana (\d+)$').firstMatch(conv.title);
     return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   /// Abre una revisión al cumplirse cada periodo de siete días desde el diagnóstico.
   Future<ChatConversation?> _crearRevisionSemanalSiCorresponde(
-      List<ChatConversation> list) async {
+    List<ChatConversation> list,
+  ) async {
     ChatConversation? diagnostico;
     for (final conv in list) {
       if (conv.title == 'Diagnóstico inicial') {
@@ -560,7 +593,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     if (diagnostico == null) return null;
 
     final ahora = DateTime.now();
-    final inicio = DateTime(diagnostico.createdAt.year, diagnostico.createdAt.month, diagnostico.createdAt.day);
+    final inicio = DateTime(
+      diagnostico.createdAt.year,
+      diagnostico.createdAt.month,
+      diagnostico.createdAt.day,
+    );
     final hoy = DateTime(ahora.year, ahora.month, ahora.day);
     final semana = hoy.difference(inicio).inDays ~/ 7;
     if (semana < 1) return null;
@@ -569,100 +606,19 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     final conv = await ChatHistoryService.createConversation();
     conv.title = titulo;
-    conv.messages.add(ChatMessageData(
-      role: 'model',
-      content: 'Ya ha pasado una semana desde que comenzaste NEUROPLAN. '
-          'Quiero que miremos cómo transcurrieron estos días teniendo presente '
-          'lo que me contaste al iniciar. No es una evaluación ni una lista de '
-          'cumplimientos. Empecemos por algo sencillo: ¿qué ocupó más tu tiempo '
-          'y tu energía durante esta semana?',
-    ));
+    conv.messages.add(
+      ChatMessageData(
+        role: 'model',
+        content: 'Ya ha pasado una semana desde que comenzaste NEUROPLAN. '
+            'Quiero que miremos cómo transcurrieron estos días teniendo presente '
+            'lo que me contaste al iniciar. No es una evaluación ni una lista de '
+            'cumplimientos. Empecemos por algo sencillo: ¿qué ocupó más tu tiempo '
+            'y tu energía durante esta semana?',
+      ),
+    );
     list.insert(0, conv);
     await ChatHistoryService.saveConversations(list);
     return conv;
-  }
-
-  Future<void> _generarInformeHabitosSiCorresponde() async {
-    // Evita ejecuciones simultáneas durante aperturas/reconstrucciones.
-    if (_generandoInformeHabitos) return;
-    _generandoInformeHabitos = true;
-    try {
-      final data = await HerramientasService.cargar();
-      if (data.habitos.isEmpty) return;
-
-      final prefs = await SharedPreferences.getInstance();
-      const claveUltimoInforme = 'agora_ultimo_informe_habitos';
-      final hoy = DateTime.now();
-      final fechaHoy = EntradaDiario.claveFecha(hoy);
-      final tituloHoy = 'Seguimiento de hábitos · $fechaHoy';
-
-      // La conversación guardada es la fuente de verdad: aunque se borren
-      // preferencias locales o se vuelva a entrar varias veces, una fecha
-      // solo puede tener un seguimiento automático.
-      final existente = _conversations.where((c) => c.title == tituloHoy).toList();
-      if (existente.isNotEmpty) {
-        await prefs.setString(claveUltimoInforme, fechaHoy);
-        return;
-      }
-
-      final ultimo = DateTime.tryParse(
-        prefs.getString(claveUltimoInforme) ?? '',
-      );
-      final fechas = data.habitos.expand((h) => h.registros.keys)
-          .map(DateTime.tryParse).whereType<DateTime>().toList()..sort();
-      if (fechas.isEmpty) return;
-      final primerRegistro = fechas.first;
-      final desde = ultimo ?? primerRegistro;
-      if (hoy.difference(DateTime(desde.year, desde.month, desde.day)).inDays < 3) {
-        return;
-      }
-
-      final inicioVentana = hoy.subtract(const Duration(days: 3));
-      final lineas = <String>[];
-      for (final h in data.habitos) {
-        final registros = h.registros.entries.where((e) {
-          final fecha = DateTime.tryParse(e.key);
-          return fecha != null &&
-              !fecha.isBefore(DateTime(inicioVentana.year, inicioVentana.month, inicioVentana.day)) &&
-              !fecha.isAfter(DateTime(hoy.year, hoy.month, hoy.day));
-        }).toList()..sort((a, b) => a.key.compareTo(b.key));
-        if (registros.isEmpty) continue;
-        final favorables = registros.where((e) => e.value).length;
-        final observados = registros.length;
-        final etiqueta = h.tipo == 'incorporar' ? 'por incorporar' : 'por alejar';
-        final lectura = h.tipo == 'incorporar'
-            ? '$favorables de $observados registros realizados'
-            : '$favorables de $observados registros en los que lograste evitarlo';
-        lineas.add('- ${h.nombre} ($etiqueta): $lectura.');
-      }
-      if (lineas.isEmpty) return;
-
-      final conv = await ChatHistoryService.createConversation();
-      conv.title = tituloHoy;
-      conv.messages.add(ChatMessageData(
-        role: 'model',
-        content: '''Volvamos a mirar tus hábitos de estos tres días. Esto no es una calificación ni una conclusión sobre ti; es una lectura de los registros que decidiste hacer.
-
-${lineas.join('\n')}
-
-¿Qué has notado en estos días? ¿Qué te ha ayudado o dificultado mantener estos cambios?
-
-Si algún día no registraste, lo dejamos como información ausente, no como incumplimiento.''',
-      ));
-      if (!mounted) return;
-      setState(() {
-        _conversations.insert(0, conv);
-        _current = conv;
-        _revisionSemanalSemana = null;
-      });
-      await _persist();
-      await prefs.setString(claveUltimoInforme, fechaHoy);
-      _scrollToBottom();
-    } catch (error) {
-      debugPrint('No se pudo generar el seguimiento de hábitos: $error');
-    } finally {
-      _generandoInformeHabitos = false;
-    }
   }
 
   Future<void> _generarPropuestaDiagnostico(ChatConversation conv) async {
@@ -675,23 +631,26 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       }
       final historial = conv.messages
           .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
-          .map((m) => {
-                'role': m.role == 'user' ? 'user' : 'model',
-                'content': m.content,
-              })
+          .map(
+            (m) => {
+              'role': m.role == 'user' ? 'user' : 'model',
+              'content': m.content,
+            },
+          )
           .toList();
       // Solo compartimos los antecedentes del diario con el generador:
       // las tareas pendientes no son evidencia para puntuar dimensiones vitales.
       final contextoDiario = await _construirContextoDiario();
-      final propuesta =
-          await GeminiService.proponerDiagnosticoConversacional(
+      final propuesta = await GeminiService.proponerDiagnosticoConversacional(
         historial,
         contextoUsuario: contextoDiario,
       );
       if (propuesta == null) return;
 
       data.diagnosticoConversacional = DiagnosticoConversacional(
-        valoresPropuestos: Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
+        valoresPropuestos: Map<String, int>.from(
+          propuesta['valoresPropuestos'] as Map,
+        ),
         fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
         resumen: (propuesta['resumen'] ?? '').toString(),
         antecedentesHistoricos:
@@ -701,7 +660,8 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
 
       final aviso = ChatMessageData(
         role: 'model',
-        content: 'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
+        content:
+            'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
       );
       conv.messages.add(aviso);
       await _persist();
@@ -798,7 +758,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       child: Row(
         children: [
           Icon(
-            cerrado ? Icons.check_circle_outline_rounded : Icons.music_note_rounded,
+            cerrado
+                ? Icons.check_circle_outline_rounded
+                : Icons.music_note_rounded,
             color: scheme.primary,
           ),
           const SizedBox(width: 12),
@@ -829,11 +791,13 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
   bool _tieneMarcaConcierto(String marca) {
     final id = _cicloDeConcierto(_current);
     return id != null &&
-        _current!.messages.any((m) =>
-            m.role == 'system' &&
-            (m.content == '$marca:$id' ||
-                (marca == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE' &&
-                    m.content == '$marca:')));
+        _current!.messages.any(
+          (m) =>
+              m.role == 'system' &&
+              (m.content == '$marca:$id' ||
+                  (marca == 'CONCIERTO_FINAL_CIERRE_DISPONIBLE' &&
+                      m.content == '$marca:')),
+        );
   }
 
   bool get _cierreConciertoDisponible =>
@@ -892,14 +856,20 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     });
     try {
       await HerramientasService.cerrarCiclo(cicloId);
-      conv.messages.add(ChatMessageData(
-        role: 'system',
-        content: 'CONCIERTO_FINAL_CERRADO:$cicloId',
-      ));
+      conv.messages.add(
+        ChatMessageData(
+          role: 'system',
+          content: 'CONCIERTO_FINAL_CERRADO:$cicloId',
+        ),
+      );
       await _persist();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tu ciclo quedó cerrado. El recorrido permanece en Mi Pulso.')),
+        const SnackBar(
+          content: Text(
+            'Tu ciclo quedó cerrado. El recorrido permanece en Mi Pulso.',
+          ),
+        ),
       );
     } catch (error, stackTrace) {
       debugPrint('Concierto Final: $error');
@@ -986,18 +956,17 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
       history: history,
       contextoUsuario: contexto,
     );
-    final diagnosticoCompleto =
-        conv.title == 'Diagnóstico inicial' &&
+    final diagnosticoCompleto = conv.title == 'Diagnóstico inicial' &&
         (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
             conv.diagnosticoCompleto);
     if (diagnosticoCompleto) {
       conv.diagnosticoCompleto = true;
-      if (!conv.messages.any((m) =>
-          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
-        conv.messages.add(ChatMessageData(
-          role: 'system',
-          content: 'DIAGNOSTICO_COMPLETO',
-        ));
+      if (!conv.messages.any(
+        (m) => m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO',
+      )) {
+        conv.messages.add(
+          ChatMessageData(role: 'system', content: 'DIAGNOSTICO_COMPLETO'),
+        );
       }
     }
     const marcadorCierre = '[[CONCIERTO_FINAL_CIERRE_DISPONIBLE]]';
@@ -1039,14 +1008,16 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     final conv = _current;
     if (conv == null) return null;
     for (final m in conv.messages) {
-      if (m.role == 'system' && m.content.startsWith('REFLEXION_DIARIA_FECHA:')) {
+      if (m.role == 'system' &&
+          m.content.startsWith('REFLEXION_DIARIA_FECHA:')) {
         return m.content.substring('REFLEXION_DIARIA_FECHA:'.length).trim();
       }
     }
     return null;
   }
 
-  Future<String?> _construirContextoUsuario(ChatConversation conversacionActual, {
+  Future<String?> _construirContextoUsuario(
+    ChatConversation conversacionActual, {
     bool incluirAntecedentesDiagnostico = false,
   }) async {
     final data = await HerramientasService.cargar();
@@ -1224,18 +1195,29 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     final h = store.de(hoy);
     if (h != null && h.tieneAlgo) {
       final p = <String>[];
-      if (h.prioridad.isNotEmpty) p.add('prioridad: ${_recortar(h.prioridad, max: 120)}');
-      if (h.semaforo.isNotEmpty) p.add('semáforo: ${nombreDeSemaforo(h.semaforo)}');
+      if (h.prioridad.isNotEmpty) {
+        p.add('prioridad: ${_recortar(h.prioridad, max: 120)}');
+      }
+      if (h.semaforo.isNotEmpty) {
+        p.add('semáforo: ${nombreDeSemaforo(h.semaforo)}');
+      }
       if (h.energia > 0) p.add('energía: ${kNivelesEnergia[h.energia - 1]}');
-      if (h.estado > 0) p.add('estado emocional: ${kNivelesEstado[h.estado - 1]}');
-      if (h.reflexion.isNotEmpty) p.add('reflexión: ${_recortar(h.reflexion, max: 250)}');
+      if (h.estado > 0) {
+        p.add('estado emocional: ${kNivelesEstado[h.estado - 1]}');
+      }
+      if (h.reflexion.isNotEmpty) {
+        p.add('reflexión: ${_recortar(h.reflexion, max: 250)}');
+      }
       if (p.isNotEmpty) lineas.add('Hoy: ${p.join('; ')}.');
     }
 
-    final anteriores = store.entradas.where((e) => e.fecha.compareTo(hoy) < 0).toList()
+    final anteriores = store.entradas
+        .where((e) => e.fecha.compareTo(hoy) < 0)
+        .toList()
       ..sort((a, b) => b.fecha.compareTo(a.fecha));
 
-    final semaforos = anteriores.where((e) => e.semaforo.isNotEmpty).take(7).toList();
+    final semaforos =
+        anteriores.where((e) => e.semaforo.isNotEmpty).take(7).toList();
     if (semaforos.isNotEmpty) {
       lineas.add(
         'Semáforos de días anteriores (del más reciente): '
@@ -1244,7 +1226,9 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     }
 
     for (final e in anteriores.where((e) => e.reflexion.isNotEmpty).take(3)) {
-      lineas.add('Reflexión del ${e.fecha}: ${_recortar(e.reflexion, max: 200)}');
+      lineas.add(
+        'Reflexión del ${e.fecha}: ${_recortar(e.reflexion, max: 200)}',
+      );
     }
 
     if (lineas.isEmpty) return null;
@@ -1275,18 +1259,22 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     const maxPorGrupo = 10;
 
     String lista(List<String> titulos) {
-      final mostrados = titulos.take(maxPorGrupo).map((t) => _recortar(t, max: 80));
+      final mostrados =
+          titulos.take(maxPorGrupo).map((t) => _recortar(t, max: 80));
       final resto = titulos.length - maxPorGrupo;
       return mostrados.join('; ') + (resto > 0 ? ' (y $resto más)' : '');
     }
 
     final lineas = <String>[];
     grupos.forEach((clave, etiqueta) {
-      final titulos =
-          pendientes.where((t) => t.cuadrante == clave).map((t) => t.title).toList();
+      final titulos = pendientes
+          .where((t) => t.cuadrante == clave)
+          .map((t) => t.title)
+          .toList();
       if (titulos.isNotEmpty) lineas.add('$etiqueta: ${lista(titulos)}');
     });
-    final sinClasificar = pendientes        .where((t) => !grupos.containsKey(t.cuadrante))
+    final sinClasificar = pendientes
+        .where((t) => !grupos.containsKey(t.cuadrante))
         .map((t) => t.title)
         .toList();
     if (sinClasificar.isNotEmpty) {
@@ -1348,7 +1336,10 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                       children: [
                         const Text(
                           'Historial de chats',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const Spacer(),
                         TextButton.icon(
@@ -1391,7 +1382,10 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                  ),
                                   onPressed: () async {
                                     await _deleteConversation(conv);
                                     setModalState(() {});
@@ -1409,285 +1403,6 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
           },
         );
       },
-    );
-  }
-
-  Widget _buildAgoraPresence(ColorScheme scheme) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: VoiceService.isSpeaking,
-      builder: (context, hablando, _) {
-        final escuchando = _isListening;
-        final pensando = _isLoading && !hablando && !escuchando;
-        final activo = hablando || escuchando || pensando;
-        final diametro = hablando ? 112.0 : (escuchando ? 86.0 : (pensando ? 70.0 : 58.0));
-        final alto = hablando ? 166.0 : 116.0;
-        final colorPulso = hablando
-            ? const Color(0xFFB794F6)
-            : escuchando
-                ? const Color(0xFF67E8F9)
-                : pensando
-                    ? const Color(0xFF818CF8)
-                    : const Color(0xFF6366F1);
-        final estado = hablando
-            ? 'Ágora está hablando'
-            : escuchando
-                ? 'Ágora te está escuchando'
-                : pensando
-                    ? 'Ágora está pensando'
-                    : 'Ágora está aquí';
-        final detalle = hablando
-            ? 'Una idea toma forma y llega hasta ti'
-            : escuchando
-                ? 'Tómate tu tiempo. Estoy contigo'
-                : pensando
-                    ? 'Estoy conectando lo que me cuentas'
-                    : 'Cuando quieras, podemos conversar';
-        final icono = hablando
-            ? Icons.graphic_eq_rounded
-            : escuchando
-                ? Icons.hearing_rounded
-                : pensando
-                    ? Icons.auto_awesome_rounded
-                    : Icons.blur_on_rounded;
-
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 650),
-          curve: Curves.easeInOutCubic,
-          height: alto,
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Órbita viva: movimiento continuo incluso cuando Ágora está en reposo.
-              AnimatedBuilder(
-                animation: _agoraMotionController,
-                builder: (context, _) {
-                  final t = _agoraMotionController.value * math.pi * 2;
-                  return Transform.rotate(
-                    angle: t * 0.22,
-                    child: SizedBox(
-                      width: 226,
-                      height: 142,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            top: 5 + math.sin(t) * 5,
-                            left: 26,
-                            child: _agoraOrbitDot(const Color(0xFF67E8F9), 0.72, 5),
-                          ),
-                          Positioned(
-                            right: 18,
-                            top: 52 + math.cos(t * 1.2) * 8,
-                            child: _agoraOrbitDot(const Color(0xFFA78BFA), 0.82, 7),
-                          ),
-                          Positioned(
-                            bottom: 8 + math.sin(t * 0.8) * 6,
-                            left: 70,
-                            child: _agoraOrbitDot(const Color(0xFF38BDF8), 0.68, 4),
-                          ),
-                          Positioned(
-                            bottom: 20,
-                            right: 52 + math.cos(t) * 7,
-                            child: _agoraOrbitDot(const Color(0xFFC4B5FD), 0.55, 3.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeInOut,
-                width: hablando ? 196 : (escuchando ? 154 : (pensando ? 132 : 112)),
-                height: hablando ? 144 : (escuchando ? 108 : (pensando ? 92 : 76)),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      colorPulso.withValues(alpha: hablando ? 0.25 : (activo ? 0.16 : 0.10)),
-                      const Color(0xFF22D3EE).withValues(alpha: activo ? 0.075 : 0.035),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeInOutCubic,
-                width: diametro + (hablando ? 38 : (escuchando ? 30 : 22)),
-                height: diametro + (hablando ? 38 : (escuchando ? 30 : 22)),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: colorPulso.withValues(alpha: activo ? 0.30 : 0.13),
-                    width: hablando ? 1.5 : 1,
-                  ),
-                ),
-              ),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 650),
-                curve: Curves.easeInOutCubic,
-                top: hablando ? 15 : (escuchando ? 25 : 31),
-                right: hablando ? 92 : (escuchando ? 106 : 116),
-                child: _agoraOrbitDot(colorPulso, activo ? 0.92 : 0.38, hablando ? 7 : 5),
-              ),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 750),
-                curve: Curves.easeInOutCubic,
-                bottom: hablando ? 18 : (escuchando ? 26 : 32),
-                left: hablando ? 92 : (escuchando ? 106 : 116),
-                child: _agoraOrbitDot(
-                  const Color(0xFF22D3EE),
-                  activo ? 0.78 : 0.30,
-                  escuchando ? 7 : 5,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedScale(
-                    scale: hablando ? 1.06 : (escuchando ? 1.02 : (pensando ? 0.98 : 0.94)),
-                    duration: const Duration(milliseconds: 650),
-                    curve: Curves.easeInOutCubic,
-                    child: AnimatedRotation(
-                      turns: pensando ? 0.025 : (hablando ? -0.012 : 0),
-                      duration: const Duration(milliseconds: 900),
-                      curve: Curves.easeInOut,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 650),
-                        curve: Curves.easeInOutCubic,
-                        width: diametro,
-                        height: diametro,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            center: const Alignment(-0.34, -0.42),
-                            radius: 0.96,
-                            colors: hablando
-                                ? const [
-                                    Color(0xFFF5F3FF),
-                                    Color(0xFFA78BFA),
-                                    Color(0xFF6366F1),
-                                    Color(0xFF312E81),
-                                  ]
-                                : escuchando
-                                    ? const [
-                                        Color(0xFFE0FBFF),
-                                        Color(0xFF67E8F9),
-                                        Color(0xFF6366F1),
-                                        Color(0xFF312E81),
-                                      ]
-                                    : const [
-                                        Color(0xFFCCFBFF),
-                                        Color(0xFF38BDF8),
-                                        Color(0xFF6366F1),
-                                        Color(0xFF312E81),
-                                      ],
-                            stops: const [0.0, 0.30, 0.70, 1.0],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorPulso.withValues(alpha: hablando ? 0.42 : (activo ? 0.30 : 0.18)),
-                              blurRadius: hablando ? 42 : 28,
-                              spreadRadius: hablando ? 7 : (activo ? 3 : 1),
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: hablando ? 0.30 : 0.13),
-                              blurRadius: hablando ? 48 : 28,
-                            ),
-                          ],
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: hablando ? 0.82 : 0.50),
-                            width: hablando ? 1.8 : 1.1,
-                          ),
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned(
-                              top: diametro * 0.19,
-                              left: diametro * 0.23,
-                              child: Container(
-                                width: diametro * 0.22,
-                                height: diametro * 0.12,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(99),
-                                  color: Colors.white.withValues(alpha: 0.32),
-                                ),
-                              ),
-                            ),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 320),
-                              switchInCurve: Curves.easeOutBack,
-                              switchOutCurve: Curves.easeIn,
-                              transitionBuilder: (child, animation) => ScaleTransition(
-                                scale: animation,
-                                child: FadeTransition(opacity: animation, child: child),
-                              ),
-                              child: Icon(
-                                icono,
-                                key: ValueKey<String>(estado),
-                                size: hablando ? 34 : (escuchando ? 30 : 25),
-                                color: const Color(0xFF172554).withValues(alpha: 0.82),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 300),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: activo ? 0.98 : 0.72),
-                      fontSize: hablando ? 12.5 : 11.5,
-                      fontWeight: hablando || escuchando ? FontWeight.w600 : FontWeight.w500,
-                      letterSpacing: 0.35,
-                    ),
-                    child: Text(estado),
-                  ),
-                  const SizedBox(height: 3),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    child: Text(
-                      detalle,
-                      key: ValueKey<String>(detalle),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: activo ? 0.70 : 0.48),
-                        fontSize: 10.5,
-                        letterSpacing: 0.12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _agoraOrbitDot(Color color, double opacity, double size) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: opacity),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: opacity * 0.55),
-            blurRadius: size * 2.2,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
     );
   }
 
@@ -1718,238 +1433,18 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
     );
   }
 
-  Widget _buildImmersiveVoice(ColorScheme scheme) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: IgnorePointer(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: VoiceService.isSpeaking,
-              builder: (context, speaking, _) => AnimatedBuilder(
-                animation: _agoraMotionController,
-                builder: (context, _) => CustomPaint(
-                  painter: _AgoraConstellationPainter(
-                    progress: _agoraMotionController.value,
-                    active: speaking || _isListening || _isLoading,
-                    speaking: speaking,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: Center(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: VoiceService.isSpeaking,
-              builder: (context, speaking, _) {
-                final listening = _isListening;
-                final thinking = _isLoading && !speaking && !listening;
-                final color = speaking
-                    ? const Color(0xFFA78BFA)
-                    : listening
-                        ? const Color(0xFF67E8F9)
-                        : const Color(0xFF818CF8);
-                final size = speaking ? 190.0 : listening ? 158.0 : thinking ? 142.0 : 128.0;
-                return AnimatedBuilder(
-                  animation: _agoraMotionController,
-                  builder: (context, _) {
-                    final t = _agoraMotionController.value * math.pi * 2;
-                    return SizedBox(
-                      width: 300,
-                      height: 330,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: size + 82,
-                            height: size + 82,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  color.withValues(alpha: speaking ? 0.20 : 0.11),
-                                  const Color(0xFF6366F1).withValues(alpha: 0.06),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                          Transform.rotate(
-                            angle: t * 0.20,
-                            child: Container(
-                              width: size + 54,
-                              height: size + 54,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: color.withValues(alpha: 0.30),
-                                  width: 1.1,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Transform.rotate(
-                            angle: -t * 0.13,
-                            child: Container(
-                              width: size + 26,
-                              height: size + 26,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFF67E8F9).withValues(alpha: 0.18),
-                                  width: 0.8,
-                                ),
-                              ),
-                            ),
-                          ),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 650),
-                            curve: Curves.easeInOutCubic,
-                            width: size,
-                            height: size,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                center: const Alignment(-0.34, -0.42),
-                                colors: speaking
-                                    ? const [Color(0xFFF5F3FF), Color(0xFFA78BFA), Color(0xFF6366F1), Color(0xFF312E81)]
-                                    : listening
-                                        ? const [Color(0xFFE0FBFF), Color(0xFF67E8F9), Color(0xFF6366F1), Color(0xFF312E81)]
-                                        : const [Color(0xFFCCFBFF), Color(0xFF38BDF8), Color(0xFF6366F1), Color(0xFF312E81)],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withValues(alpha: speaking ? 0.52 : 0.30),
-                                  blurRadius: speaking ? 62 : 42,
-                                  spreadRadius: speaking ? 12 : 5,
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.24),
-                                  blurRadius: 70,
-                                ),
-                              ],
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.78),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                speaking
-                                    ? Icons.graphic_eq_rounded
-                                    : listening
-                                        ? Icons.hearing_rounded
-                                        : Icons.auto_awesome_rounded,
-                                color: const Color(0xFF172554).withValues(alpha: 0.78),
-                                size: speaking ? 42 : 34,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 42 + math.sin(t) * 9,
-                            left: 38,
-                            child: _agoraOrbitDot(const Color(0xFF67E8F9), 0.85, 7),
-                          ),
-                          Positioned(
-                            right: 32,
-                            top: 92 + math.cos(t * 1.2) * 10,
-                            child: _agoraOrbitDot(const Color(0xFFA78BFA), 0.90, 8),
-                          ),
-                          Positioned(
-                            bottom: 48 + math.sin(t * 0.8) * 8,
-                            left: 58,
-                            child: _agoraOrbitDot(const Color(0xFF38BDF8), 0.78, 5),
-                          ),
-                          Positioned(
-                            bottom: 60,
-                            right: 58 + math.cos(t) * 8,
-                            child: _agoraOrbitDot(const Color(0xFFC4B5FD), 0.68, 4),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 28,
-          child: SafeArea(
-            top: false,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _immersiveControl(
-                  icon: _isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                  tooltip: _isListening ? 'Terminar de hablar' : 'Hablar con Ágora',
-                  color: _isListening ? const Color(0xFFF87171) : const Color(0xFF67E8F9),
-                  onPressed: _isLoading || VoiceService.isSpeaking.value
-                      ? null
-                      : _toggleDictado,
-                ),
-                const SizedBox(width: 22),
-                _immersiveControl(
-                  icon: Icons.stop_circle_outlined,
-                  tooltip: 'Detener la voz',
-                  onPressed: VoiceService.isSpeaking.value
-                      ? VoiceService.stopSpeaking
-                      : null,
-                ),
-                const SizedBox(width: 22),
-                _immersiveControl(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  tooltip: 'Volver al chat escrito',
-                  onPressed: () {
-                    if (_isListening) VoiceService.stopListening();
-                    VoiceService.stopSpeaking();
-                    setState(() {
-                      _isListening = false;
-                      _immersiveVoiceMode = false;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _immersiveControl({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback? onPressed,
-    Color color = Colors.white,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 25),
-        color: color,
-        disabledColor: Colors.white.withValues(alpha: 0.24),
-        style: IconButton.styleFrom(
-          fixedSize: const Size(62, 62),
-          backgroundColor: Colors.white.withValues(alpha: 0.065),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-        ),
-      ),
-    );
+  void _salirDeVozInmersiva() {
+    if (_isListening) VoiceService.stopListening();
+    VoiceService.stopSpeaking();
+    setState(() {
+      _isListening = false;
+      _immersiveVoiceMode = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final messages = _current?.messages ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -1962,528 +1457,569 @@ Si algún día no registraste, lo dejamos como información ausente, no como inc
                 onPressed: widget.onExit,
               )
             : null,
-        title: _immersiveVoiceMode ? const SizedBox.shrink() : const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Ágora', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
-            Text('NEUROPLAN AI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: Color(0xFF9CA3AF))),
-          ],
-        ),
+        title: _immersiveVoiceMode
+            ? const SizedBox.shrink()
+            : const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Ágora',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  Text(
+                    'NEUROPLAN AI',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1.8,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ],
+              ),
         centerTitle: false,
         elevation: 0,
         backgroundColor: _immersiveVoiceMode ? Colors.transparent : null,
-        actions: _immersiveVoiceMode ? [
-          _headerAction(
-            icon: Icons.chat_bubble_outline_rounded,
-            tooltip: 'Volver al chat escrito',
-            onPressed: () {
-              if (_isListening) VoiceService.stopListening();
-              VoiceService.stopSpeaking();
-              setState(() {
-                _isListening = false;
-                _immersiveVoiceMode = false;
-              });
-            },
-          ),
-          const SizedBox(width: 8),
-        ] : [
-          _headerAction(
-            icon: Icons.history_rounded,
-            tooltip: 'Historial',
-            onPressed: _loadingHistory || _cerrandoConcierto
-                ? null
-                : _openHistoryDrawer,
-          ),
-          _headerAction(
-            icon: Icons.add_comment_rounded,
-            tooltip: 'Nuevo chat',
-            onPressed: _loadingHistory || _cerrandoConcierto
-                ? null
-                : _startNewChat,
-          ),
-          _headerAction(
-            icon: _voiceReplyEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-            tooltip: _voiceReplyEnabled
-                ? 'Ágora habla: toca para silenciar'
-                : 'Activar la voz de Ágora',
-            onPressed: _toggleVoiceReply,
-            color: _voiceReplyEnabled ? const Color(0xFF67E8F9) : AppColors.textoTenue,
-          ),
-          const SizedBox(width: 8),
-        ],
+        actions: _immersiveVoiceMode
+            ? [
+                _headerAction(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  tooltip: 'Volver al chat escrito',
+                  onPressed: _salirDeVozInmersiva,
+                ),
+                const SizedBox(width: 8),
+              ]
+            : [
+                _headerAction(
+                  icon: Icons.history_rounded,
+                  tooltip: 'Historial',
+                  onPressed: _loadingHistory || _cerrandoConcierto
+                      ? null
+                      : _openHistoryDrawer,
+                ),
+                _headerAction(
+                  icon: Icons.add_comment_rounded,
+                  tooltip: 'Nuevo chat',
+                  onPressed: _loadingHistory || _cerrandoConcierto
+                      ? null
+                      : _startNewChat,
+                ),
+                _headerAction(
+                  icon: _voiceReplyEnabled
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                  tooltip: _voiceReplyEnabled
+                      ? 'Ágora habla: toca para silenciar'
+                      : 'Activar la voz de Ágora',
+                  onPressed: _toggleVoiceReply,
+                  color: _voiceReplyEnabled
+                      ? const Color(0xFF67E8F9)
+                      : AppColors.textoTenue,
+                ),
+                const SizedBox(width: 8),
+              ],
       ),
       body: _immersiveVoiceMode
-          ? _buildImmersiveVoice(scheme)
+          ? AgoraImmersiveVoice(
+              animation: _agoraMotionController,
+              isListening: _isListening,
+              isLoading: _isLoading,
+              onToggleDictation: _toggleDictado,
+              onExit: _salirDeVozInmersiva,
+            )
           : Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: VoiceService.isSpeaking,
-                builder: (context, speaking, _) {
-                  final active = speaking || _isListening || _isLoading;
-                  return AnimatedBuilder(
-                    animation: _agoraMotionController,
-                    builder: (context, _) => CustomPaint(
-                      painter: _AgoraConstellationPainter(
-                        progress: _agoraMotionController.value,
-                        active: active,
-                        speaking: speaking,
-                      ),
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: VoiceService.isSpeaking,
+                      builder: (context, speaking, _) {
+                        final active = speaking || _isListening || _isLoading;
+                        return AnimatedBuilder(
+                          animation: _agoraMotionController,
+                          builder: (context, _) => CustomPaint(
+                            painter: AgoraConstellationPainter(
+                              progress: _agoraMotionController.value,
+                              active: active,
+                              speaking: speaking,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-          Column(
-            children: [
-          if (_reflexionFecha != null) _bannerReflexion(scheme),
-          if (_cicloDeConcierto(_current) != null)
-            _panelConciertoFinal(scheme),
-          Expanded(
-            child: _loadingHistory
-                ? const Center(child: CircularProgressIndicator())
-                : messages.isEmpty
-                    ? Center(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.34)),
-                                  boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.18), blurRadius: 36, spreadRadius: 5)],
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      scheme.primary.withValues(alpha: 0.25),
-                                      scheme.primary.withValues(alpha: 0.05),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                  ),
+                ),
+                Column(
+                  children: [
+                    if (_reflexionFecha != null) _bannerReflexion(scheme),
+                    if (_cicloDeConcierto(_current) != null)
+                      _panelConciertoFinal(scheme),
+                    Expanded(child: _contenidoConversacion(scheme)),
+                    if (_cierreConciertoDisponible && !_conciertoFinalYaCerrado)
+                      SafeArea(
+                        top: false,
+                        bottom: false,
+                        minimum: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _isLoading || _cerrandoConcierto
+                                ? null
+                                : _confirmarCierreConciertoFinal,
+                            icon: _cerrandoConcierto
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.check_circle_outline_rounded,
                                   ),
-                                ),
-                                child: Icon(Icons.auto_awesome_rounded,
-                                    color: scheme.primary, size: 34),
+                            label: Text(
+                              _cerrandoConcierto
+                                  ? 'Guardando…'
+                                  : 'Cerrar mi ciclo',
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_proponerInicioCiclo &&
+                        _current?.title == 'Diagnóstico inicial')
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: scheme.primary.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_rounded,
+                                    color: scheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text(
+                                      'Una propuesta de Ágora',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 26),
-                              const Text(
-                                'Un espacio para pensar,\norganizar y avanzar',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.2,
-                                  letterSpacing: -0.45,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                               Text(
-                                'Te acompaño en tu organización y en cada etapa de NEUROPLAN, a tu ritmo. Escríbeme o háblame cuando quieras.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                  fontSize: 14,
-                                  height: 1.45,
-                                ),
+                                _esPrimerCiclo
+                                    ? 'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.'
+                                    : 'Si estás de acuerdo, podemos comenzar un nuevo ciclo de 30 días. Tu recorrido anterior seguirá conservado como historia.',
+                                style:
+                                    const TextStyle(fontSize: 13, height: 1.4),
                               ),
-                              const SizedBox(height: 14),
-                              Text(
-                                'Soy una IA y puedo equivocarme. No soy psicólogo ni otro profesional de la salud: si estás pasando por algo difícil, busca también a una persona de confianza o a un profesional.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 12.5,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                'Puedes escribirme hasta 30 mensajes al día.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.66),
-                                  fontSize: 13,
-                                  height: 1.4,
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: _iniciandoCiclo
+                                      ? null
+                                      : _confirmarInicioCiclo,
+                                  icon: _iniciandoCiclo
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.play_arrow_rounded),
+                                  label: Text(
+                                    _iniciandoCiclo
+                                        ? 'Iniciando…'
+                                        : (_esPrimerCiclo
+                                            ? 'Comenzar mi primer ciclo'
+                                            : 'Comenzar un nuevo ciclo'),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = messages[index];
-                          if (msg.role == 'system') return const SizedBox.shrink();
-                          final isUser = msg.role == 'user';
-                          return Align(
-                            alignment: isUser
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 17, vertical: 13),
-                              constraints: BoxConstraints(
-                                maxWidth: MediaQuery.of(context).size.width * 0.78,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: isUser
-                                    ? LinearGradient(
-                                        colors: [
-                                          scheme.primary,
-                                          scheme.primary.withValues(alpha: 0.75),
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      )
-                                    : null,
-                                color: isUser ? null : scheme.surfaceContainerHighest.withValues(alpha: 0.86),
-                                border: Border.all(color: isUser ? Colors.white.withValues(alpha: 0.10) : const Color(0xFF8B5CF6).withValues(alpha: 0.16)),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(18),
-                                  topRight: const Radius.circular(18),
-                                  bottomLeft: Radius.circular(isUser ? 18 : 4),
-                                  bottomRight: Radius.circular(isUser ? 4 : 18),
-                                ),
-                              ),
-                              child: Text(
-                                msg.content,
-                                style: TextStyle(
-                                  color: isUser
-                                      ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 14,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
                       ),
-          ),
-          if (_cierreConciertoDisponible && !_conciertoFinalYaCerrado)
-            SafeArea(
-              top: false,
-              bottom: false,
-              minimum: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _isLoading || _cerrandoConcierto
-                      ? null
-                      : _confirmarCierreConciertoFinal,
-                  icon: _cerrandoConcierto
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(_cerrandoConcierto ? 'Guardando…' : 'Cerrar mi ciclo'),
+                    if (!_loadingHistory && !_conciertoFinalYaCerrado)
+                      _editorMensaje(scheme),
+                  ],
                 ),
-              ),
+              ],
             ),
-          if (_proponerInicioCiclo &&
-              _current?.title == 'Diagnóstico inicial')
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(                      children: [
-                        Icon(Icons.auto_awesome_rounded, color: scheme.primary),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Una propuesta de Ágora',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
+    );
+  }
+
+  Widget _contenidoConversacion(ColorScheme scheme) {
+    if (_loadingHistory) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final messages = _current?.messages ?? [];
+    if (messages.isEmpty) return _bienvenidaAgora(scheme);
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final msg = messages[index];
+        if (msg.role == 'system') return const SizedBox.shrink();
+        final isUser = msg.role == 'user';
+        return Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(
+              vertical: 6,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 17,
+              vertical: 13,
+            ),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78,
+            ),
+            decoration: BoxDecoration(
+              gradient: isUser
+                  ? LinearGradient(
+                      colors: [
+                        scheme.primary,
+                        scheme.primary.withValues(
+                          alpha: 0.75,
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _esPrimerCiclo
-                          ? 'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.'
-                          : 'Si estás de acuerdo, podemos comenzar un nuevo ciclo de 30 días. Tu recorrido anterior seguirá conservado como historia.',
-                      style: TextStyle(fontSize: 13, height: 1.4),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _iniciandoCiclo ? null : _confirmarInicioCiclo,
-                        icon: _iniciandoCiclo
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.play_arrow_rounded),
-                        label: Text(_iniciandoCiclo
-                            ? 'Iniciando…'
-                            : (_esPrimerCiclo ? 'Comenzar mi primer ciclo' : 'Comenzar un nuevo ciclo')),
-                      ),
-                    ),
-                  ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: isUser
+                  ? null
+                  : scheme.surfaceContainerHighest.withValues(alpha: 0.86),
+              border: Border.all(
+                color: isUser
+                    ? Colors.white.withValues(
+                        alpha: 0.10,
+                      )
+                    : const Color(0xFF8B5CF6).withValues(alpha: 0.16),
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: Radius.circular(
+                  isUser ? 18 : 4,
+                ),
+                bottomRight: Radius.circular(
+                  isUser ? 4 : 18,
                 ),
               ),
             ),
-          if (!_loadingHistory && !_conciertoFinalYaCerrado)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.78),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
+            child: Text(
+              msg.content,
+              style: TextStyle(
+                color: isUser
+                    ? Colors.white
+                    : Colors.white.withValues(
+                        alpha: 0.9,
+                      ),
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bienvenidaAgora(ColorScheme scheme) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 28,
+          vertical: 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.34),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.18),
+                    blurRadius: 36,
+                    spreadRadius: 5,
                   ),
-                  boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 6))],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Focus(
-                        // En el computador, Enter envía y Shift+Enter baja de
-                        // línea. En el teléfono, Enter sigue siendo línea nueva.
-                        onKeyEvent: (node, event) {
-                          final esEnter =
-                              event.logicalKey == LogicalKeyboardKey.enter ||
-                                  event.logicalKey == LogicalKeyboardKey.numpadEnter;
-                          final esTelefono =
-                              defaultTargetPlatform == TargetPlatform.android ||
-                                  defaultTargetPlatform == TargetPlatform.iOS;
-                          if (!esEnter ||
-                              esTelefono ||
-                              HardwareKeyboard.instance.isShiftPressed ||
-                              !_controller.value.composing.isCollapsed) {
-                            return KeyEventResult.ignored;
-                          }
-                          if (event is KeyDownEvent && !_isLoading) {
-                            _sendMessage();
-                          }
-                          return KeyEventResult.handled;
-                        },
-                        child: TextField(
-                        controller: _controller,
-                        minLines: 1,
-                        maxLines: 5,
-                        style: const TextStyle(fontSize: 14.5),
-                        decoration: InputDecoration(
-                          hintText: _isListening ? 'Te escucho...' : 'Escribe un mensaje...',
-                          hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.62),
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                        ),
-                        onChanged: (_) {
-                          // Si escribes o corriges a mano, el dictado se
-                          // detiene para no pisar tus cambios.
-                          if (_isListening) {
-                            _sesionDictado++;
-                            setState(() => _isListening = false);
-                            VoiceService.stopListening();
-                          }
-                        },
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
-                      ),
+                ],
+                gradient: LinearGradient(
+                  colors: [
+                    scheme.primary.withValues(
+                      alpha: 0.25,
                     ),
-                    IconButton(
-                      tooltip: _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
-                      onPressed: _isLoading ? null : _toggleDictado,
-                      icon: Icon(
-                        _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
-                        color: _isListening ? Colors.redAccent : const Color(0xFF67E8F9),
-                        size: 21,
-                      ),
-                      style: IconButton.styleFrom(
-                        fixedSize: const Size(44, 44),
-                        backgroundColor: _isListening
-                            ? Colors.redAccent.withValues(alpha: 0.13)
-                            : const Color(0xFF22D3EE).withValues(alpha: 0.09),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          side: BorderSide(
-                            color: _isListening
-                                ? Colors.redAccent.withValues(alpha: 0.35)
-                                : const Color(0xFF22D3EE).withValues(alpha: 0.20),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF22D3EE), Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.30),
-                              blurRadius: 16,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          tooltip: 'Enviar mensaje',
-                          onPressed: _isLoading ? null : () => _sendMessage(),
-                          style: IconButton.styleFrom(
-                            fixedSize: const Size(46, 46),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
-                            ),
-                          ),
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.arrow_upward_rounded,
-                                  color: Colors.white, size: 21),
-                        ),
-                      ),
+                    scheme.primary.withValues(
+                      alpha: 0.05,
                     ),
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                color: scheme.primary,
+                size: 34,
+              ),
             ),
-          ),
-        ],
-          ),
-        ],
+            const SizedBox(height: 26),
+            const Text(
+              'Un espacio para pensar,\norganizar y avanzar',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                letterSpacing: -0.45,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Te acompaño en tu organización y en cada etapa de NEUROPLAN, a tu ritmo. Escríbeme o háblame cuando quieras.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(
+                  alpha: 0.75,
+                ),
+                fontSize: 14,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Soy una IA y puedo equivocarme. No soy psicólogo ni otro profesional de la salud: si estás pasando por algo difícil, busca también a una persona de confianza o a un profesional.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(
+                  alpha: 0.7,
+                ),
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Puedes escribirme hasta 30 mensajes al día.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(
+                  alpha: 0.66,
+                ),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-/// Fondo permanente de Ágora: una constelación tenue que permanece detrás
-/// de los mensajes mientras el usuario recorre la conversación.
-class _AgoraConstellationPainter extends CustomPainter {
-  _AgoraConstellationPainter({
-    required this.progress,
-    required this.active,
-    required this.speaking,
-  });
-
-  final double progress;
-  final bool active;
-  final bool speaking;
-
-  static const List<Offset> _stars = [
-    Offset(0.12, 0.12), Offset(0.28, 0.20), Offset(0.46, 0.10),
-    Offset(0.68, 0.16), Offset(0.87, 0.10), Offset(0.18, 0.38),
-    Offset(0.36, 0.46), Offset(0.58, 0.36), Offset(0.80, 0.43),
-    Offset(0.10, 0.65), Offset(0.30, 0.78), Offset(0.52, 0.68),
-    Offset(0.73, 0.79), Offset(0.91, 0.66), Offset(0.17, 0.91),
-    Offset(0.43, 0.94), Offset(0.66, 0.91), Offset(0.88, 0.90),
-  ];
-
-  static const List<List<int>> _links = [
-    [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [1, 6], [2, 7],
-    [3, 8], [5, 6], [6, 7], [7, 8], [5, 9], [6, 10], [7, 11],
-    [8, 13], [9, 10], [10, 11], [11, 12], [12, 13], [10, 14],
-    [11, 15], [12, 16], [13, 17], [14, 15], [15, 16], [16, 17],
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final t = progress * math.pi * 2;
-    final accent = speaking
-        ? const Color(0xFFA78BFA)
-        : const Color(0xFF67E8F9);
-    final strength = active ? 1.0 : 0.62;
-    final center = Offset(size.width * 0.50, size.height * 0.43);
-    final radius = math.min(size.width, size.height) * 0.30;
-
-    final glow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          accent.withValues(alpha: 0.075 * strength),
-          const Color(0xFF6366F1).withValues(alpha: 0.035 * strength),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.7));
-    canvas.drawCircle(center, radius * 1.7, glow);
-
-    final orbPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = accent.withValues(alpha: 0.09 * strength);
-    canvas.drawCircle(center, radius * (0.78 + math.sin(t) * 0.025), orbPaint);
-    orbPaint
-      ..strokeWidth = 0.65
-      ..color = const Color(0xFF8B5CF6).withValues(alpha: 0.07 * strength);
-    canvas.drawCircle(center, radius * (1.02 + math.cos(t * 0.7) * 0.025), orbPaint);
-
-    final points = <Offset>[];
-    for (var i = 0; i < _stars.length; i++) {
-      final p = _stars[i];
-      final drift = math.sin(t + i * 0.83) * (active ? 5.0 : 2.5);
-      points.add(Offset(
-        p.dx * size.width + drift,
-        p.dy * size.height + math.cos(t * 0.8 + i) * (active ? 4.0 : 2.0),
-      ));
-    }
-
-    final linePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
-      ..color = accent.withValues(alpha: 0.12 * strength);
-    for (final link in _links) {
-      canvas.drawLine(points[link[0]], points[link[1]], linePaint);
-    }
-
-    for (var i = 0; i < points.length; i++) {
-      final pulse = 0.65 + (math.sin(t * 1.3 + i * 1.7) + 1) * 0.17;
-      final nodeColor = i.isEven ? accent : const Color(0xFFA78BFA);
-      final halo = Paint()
-        ..color = nodeColor.withValues(alpha: 0.13 * strength * pulse)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-      canvas.drawCircle(points[i], i % 4 == 0 ? 5 : 3.2, halo);
-      final dot = Paint()
-        ..color = nodeColor.withValues(alpha: 0.46 * strength * pulse);
-      canvas.drawCircle(points[i], i % 4 == 0 ? 1.8 : 1.2, dot);
-    }
+  Widget _editorMensaje(ColorScheme scheme) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(
+              alpha: 0.78,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Focus(
+                  // En el computador, Enter envía y Shift+Enter baja de
+                  // línea. En el teléfono, Enter sigue siendo línea nueva.
+                  onKeyEvent: (node, event) {
+                    final esEnter =
+                        event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                    final esTelefono =
+                        defaultTargetPlatform == TargetPlatform.android ||
+                            defaultTargetPlatform == TargetPlatform.iOS;
+                    if (!esEnter ||
+                        esTelefono ||
+                        HardwareKeyboard.instance.isShiftPressed ||
+                        !_controller.value.composing.isCollapsed) {
+                      return KeyEventResult.ignored;
+                    }
+                    if (event is KeyDownEvent && !_isLoading) {
+                      _sendMessage();
+                    }
+                    return KeyEventResult.handled;
+                  },
+                  child: TextField(
+                    controller: _controller,
+                    minLines: 1,
+                    maxLines: 5,
+                    style: const TextStyle(fontSize: 14.5),
+                    decoration: InputDecoration(
+                      hintText: _isListening
+                          ? 'Te escucho...'
+                          : 'Escribe un mensaje...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(
+                          alpha: 0.62,
+                        ),
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    onChanged: (_) {
+                      // Si escribes o corriges a mano, el dictado se
+                      // detiene para no pisar tus cambios.
+                      if (_isListening) {
+                        _sesionDictado++;
+                        setState(() => _isListening = false);
+                        VoiceService.stopListening();
+                      }
+                    },
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip:
+                    _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
+                onPressed: _isLoading ? null : _toggleDictado,
+                icon: Icon(
+                  _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
+                  color:
+                      _isListening ? Colors.redAccent : const Color(0xFF67E8F9),
+                  size: 21,
+                ),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(44, 44),
+                  backgroundColor: _isListening
+                      ? Colors.redAccent.withValues(
+                          alpha: 0.13,
+                        )
+                      : const Color(0xFF22D3EE).withValues(alpha: 0.09),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    side: BorderSide(
+                      color: _isListening
+                          ? Colors.redAccent.withValues(
+                              alpha: 0.35,
+                            )
+                          : const Color(0xFF22D3EE).withValues(alpha: 0.20),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF22D3EE),
+                        Color(0xFF6366F1),
+                        Color(0xFF8B5CF6),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.30),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    tooltip: 'Enviar mensaje',
+                    onPressed: _isLoading ? null : () => _sendMessage(),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(46, 46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          15,
+                        ),
+                        side: BorderSide(
+                          color: Colors.white.withValues(
+                            alpha: 0.30,
+                          ),
+                        ),
+                      ),
+                    ),
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.arrow_upward_rounded,
+                            color: Colors.white,
+                            size: 21,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _AgoraConstellationPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.active != active ||
-      oldDelegate.speaking != speaking;
 }

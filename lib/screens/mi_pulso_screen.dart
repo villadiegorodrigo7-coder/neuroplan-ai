@@ -2,17 +2,19 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../models/chat_conversation.dart';
 import '../models/entrada_diario.dart';
 import '../models/productividad_data.dart';
-import '../models/chat_conversation.dart';
+import '../models/task.dart';
+import '../services/agenda_store.dart';
 import '../services/chat_history_service.dart';
+import '../services/concierto_final_service.dart';
+import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
-import '../models/task.dart';
-import '../services/diario_store.dart';
 import '../services/tasks_service.dart';
-import '../services/agenda_store.dart';
-import '../services/concierto_final_service.dart';
+import '../widgets/pulso_painter.dart';
+import '../widgets/radar_diagnostico_painter.dart';
 import 'chat_screen.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
@@ -28,7 +30,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   static const Color _sinRegistro = Color(0xFF30384D);
   DateTime _seleccionado = DateTime.now();
   bool _cargando = true;
-  bool _ruedaAlFrente = true;
   DateTime? _inicioCiclo;
   CicloNeuroplan? _cicloActual;
   HerramientasData? _herramientas;
@@ -40,10 +41,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   List<DateTime> get _dias {
     final inicio = _inicioCiclo;
     if (inicio == null) return [];
-    return List.generate(
-      _duracionCiclo,
-      (i) => inicio.add(Duration(days: i)),
-    );
+    return List.generate(_duracionCiclo, (i) => inicio.add(Duration(days: i)));
   }
 
   String _clave(DateTime d) => EntradaDiario.claveFecha(d);
@@ -67,34 +65,22 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
     // La existencia y las fechas del ciclo provienen del servicio central.
     // Nunca inferimos el inicio a partir de entradas antiguas del diario.
-    var herramientas = await HerramientasService.cargar();
-    herramientas = await _recuperarRuedaDesdeDiagnostico(herramientas);
-    final cicloEncontrado = _cicloVisible(herramientas);
-    final inicio = cicloEncontrado?.inicio;
-    final ciclo = inicio == null ? null : cicloEncontrado;
-    final inicioLocal = inicio == null
-        ? null
-        : DateTime(inicio.year, inicio.month, inicio.day);
-    final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
-    final diferencia = inicioLocal == null ? 0 : hoy.difference(inicioLocal).inDays;
-    if (mounted) {
-      setState(() {
-        _herramientas = herramientas;
-        _cicloActual = ciclo;
-        _inicioCiclo = inicioLocal;
-        if (inicioLocal != null && _dias.isNotEmpty) {
-          _seleccionado = _dias[diferencia.clamp(0, _dias.length - 1)];
-        }
-        _cargando = false;
-      });
-    }
+    final herramientas = await HerramientasService.cargar();
+    final datos = await _recuperarRuedaDesdeDiagnostico(herramientas);
+    if (!mounted) return;
+
+    setState(() {
+      _aplicarHerramientas(datos);
+      _cargando = false;
+    });
   }
 
   /// Si el diagnóstico ya terminó en Ágora pero la propuesta visual no se
   /// alcanzó a guardar, Mi Pulso la recupera al abrirse. Así no depende de que
   /// ChatScreen siga montada cuando termina la conversación.
   Future<HerramientasData> _recuperarRuedaDesdeDiagnostico(
-      HerramientasData data) async {
+    HerramientasData data,
+  ) async {
     final existente = data.diagnosticoConversacional;
     if (existente != null &&
         (existente.valoresPropuestos.isNotEmpty || existente.confirmado)) {
@@ -114,10 +100,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
       final historial = diagnostico.messages
           .where((m) => m.role != 'system' && m.content.trim().isNotEmpty)
-          .map((m) => <String, String>{
-                'role': m.role == 'user' ? 'user' : 'model',
-                'content': m.content,
-              })
+          .map(
+            (m) => <String, String>{
+              'role': m.role == 'user' ? 'user' : 'model',
+              'content': m.content,
+            },
+          )
           .toList();
       if (historial.where((m) => m['role'] == 'user').length < 3) {
         return data;
@@ -134,24 +122,25 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       // Persistir el cierre antes de solicitar la propuesta evita que una
       // falla temporal de Gemini obligue a clasificar otra vez el historial.
       diagnostico.diagnosticoCompleto = true;
-      if (!diagnostico.messages.any((m) =>
-          m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO')) {
-        diagnostico.messages.add(ChatMessageData(
-          role: 'system',
-          content: 'DIAGNOSTICO_COMPLETO',
-        ));
+      if (!diagnostico.messages.any(
+        (m) => m.role == 'system' && m.content == 'DIAGNOSTICO_COMPLETO',
+      )) {
+        diagnostico.messages.add(
+          ChatMessageData(role: 'system', content: 'DIAGNOSTICO_COMPLETO'),
+        );
       }
       await ChatHistoryService.saveConversations(conversaciones);
 
-      final propuesta =
-          await GeminiService.proponerDiagnosticoConversacional(historial);
+      final propuesta = await GeminiService.proponerDiagnosticoConversacional(
+        historial,
+      );
       if (propuesta == null) return data;
 
       data.diagnosticoConversacional = DiagnosticoConversacional(
-        valoresPropuestos:
-            Map<String, int>.from(propuesta['valoresPropuestos'] as Map),
-        fundamentos:
-            Map<String, String>.from(propuesta['fundamentos'] as Map),
+        valoresPropuestos: Map<String, int>.from(
+          propuesta['valoresPropuestos'] as Map,
+        ),
+        fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
         resumen: (propuesta['resumen'] ?? '').toString(),
       );
       await HerramientasService.guardar(data);
@@ -179,27 +168,29 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   Future<void> _actualizarHerramientas() async {
     final data = await HerramientasService.cargar();
-    final cicloEncontrado = _cicloVisible(data);
-    final inicio = cicloEncontrado?.inicio;
-    final ciclo = inicio == null ? null : cicloEncontrado;
-    final inicioLocal = inicio == null
-        ? null
-        : DateTime(inicio.year, inicio.month, inicio.day);
-    if (mounted) {
-      setState(() {
-        _herramientas = data;
-        _cicloActual = ciclo;
-        _inicioCiclo = inicioLocal;
-        if (inicioLocal == null) {
-          _seleccionado = DateTime.now();
-        } else if (_dias.isNotEmpty) {
-          final hoy = DateTime.now();
-          final diferencia = DateTime(hoy.year, hoy.month, hoy.day)
-              .difference(inicioLocal).inDays;
-          _seleccionado = _dias[diferencia.clamp(0, _dias.length - 1)];
-        }
-      });
+    if (!mounted) return;
+    setState(() => _aplicarHerramientas(data));
+  }
+
+  void _aplicarHerramientas(HerramientasData data) {
+    final ciclo = _cicloVisible(data);
+    final inicio = ciclo?.inicio;
+    _herramientas = data;
+    _cicloActual = inicio == null ? null : ciclo;
+    _inicioCiclo =
+        inicio == null ? null : DateTime(inicio.year, inicio.month, inicio.day);
+
+    final hoy = _hoy;
+    final dias = _dias;
+    final inicioLocal = _inicioCiclo;
+    if (inicioLocal == null || dias.isEmpty) {
+      _seleccionado = hoy;
+      return;
     }
+
+    final fechaHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    final diferencia = fechaHoy.difference(inicioLocal).inDays;
+    _seleccionado = dias[diferencia.clamp(0, dias.length - 1)];
   }
 
   @override
@@ -219,9 +210,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     return null;
   }
 
-  List<Task> _tareas(DateTime d) => TasksService.instance.tasks
-      .where((t) => t.fecha == _clave(d))
-      .toList();
+  List<Task> _tareas(DateTime d) =>
+      TasksService.instance.tasks.where((t) => t.fecha == _clave(d)).toList();
 
   static const Color _diaTranscurrido = Color(0xFFFF9800);
 
@@ -245,20 +235,32 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   String _fechaLarga(DateTime d) {
-    const dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const dias = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    const meses = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
     final dia = dias[d.weekday - 1];
     return '${dia[0].toUpperCase()}${dia.substring(1)} ${d.day} de ${meses[d.month - 1]}';
   }
-
-  String _energia(int n) => n > 0 && n <= kNivelesEnergia.length
-      ? kNivelesEnergia[n - 1]
-      : 'Sin registro';
-
-  String _estado(int n) => n > 0 && n <= kNivelesEstado.length
-      ? kNivelesEstado[n - 1]
-      : 'Sin registro';
 
   @override
   Widget build(BuildContext context) {
@@ -298,10 +300,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     ] else ...[
                       Text(
                         'Tu recorrido · ciclo de $_duracionCiclo días',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                        ),
                       ),
                       const SizedBox(height: 14),
-                      if (_cicloActual?.puedeRealizarConciertoFinal == true) ...[
+                      if (_cicloActual?.puedeRealizarConciertoFinal ==
+                          true) ...[
                         _invitacionConciertoFinal(scheme),
                         const SizedBox(height: 22),
                       ],
@@ -329,46 +334,164 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       padding: const EdgeInsets.fromLTRB(19, 19, 19, 17),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF172B4B), Color(0xFF171D3B), Color(0xFF29204D)]),
-        border: Border.all(color: const Color(0xFF6FDFF2).withValues(alpha: 0.22)),
-        boxShadow: [BoxShadow(color: const Color(0xFF6957D8).withValues(alpha: 0.14), blurRadius: 25, offset: const Offset(0, 9))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(width: 43, height: 43, decoration: BoxDecoration(color: const Color(0xFF62DDF0).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(15)),
-            child: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF75E5F2), size: 24)),
-          const SizedBox(width: 12),
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('MI PULSO', style: TextStyle(color: Color(0xFF8CEBFF), fontSize: 10, letterSpacing: 2.1, fontWeight: FontWeight.w800)),
-            SizedBox(height: 3),
-            Text('Tu vida, en su propio ritmo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-          ])),
-          if (ciclo != null) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: (_cicloFinalizado ? const Color(0xFF34D399) : const Color(0xFFFFA94D)).withValues(alpha: 0.13), borderRadius: BorderRadius.circular(30), border: Border.all(color: (_cicloFinalizado ? const Color(0xFF34D399) : const Color(0xFFFFA94D)).withValues(alpha: 0.35))),
-            child: Text(_cicloFinalizado ? 'CICLO COMPLETADO' : 'CICLO ACTIVO', style: TextStyle(color: _cicloFinalizado ? const Color(0xFF7BE5B7) : const Color(0xFFFFC078), fontSize: 9, letterSpacing: 0.7, fontWeight: FontWeight.w800))),
-        ]),
-        const SizedBox(height: 13),
-        Text(subtitulo, style: TextStyle(color: Colors.white.withValues(alpha: 0.76), fontSize: 12, height: 1.4)),
-        if (ciclo != null) ...[
-          const SizedBox(height: 17),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('$transcurridos', style: const TextStyle(fontSize: 31, height: 1, fontWeight: FontWeight.w800, color: Color(0xFFFFB45C))),
-            const SizedBox(width: 7),
-            Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('de $_duracionCiclo días', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.70)))),
-            const Spacer(),
-            Text('${(progreso * 100).round()}%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF8CEBFF))),
-          ]),
-          const SizedBox(height: 9),
-          ClipRRect(borderRadius: BorderRadius.circular(20), child: LinearProgressIndicator(value: progreso.clamp(0.0, 1.0), minHeight: 6, backgroundColor: Colors.white.withValues(alpha: 0.11), valueColor: const AlwaysStoppedAnimation(Color(0xFFFFA94D)))),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF172B4B), Color(0xFF171D3B), Color(0xFF29204D)],
+        ),
+        border: Border.all(
+          color: const Color(0xFF6FDFF2).withValues(alpha: 0.22),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6957D8).withValues(alpha: 0.14),
+            blurRadius: 25,
+            offset: const Offset(0, 9),
+          ),
         ],
-      ]),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF62DDF0).withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: Color(0xFF75E5F2),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MI PULSO',
+                      style: TextStyle(
+                        color: Color(0xFF8CEBFF),
+                        fontSize: 10,
+                        letterSpacing: 2.1,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Tu vida, en su propio ritmo',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (ciclo != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (_cicloFinalizado
+                            ? const Color(0xFF34D399)
+                            : const Color(0xFFFFA94D))
+                        .withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: (_cicloFinalizado
+                              ? const Color(0xFF34D399)
+                              : const Color(0xFFFFA94D))
+                          .withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    _cicloFinalizado ? 'CICLO COMPLETADO' : 'CICLO ACTIVO',
+                    style: TextStyle(
+                      color: _cicloFinalizado
+                          ? const Color(0xFF7BE5B7)
+                          : const Color(0xFFFFC078),
+                      fontSize: 9,
+                      letterSpacing: 0.7,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Text(
+            subtitulo,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          if (ciclo != null) ...[
+            const SizedBox(height: 17),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$transcurridos',
+                  style: const TextStyle(
+                    fontSize: 31,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFB45C),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    'de $_duracionCiclo días',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.70),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${(progreso * 100).round()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF8CEBFF),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: LinearProgressIndicator(
+                value: progreso.clamp(0.0, 1.0),
+                minHeight: 6,
+                backgroundColor: Colors.white.withValues(alpha: 0.11),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFFFFA94D)),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Future<void> _abrirConciertoFinal() async {
     final ciclo = _cicloActual;
-    if (ciclo == null || !ciclo.puedeRealizarConciertoFinal || _preparandoConcierto) {
+    if (ciclo == null ||
+        !ciclo.puedeRealizarConciertoFinal ||
+        _preparandoConcierto) {
       return;
     }
 
@@ -388,7 +511,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No pudimos preparar tu recorrido. Inténtalo de nuevo.'),
+          content: Text(
+            'No pudimos preparar tu recorrido. Inténtalo de nuevo.',
+          ),
         ),
       );
     } finally {
@@ -510,37 +635,51 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           children: [
             CustomPaint(
               size: const Size(290, 290),
-              painter: _PulsoPainter(
+              painter: PulsoPainter(
                 colores: _dias.map(_colorDia).toList(),
-                seleccionado: _dias.indexWhere((d) => _clave(d) == _clave(_seleccionado)),
+                seleccionado: _dias.indexWhere(
+                  (d) => _clave(d) == _clave(_seleccionado),
+                ),
                 base: _sinRegistro,
               ),
             ),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('MI PULSO',
-                    style: TextStyle(
-                      color: scheme.primary,
-                      fontSize: 12,
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.w700,
-                    )),
+                Text(
+                  'MI PULSO',
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontSize: 12,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 5),
-                Text('$_diasTranscurridos',
-                    style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700)),
-                Text(_cicloFinalizado ? 'días del recorrido' : 'días transcurridos de $_duracionCiclo',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.68))),
+                Text(
+                  '$_diasTranscurridos',
+                  style: const TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  _cicloFinalizado
+                      ? 'días del recorrido'
+                      : 'días transcurridos de $_duracionCiclo',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.68),
+                  ),
+                ),
               ],
             ),
-            for (var i = 0; i < _dias.length; i++)
-              _puntoInteractivo(i, scheme),
+            for (var i = 0; i < _dias.length; i++) _puntoInteractivo(i, scheme),
           ],
         ),
       ),
     );
   }
-
 
   /// Controles compactos de Mi ritmo. El registro sigue perteneciendo
   /// únicamente al día seleccionado y se persiste mediante DiarioStore.
@@ -566,25 +705,41 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          Text(
+            titulo,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 7),
           PopupMenuButton<int>(
             tooltip: 'Elegir $titulo',
             initialValue: valor,
             onSelected: guardar,
             color: const Color(0xFF242424),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
             itemBuilder: (context) => [
               for (var i = 0; i < 5; i++)
                 PopupMenuItem<int>(
                   value: i + 1,
-                  child: Row(children: [
-                    Text(emojis[i], style: const TextStyle(fontSize: 23)),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(etiquetas[i], style: const TextStyle(fontSize: 13))),
-                    if (valor == i + 1)
-                      Icon(Icons.check_rounded, color: scheme.primary, size: 18),
-                  ]),
+                  child: Row(
+                    children: [
+                      Text(emojis[i], style: const TextStyle(fontSize: 23)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          etiquetas[i],
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      if (valor == i + 1)
+                        Icon(
+                          Icons.check_rounded,
+                          color: scheme.primary,
+                          size: 18,
+                        ),
+                    ],
+                  ),
                 ),
               const PopupMenuItem<int>(
                 value: 0,
@@ -598,16 +753,24 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 color: const Color(0xFF242424),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: Row(children: [
-                Text(actual == null ? '▫️' : emojis[actual],
-                    style: const TextStyle(fontSize: 24)),
-                const SizedBox(width: 10),
-                Expanded(child: Text(
-                  actual == null ? 'Sin registro' : etiquetas[actual],
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12))),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
-              ]),
+              child: Row(
+                children: [
+                  Text(
+                    actual == null ? '▫️' : emojis[actual],
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      actual == null ? 'Sin registro' : etiquetas[actual],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
+                ],
+              ),
             ),
           ),
         ],
@@ -615,22 +778,25 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     }
 
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Text('Registro de hoy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          // Etiquetas visibles junto a cada foco (rojo, amarillo y verde).
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 75,
-                child: Padding(
-                  // Iguala la altura interior del semáforo (borde + margen).
-                  // Cada etiqueta queda centrada frente a su propia luz.
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Text(
+          'Registro de hoy',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        // Etiquetas visibles junto a cada foco (rojo, amarillo y verde).
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 75,
+              child: Padding(
+                // Iguala la altura interior del semáforo (borde + margen).
+                // Cada etiqueta queda centrada frente a su propia luz.
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     for (final item in const [
@@ -644,105 +810,134 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(item.$1, textAlign: TextAlign.right,
-                              style: const TextStyle(fontSize: 12,
-                                fontWeight: FontWeight.w800)),
-                            Text(item.$2, textAlign: TextAlign.right,
-                              style: TextStyle(fontSize: 10,
-                                color: Colors.white.withValues(alpha: 0.8))),
+                            Text(
+                              item.$1,
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              item.$2,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                   ],
-                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 70,
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: const Color(0xFF485365), width: 3),
-                ),
-                child: Column(
-                  children: List.generate(3, (i) {
-                    final activo = semaforo == claves[i] ||
-                        (i == 0 && semaforo == 'desafio');
-                    return SizedBox(
-                      height: 63,
-                      child: Center(
-                        child: Semantics(
-                          button: true,
-                          label: 'Registrar día: ${nombres[i]}',
-                          selected: activo,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () {
-                              final registro = DiarioStore.instance.obtenerOCrear(
-                                _clave(_seleccionado));
-                              registro.semaforo = claves[i];
-                              DiarioStore.instance.cambio(registro);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: tonos[i].withValues(alpha: activo ? 1 : 0.78),
-                                border: Border.all(color: tonos[i].withValues(
-                                  alpha: activo ? 1 : 0.4)),
-                                boxShadow: activo ? [
-                                  BoxShadow(color: tonos[i].withValues(alpha: 0.52),
-                                    blurRadius: 12, spreadRadius: 2),
-                                ] : null,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 70,
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(color: const Color(0xFF485365), width: 3),
+              ),
+              child: Column(
+                children: List.generate(3, (i) {
+                  final activo = semaforo == claves[i] ||
+                      (i == 0 && semaforo == 'desafio');
+                  return SizedBox(
+                    height: 63,
+                    child: Center(
+                      child: Semantics(
+                        button: true,
+                        label: 'Registrar día: ${nombres[i]}',
+                        selected: activo,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () {
+                            final registro = DiarioStore.instance.obtenerOCrear(
+                              _clave(_seleccionado),
+                            );
+                            registro.semaforo = claves[i];
+                            DiarioStore.instance.cambio(registro);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: tonos[i].withValues(
+                                alpha: activo ? 1 : 0.78,
                               ),
+                              border: Border.all(
+                                color: tonos[i].withValues(
+                                  alpha: activo ? 1 : 0.4,
+                                ),
+                              ),
+                              boxShadow: activo
+                                  ? [
+                                      BoxShadow(
+                                        color: tonos[i].withValues(alpha: 0.52),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                      ),
+                                    ]
+                                  : null,
                             ),
                           ),
                         ),
                       ),
-                    );
-                  }),
-                ),
+                    ),
+                  );
+                }),
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Toca una luz para registrar tu día',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withValues(alpha: 0.78),
           ),
-          const SizedBox(height: 12),
-          Text('Toca una luz para registrar tu día',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.78))),
-          const SizedBox(height: 15),
-          Divider(color: Colors.white.withValues(alpha: 0.12)),
-          const SizedBox(height: 13),
-          selectorEmoji(
-            titulo: 'Estado emocional',
-            valor: estado,
-            emojis: estados,
-            etiquetas: kNivelesEstado,
-            guardar: (nivel) {
-              final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
-              registro.estado = nivel;
-              DiarioStore.instance.cambio(registro);
-            },
-          ),
-          const SizedBox(height: 12),
-          selectorEmoji(
-            titulo: 'Energía',
-            valor: energia,
-            emojis: energias,
-            etiquetas: kNivelesEnergia,
-            guardar: (nivel) {
-              final registro = DiarioStore.instance.obtenerOCrear(_clave(_seleccionado));
-              registro.energia = nivel;
-              DiarioStore.instance.cambio(registro);
-            },
-          ),
-        ],
+        ),
+        const SizedBox(height: 15),
+        Divider(color: Colors.white.withValues(alpha: 0.12)),
+        const SizedBox(height: 13),
+        selectorEmoji(
+          titulo: 'Estado emocional',
+          valor: estado,
+          emojis: estados,
+          etiquetas: kNivelesEstado,
+          guardar: (nivel) {
+            final registro = DiarioStore.instance.obtenerOCrear(
+              _clave(_seleccionado),
+            );
+            registro.estado = nivel;
+            DiarioStore.instance.cambio(registro);
+          },
+        ),
+        const SizedBox(height: 12),
+        selectorEmoji(
+          titulo: 'Energía',
+          valor: energia,
+          emojis: energias,
+          etiquetas: kNivelesEnergia,
+          guardar: (nivel) {
+            final registro = DiarioStore.instance.obtenerOCrear(
+              _clave(_seleccionado),
+            );
+            registro.energia = nivel;
+            DiarioStore.instance.cambio(registro);
+          },
+        ),
+      ],
     );
   }
-
 
   /// Dos discos superpuestos: cada uno conserva su gráfico y sus valores.
   /// El toque intercambia el primer plano; la transición combina profundidad,
@@ -765,13 +960,25 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   ];
 
   static const List<String> _etiquetasRueda = [
-    'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
-    'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
-    'Organización', 'Motivación', 'Satisfacción',
+    'Salud',
+    'Estudios',
+    'Trabajo',
+    'Finanzas',
+    'Familia',
+    'Amigos',
+    'Descanso',
+    'Crecimiento',
+    'Energía',
+    'Estrés',
+    'Claridad mental',
+    'Organización',
+    'Motivación',
+    'Satisfacción',
   ];
 
   bool get _hayPropuestaRueda =>
-      (_herramientas?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ?? false) ||
+      (_herramientas?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ??
+          false) ||
       (_herramientas?.diagnosticoConversacional?.confirmado == true);
 
   bool get _tieneDiagnosticoConversacionalConfirmado =>
@@ -785,9 +992,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   Set<int> get _dimensionesSinDatoRueda => {
-    for (var i = 0; i < _etiquetasRueda.length; i++)
-      if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
-  };
+        for (var i = 0; i < _etiquetasRueda.length; i++)
+          if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
+      };
 
   List<double> _valoresRuedaUnificada() => _etiquetasRueda
       .map((etiqueta) => (_valoresDisponiblesRueda[etiqueta] ?? 0).toDouble())
@@ -800,8 +1007,10 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       children: [
         const Padding(
           padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('Rueda de la Vida',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          child: Text(
+            'Rueda de la Vida',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
         ),
         Text(
           !_hayPropuestaRueda
@@ -809,16 +1018,24 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               : _tieneDiagnosticoConversacionalConfirmado
                   ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
                   : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
-          style: TextStyle(fontSize: 12, height: 1.35,
-            color: Colors.white.withValues(alpha: 0.66)),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.35,
+            color: Colors.white.withValues(alpha: 0.66),
+          ),
         ),
-        if ((_herramientas?.diagnosticoConversacional?.resumen ?? '').trim().isNotEmpty)
+        if ((_herramientas?.diagnosticoConversacional?.resumen ?? '')
+            .trim()
+            .isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
             child: Text(
               _herramientas!.diagnosticoConversacional!.resumen,
-              style: TextStyle(fontSize: 12, height: 1.4,
-                color: Colors.white.withValues(alpha: 0.82)),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: Colors.white.withValues(alpha: 0.82),
+              ),
             ),
           ),
         const SizedBox(height: 12),
@@ -832,12 +1049,25 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               constraints: const BoxConstraints(maxWidth: 430),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [Color(0xFF121E3B), Color(0xFF10172F), Color(0xFF211D43)]),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF121E3B),
+                    Color(0xFF10172F),
+                    Color(0xFF211D43),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: const Color(0xFF8CEBFF).withValues(alpha: 0.13)),
+                border: Border.all(
+                  color: const Color(0xFF8CEBFF).withValues(alpha: 0.13),
+                ),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15), blurRadius: 26, spreadRadius: 1),
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                    blurRadius: 26,
+                    spreadRadius: 1,
+                  ),
                 ],
               ),
               child: Column(
@@ -845,7 +1075,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                   SizedBox(
                     height: 300,
                     child: CustomPaint(
-                      painter: _RadarDiagnosticoPainter(
+                      painter: RadarDiagnosticoPainter(
                         values: valores,
                         labels: _etiquetasRueda,
                         color: const Color(0xFF9B75FF),
@@ -862,11 +1092,19 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.open_in_full, size: 15, color: Color(0xFF8CEBFF)),
+                      const Icon(
+                        Icons.open_in_full,
+                        size: 15,
+                        color: Color(0xFF8CEBFF),
+                      ),
                       const SizedBox(width: 6),
-                      Text('Toca para ampliar y editar',
-                        style: TextStyle(fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.82))),
+                      Text(
+                        'Toca para ampliar y editar',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.82),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -917,9 +1155,14 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           icon: const Icon(Icons.close, color: Colors.white),
                         ),
                         const Expanded(
-                          child: Text('Rueda de la Vida',
-                            style: TextStyle(color: Colors.white,
-                              fontSize: 18, fontWeight: FontWeight.w700)),
+                          child: Text(
+                            'Rueda de la Vida',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -938,13 +1181,19 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                             diagnostico.confirmado = true;
                             await HerramientasService.guardar(data);
                             if (mounted) setState(() {});
-                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
                           },
-                          child: Text(_tieneDiagnosticoConversacionalConfirmado
-                              ? 'Guardar cambios'
-                              : 'Confirmar diagnóstico',
-                            style: const TextStyle(color: Color(0xFF8CEBFF),
-                              fontWeight: FontWeight.w700)),
+                          child: Text(
+                            _tieneDiagnosticoConversacionalConfirmado
+                                ? 'Guardar cambios'
+                                : 'Confirmar diagnóstico',
+                            style: const TextStyle(
+                              color: Color(0xFF8CEBFF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -960,19 +1209,24 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final side = math.min(constraints.maxWidth,
-                          constraints.maxHeight * 0.78);
+                        final side = math.min(
+                          constraints.maxWidth,
+                          constraints.maxHeight * 0.78,
+                        );
                         return Center(
                           child: SizedBox(
                             width: side,
                             height: side,
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
-                              onTapDown: (d) => moverPunto(d.localPosition, Size(side, side)),
-                              onPanStart: (d) => moverPunto(d.localPosition, Size(side, side)),
-                              onPanUpdate: (d) => moverPunto(d.localPosition, Size(side, side)),
+                              onTapDown: (d) =>
+                                  moverPunto(d.localPosition, Size(side, side)),
+                              onPanStart: (d) =>
+                                  moverPunto(d.localPosition, Size(side, side)),
+                              onPanUpdate: (d) =>
+                                  moverPunto(d.localPosition, Size(side, side)),
                               child: CustomPaint(
-                                painter: _RadarDiagnosticoPainter(
+                                painter: RadarDiagnosticoPainter(
                                   values: editados,
                                   labels: _etiquetasRueda,
                                   color: const Color(0xFF9B75FF),
@@ -992,70 +1246,100 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     ),
                   ),
                   SizedBox(
-                    height: math.min(250, MediaQuery.of(context).size.height * 0.29),
+                    height: math.min(
+                      250,
+                      MediaQuery.of(context).size.height * 0.29,
+                    ),
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
                       itemCount: _etiquetasRueda.length,
                       itemBuilder: (context, index) {
-                        final fundamento = _herramientas?.diagnosticoConversacional
+                        final fundamento = _herramientas
+                            ?.diagnosticoConversacional
                             ?.fundamentos[_etiquetasRueda[index]];
                         return Row(
-                        children: [
-                          Container(width: 9, height: 9,
-                            decoration: BoxDecoration(color: _coloresRueda[index],
-                              shape: BoxShape.circle)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(_etiquetasRueda[index],
-                                  style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                if (fundamento != null && fundamento.trim().isNotEmpty)
-                                  Text(fundamento,
-                                    style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                                if (faltantesIniciales.contains(index) &&
-                                    !dimensionesEditadas.contains(index))
-                                  const Text('Sin información suficiente · puedes proponer un valor',
-                                    style: TextStyle(color: Colors.amberAccent, fontSize: 10)),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            flex: 6,
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: _coloresRueda[index],
-                                thumbColor: _coloresRueda[index],
-                                inactiveTrackColor: _coloresRueda[index].withValues(alpha: 0.20),
-                              ),
-                              child: Slider(
-                                value: editados[index].clamp(0, 10).toDouble(),
-                                min: 0,
-                                max: 10,
-                                divisions: 10,
-                                onChanged: (value) => actualizarDialogo(() {
-                                  editados[index] = value;
-                                  dimensionesEditadas.add(index);
-                                }),
+                          children: [
+                            Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: _coloresRueda[index],
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: 25,
-                            child: Text(
-                              faltantesIniciales.contains(index) &&
-                                      !dimensionesEditadas.contains(index)
-                                  ? '—'
-                                  : editados[index].toStringAsFixed(0),
-                              textAlign: TextAlign.end,
-                              style: TextStyle(color: _coloresRueda[index],
-                                fontWeight: FontWeight.w800)),
-                          ),
-                        ],
-                      );
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _etiquetasRueda[index],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (fundamento != null &&
+                                      fundamento.trim().isNotEmpty)
+                                    Text(
+                                      fundamento,
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  if (faltantesIniciales.contains(index) &&
+                                      !dimensionesEditadas.contains(index))
+                                    const Text(
+                                      'Sin información suficiente · puedes proponer un valor',
+                                      style: TextStyle(
+                                        color: Colors.amberAccent,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 6,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  activeTrackColor: _coloresRueda[index],
+                                  thumbColor: _coloresRueda[index],
+                                  inactiveTrackColor: _coloresRueda[index]
+                                      .withValues(alpha: 0.20),
+                                ),
+                                child: Slider(
+                                  value:
+                                      editados[index].clamp(0, 10).toDouble(),
+                                  min: 0,
+                                  max: 10,
+                                  divisions: 10,
+                                  onChanged: (value) => actualizarDialogo(() {
+                                    editados[index] = value;
+                                    dimensionesEditadas.add(index);
+                                  }),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 25,
+                              child: Text(
+                                faltantesIniciales.contains(index) &&
+                                        !dimensionesEditadas.contains(index)
+                                    ? '—'
+                                    : editados[index].toStringAsFixed(0),
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color: _coloresRueda[index],
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
                       },
                     ),
                   ),
@@ -1083,15 +1367,22 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     Widget actividad(String titulo, String origen, IconData icono) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(children: [
-          Icon(icono, size: 18, color: scheme.primary),
-          const SizedBox(width: 9),
-          Expanded(child: Text(titulo, style: const TextStyle(fontSize: 13))),
-          Text(origen, style: TextStyle(
-            fontSize: 10, color: Colors.white.withValues(alpha: 0.58))),
-          const SizedBox(width: 5),
-          Icon(Icons.check_circle, size: 16, color: scheme.primary),
-        ]),
+        child: Row(
+          children: [
+            Icon(icono, size: 18, color: scheme.primary),
+            const SizedBox(width: 9),
+            Expanded(child: Text(titulo, style: const TextStyle(fontSize: 13))),
+            Text(
+              origen,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.white.withValues(alpha: 0.58),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Icon(Icons.check_circle, size: 16, color: scheme.primary),
+          ],
+        ),
       );
     }
 
@@ -1105,21 +1396,42 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.task_alt, color: scheme.primary),
-            const SizedBox(width: 8),
-            const Expanded(child: Text('Tareas cumplidas',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-            Text('$total', style: TextStyle(
-              color: scheme.primary, fontWeight: FontWeight.w700)),
-          ]),
+          Row(
+            children: [
+              Icon(Icons.task_alt, color: scheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Tareas cumplidas',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                '$total',
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
-          Text(_fechaLarga(_seleccionado),
-            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+          Text(
+            _fechaLarga(_seleccionado),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.65),
+            ),
+          ),
           const SizedBox(height: 10),
           if (total == 0)
-            Text('Aún no hay actividades cumplidas en este día.',
-              style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.68)))
+            Text(
+              'Aún no hay actividades cumplidas en este día.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.68),
+              ),
+            )
           else ...[
             for (final tarea in tareasMatriz)
               actividad(tarea.title, 'Matriz', Icons.checklist),
@@ -1136,7 +1448,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   Widget _puntoInteractivo(int index, ColorScheme scheme) {
     const center = 145.0;
     const radius = 118.0;
-    final angle = (index * 2 * 3.141592653589793 / _duracionCiclo) - 3.141592653589793 / 2;
+    final angle = (index * 2 * 3.141592653589793 / _duracionCiclo) -
+        3.141592653589793 / 2;
     final x = center + radius * math.cos(angle) - 13;
     final y = center + radius * math.sin(angle) - 13;
     final seleccionado = _clave(_dias[index]) == _clave(_seleccionado);
@@ -1153,7 +1466,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             color: _colorDia(_dias[index]),
             shape: BoxShape.circle,
             border: Border.all(
-              color: seleccionado ? Colors.orangeAccent : const Color(0xFF0B1020),
+              color:
+                  seleccionado ? Colors.orangeAccent : const Color(0xFF0B1020),
               width: seleccionado ? 2.5 : 1.5,
             ),
           ),
@@ -1171,457 +1485,4 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       ),
     );
   }
-
-
-  List<EvaluacionBloque> _evaluacionesDeFecha(DateTime fecha) {
-    final clave = _clave(fecha);
-    return (_herramientas?.evaluacionesBloques ?? [])
-        .where((e) => e.fecha == clave)
-        .toList();
-  }
-
-  Widget _resumenEvaluaciones(ColorScheme scheme) {
-    final evaluaciones = (_herramientas?.evaluacionesBloques ?? [])
-        .where((e) => _dias.any((d) => _clave(d) == e.fecha))
-        .toList();
-    final conSatisfaccion = evaluaciones.where((e) => e.satisfaccion > 0).toList();
-    final promedio = conSatisfaccion.isEmpty
-        ? null
-        : conSatisfaccion.map((e) => e.satisfaccion).reduce((a, b) => a + b) /
-            conSatisfaccion.length;
-    final porBloque = <String, int>{
-      'manana': evaluaciones.where((e) => e.bloque == 'manana').length,
-      'tarde': evaluaciones.where((e) => e.bloque == 'tarde').length,
-      'noche': evaluaciones.where((e) => e.bloque == 'noche').length,
-    };
-    final apagado = Colors.white.withValues(alpha: 0.68);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.primary.withValues(alpha: 0.45)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(Icons.insights_outlined, color: scheme.primary),
-            const SizedBox(width: 8),
-            const Expanded(child: Text('Evaluación de mi recorrido',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-          ]),
-          const SizedBox(height: 5),
-          Text('Evaluaciones de bloques registradas en este ciclo de 30 días.',
-            style: TextStyle(fontSize: 12, color: apagado)),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _datoIndicador('Bloques evaluados', '${evaluaciones.length} de 90'),
-              _datoIndicador('Satisfacción media',
-                promedio == null ? 'Sin datos' : '${promedio.toStringAsFixed(1)} / 5'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          for (final item in [
-            ('Mañana', porBloque['manana']!),
-            ('Tarde', porBloque['tarde']!),
-            ('Noche', porBloque['noche']!),
-          ])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: Row(children: [
-                Expanded(child: Text(item.$1, style: TextStyle(fontSize: 12, color: apagado))),
-                Text('${item.$2} evaluaciones', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          Text('Los bloques sin evaluación no se cuentan como incumplidos ni como satisfacción baja.',
-            style: TextStyle(fontSize: 11.5, height: 1.35, color: apagado)),
-        ],
-      ),
-    );
-  }
-
-  Widget _datoIndicador(String titulo, String valor) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(titulo, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.68))),
-        const SizedBox(height: 4),
-        Text(valor, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
-      ],
-    ),
-  );
-
-  Widget _detalleDia(ColorScheme scheme) {
-    final e = _entrada(_seleccionado);
-    final tareas = _tareas(_seleccionado);
-    final hechas = tareas.where((t) => t.done).length;
-    final color = _colorDia(_seleccionado);
-    final apagado = Colors.white.withValues(alpha: 0.68);
-
-    Widget dato(String titulo, String valor) => Padding(
-          padding: const EdgeInsets.only(bottom: 13),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(titulo, style: TextStyle(fontSize: 12, color: apagado)),
-              const SizedBox(height: 3),
-              Text(valor, style: const TextStyle(fontSize: 14)),
-            ],
-          ),
-        );
-
-    Widget encabezado(String titulo, String subtitulo, IconData icono) => Row(
-          children: [
-            Icon(icono, color: scheme.primary, size: 19),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(titulo, style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700)),
-                  Text(subtitulo, style: TextStyle(fontSize: 12, color: apagado)),
-                ],
-              ),
-            ),
-          ],
-        );
-
-    BoxDecoration decoracion(Color borde) => BoxDecoration(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: borde.withValues(alpha: 0.55)),
-        );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(_fechaLarga(_seleccionado), style: TextStyle(
-          fontSize: 17, fontWeight: FontWeight.w700,
-          color: Colors.white.withValues(alpha: 0.92))),
-        const SizedBox(height: 14),
-
-        // Dimensión 1: cómo viviste el día. No es una nota de rendimiento.
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(17),
-          decoration: decoracion(color),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              encabezado('Mi ritmo', 'Cómo viviste este día', Icons.graphic_eq),
-              const SizedBox(height: 17),
-              dato('Semáforo personal',
-                e == null || e.semaforo.isEmpty
-                    ? 'Sin registro'
-                    : nombreDeSemaforo(e.semaforo)),
-              dato('Energía percibida', _energia(e?.energia ?? 0)),
-              dato('Estado emocional', _estado(e?.estado ?? 0)),
-              Text(
-                'Este registro describe tu experiencia, no determina cuánto vales ni cuánto lograste.',
-                style: TextStyle(fontSize: 12, height: 1.4, color: apagado),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Evaluación cualitativa de los bloques del día seleccionado.
-        if (_evaluacionesDeFecha(_seleccionado).isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(17),
-            decoration: decoracion(scheme.tertiary),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                encabezado('Evaluación de la agenda', 'Lo que reconociste en cada momento del día',
-                  Icons.rate_review_outlined),
-                const SizedBox(height: 14),
-                for (final ev in _evaluacionesDeFecha(_seleccionado)) ...[
-                  Text(
-                    ev.bloque == 'manana' ? 'Mañana' : (ev.bloque == 'tarde' ? 'Tarde' : 'Noche'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  if (ev.porQueDiaSalioAsi.trim().isNotEmpty)
-                    dato('¿Por qué salió así?', ev.porQueDiaSalioAsi),
-                  if (ev.comoSalieronActividades.trim().isNotEmpty)
-                    dato('¿Cómo salieron las actividades?', ev.comoSalieronActividades),
-                  if (ev.satisfaccion > 0)
-                    dato('Satisfacción', '${ev.satisfaccion} de 5${ev.porQueSatisfaccion.trim().isEmpty ? '' : ' · ${ev.porQueSatisfaccion}'}'),
-                  const Divider(height: 14),
-                ],
-              ],
-            ),
-          ),
-        ],
-        
-        // Dimensión 2: aquello a lo que decidiste dar importancia.
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(17),
-          decoration: decoracion(scheme.primary),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              encabezado('Mis intenciones',
-                'Lo que elegiste atender o poner en movimiento',
-                Icons.explore_outlined),
-              const SizedBox(height: 17),
-              dato('Prioridad que elegiste',
-                (e?.prioridad ?? '').trim().isEmpty
-                    ? 'No registraste una prioridad'
-                    : e!.prioridad),
-              if (tareas.isNotEmpty) ...[
-                const Divider(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Acciones registradas',
-                      style: TextStyle(fontSize: 12, color: apagado)),
-                    Text('$hechas de ${tareas.length}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                for (final t in tareas)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(children: [
-                      Icon(t.done ? Icons.check_circle : Icons.circle_outlined,
-                        size: 17, color: t.done ? kColorBien : apagado),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(t.title, style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        decoration: t.done ? TextDecoration.lineThrough : null,
-                      ))),
-                    ]),
-                  ),
-              ] else
-                Text(
-                  'No hay acciones asociadas a este día. Tu intención sigue teniendo valor aunque no se haya convertido en una tarea.',
-                  style: TextStyle(fontSize: 12, height: 1.4, color: apagado),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _notaMetodo(ColorScheme scheme) => Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: scheme.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          'Mi pulso no califica tu valor ni exige días perfectos. Reúne lo que has registrado durante este ciclo para ayudarte a reconocer tu recorrido. Un día sin registro sigue siendo simplemente un día sin información.',
-          style: TextStyle(fontSize: 12.5, height: 1.45,
-              color: Colors.white.withValues(alpha: 0.82)),
-        ),
-      );
 }
-
-
-
-/// Radar numérico reutilizable para la Rueda de la Vida y el Diagnóstico.
-class _RadarDiagnosticoPainter extends CustomPainter {
-  final List<double> values;
-  final List<String> labels;
-  final Color color;
-  final Color textColor;
-  final List<Color>? axisColors;
-  final Set<int> missingIndices;
-
-  _RadarDiagnosticoPainter({
-    required this.values,
-    required this.labels,
-    required this.color,
-    required this.textColor,
-    this.axisColors,
-    this.missingIndices = const {},
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.285;
-    final count = values.length;
-    final gridPaint = Paint()
-      ..color = const Color(0xFF9FB8E8).withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    for (var level = 1; level <= 10; level++) {
-      final r = radius * level / 10;
-      final points = List.generate(count, (i) {
-        final angle = -math.pi / 2 + 2 * math.pi * i / count;
-        return center + Offset(math.cos(angle) * r, math.sin(angle) * r);
-      });
-      final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (final point in points.skip(1)) {
-        path.lineTo(point.dx, point.dy);
-      }
-      path.close();
-      canvas.drawPath(path, gridPaint);
-    }
-
-    final polygon = <Offset?>[];
-    for (var i = 0; i < count; i++) {
-      final angle = -math.pi / 2 + 2 * math.pi * i / count;
-      final end = center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
-      final axisColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
-      canvas.drawLine(center, end, Paint()
-        ..color = axisColor.withValues(alpha: 0.48)
-        ..strokeWidth = 1.1);
-      if (missingIndices.contains(i)) {
-        polygon.add(null);
-      } else {
-        final value = values[i].clamp(0, 10).toDouble();
-        polygon.add(center + Offset(
-          math.cos(angle) * radius * value / 10,
-          math.sin(angle) * radius * value / 10,
-        ));
-      }
-    }
-
-    // Solo une dimensiones con información: las ausencias no se dibujan como cero.
-    for (var i = 0; i < count; i++) {
-      final current = polygon[i];
-      final next = polygon[(i + 1) % count];
-      if (current == null || next == null) continue;
-      final sectorColor = axisColors != null && i < axisColors!.length
-          ? axisColors![i] : color;
-      final sector = Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(current.dx, current.dy)
-        ..lineTo(next.dx, next.dy)
-        ..close();
-      canvas.drawPath(sector, Paint()
-        ..color = sectorColor.withValues(alpha: 0.13)
-        ..style = PaintingStyle.fill);
-      canvas.drawLine(current, next, Paint()
-        ..color = sectorColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round);
-    }
-
-    for (var i = 0; i < count; i++) {
-      final point = polygon[i];
-      if (point == null) continue;
-      final pointColor = axisColors != null && i < axisColors!.length ? axisColors![i] : color;
-      canvas.drawCircle(point, 4.2, Paint()..color = pointColor);
-      canvas.drawCircle(
-        point,
-        5.3,
-        Paint()
-          ..color = pointColor.withValues(alpha: 0.25)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-    }
-
-    for (var i = 0; i < count; i++) {
-      final angle = -math.pi / 2 + 2 * math.pi * i / count;
-      final labelPoint = center + Offset(
-        math.cos(angle) * (radius + 17),
-        math.sin(angle) * (radius + 17),
-      );
-      final labelColor = missingIndices.contains(i)
-          ? textColor.withValues(alpha: 0.45)
-          : (axisColors != null && i < axisColors!.length ? axisColors![i] : textColor);
-      final text = TextPainter(
-        text: TextSpan(
-          text: labels[i],
-          style: TextStyle(
-            color: labelColor,
-            fontSize: 9.5,
-            fontWeight: FontWeight.w600,
-            shadows: const [Shadow(color: Color(0xFFB66BFF), blurRadius: 5)],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-      )..layout(maxWidth: 70);
-      final offset = Offset(
-        (labelPoint.dx - text.width / 2).clamp(0.0, size.width - text.width),
-        (labelPoint.dy - text.height / 2).clamp(0.0, size.height - text.height),
-      );
-      text.paint(canvas, offset);
-    }
-
-    // Escala discreta 2–10 en el eje vertical, como referencia numérica.
-    for (var level = 2; level <= 10; level += 2) {
-      final y = center.dy - radius * level / 10;
-      final text = TextPainter(
-        text: TextSpan(
-          text: '$level',
-          style: TextStyle(
-            color: textColor.withValues(alpha: 0.58),
-            fontSize: 8,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      text.paint(canvas, Offset(center.dx + 4, y - text.height / 2));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadarDiagnosticoPainter oldDelegate) =>
-      oldDelegate.values != values ||
-      oldDelegate.labels != labels ||
-      oldDelegate.color != color ||
-      oldDelegate.textColor != textColor ||
-      oldDelegate.axisColors != axisColors ||
-      oldDelegate.missingIndices != missingIndices;
-}
-
-/// Dibuja un segmento por cada día del ciclo; el selector táctil se superpone encima.
-class _PulsoPainter extends CustomPainter {
-  final List<Color> colores;
-  final int seleccionado;
-  final Color base;
-
-  _PulsoPainter({
-    required this.colores,
-    required this.seleccionado,
-    required this.base,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centro = Offset(size.width / 2, size.height / 2);
-    const radio = 112.0;
-    const grosor = 13.0;
-    const separacion = 0.035;
-    final rect = Rect.fromCircle(center: centro, radius: radio);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = grosor
-      ..strokeCap = StrokeCap.round;
-
-    final cantidad = colores.isEmpty ? 30 : colores.length;
-    for (var i = 0; i < cantidad; i++) {
-      final barrido = 2 * 3.141592653589793 / cantidad;
-      final inicio = -3.141592653589793 / 2 + i * barrido + separacion;
-      paint.color = i < colores.length ? colores[i] : base;
-      canvas.drawArc(rect, inicio, barrido - separacion * 2, false, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PulsoPainter oldDelegate) =>
-      oldDelegate.colores != colores || oldDelegate.seleccionado != seleccionado;
-}
-
