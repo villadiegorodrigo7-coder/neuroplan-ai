@@ -62,7 +62,13 @@ jobs:
           (carpeta / arranque).write_text(
               bootstrap.replace('"main.dart.js"', f'"{app}"')
           )
-          index.write_text(html.replace('"flutter_bootstrap.js"', f'"{arranque}"'))
+          # El favicon recibe un nombre por commit: evita que Chrome conserve
+          # el icono antiguo de Flutter incluso despues de Ctrl+F5.
+          favicon = f"neuroplan.{version}.png"
+          shutil.copyfile(Path("assets/images/logo.png"), carpeta / favicon)
+          html = html.replace('"flutter_bootstrap.js"', f'"{arranque}"')
+          html = html.replace('href="favicon.png"', f'href="{favicon}"')
+          index.write_text(html)
 
           # Sustituye el worker antiguo para que deje de interceptar recargas.
           (carpeta / "flutter_service_worker.js").write_text("""\
