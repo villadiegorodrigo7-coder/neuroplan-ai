@@ -100,7 +100,7 @@ class ConciertoFinalScreen extends StatelessWidget {
             textAlign: TextAlign.center, style: TextStyle(
               fontSize: 20, fontWeight: FontWeight.w800))),
           const SizedBox(height: 7),
-          Center(child: Text('$'+'{snapshot.ciclo.fechaInicio} — $'+'{EntradaDiario.claveFecha(snapshot.ciclo.fechaFin!)}',
+          Center(child: Text('${snapshot.ciclo.fechaInicio} — ${EntradaDiario.claveFecha(snapshot.ciclo.fechaFin!)}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB)))),
           const SizedBox(height: 16),
           panel('Los colores de tu ciclo', Icons.donut_large_rounded, violeta,
@@ -121,7 +121,7 @@ class ConciertoFinalScreen extends StatelessWidget {
               leyenda('Desafío', desafio, kColorDesafio),
               leyenda('Sin registro', colores.length-bien-atencion-desafio, gris),
               const SizedBox(height: 8),
-              Text('$'+'{snapshot.diasConDiario} días con información en Mi Pulso',
+              Text('${snapshot.diasConDiario} días con información en Mi Pulso',
                 style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
               const Text('Gris: sin valoración del semáforo, no incumplimiento.',
                 textAlign: TextAlign.center,
@@ -130,12 +130,12 @@ class ConciertoFinalScreen extends StatelessWidget {
           panel('Energía y estado emocional', Icons.favorite_border, celeste,
             Row(children: [
               numero('Energía media', energia == null ? '—' :
-                '$'+'{energia.toStringAsFixed(1)} / 5', celeste,
-                '$'+'{snapshot.diasConEnergia} días registrados'),
+                '${energia.toStringAsFixed(1)} / 5', celeste,
+                '${snapshot.diasConEnergia} días registrados'),
               const SizedBox(width: 9),
               numero('Estado medio', emocion == null ? '—' :
-                '$'+'{emocion.toStringAsFixed(1)} / 5', violeta,
-                '$'+'{snapshot.diasConEstado} días registrados'),
+                '${emocion.toStringAsFixed(1)} / 5', violeta,
+                '${snapshot.diasConEstado} días registrados'),
             ])),
           panel('Tareas', Icons.check_circle_outline,
             const Color(0xFF56DFAE), Row(children: [
@@ -155,18 +155,18 @@ class ConciertoFinalScreen extends StatelessWidget {
                   'Sin valoración'),
               ]),
               const SizedBox(height: 8),
-              Text('Marcados no cumplidos: $'+'{snapshot.compromisosMarcadosNoCumplidos}',
+              Text('Marcados no cumplidos: ${snapshot.compromisosMarcadosNoCumplidos}',
                 style: const TextStyle(fontSize: 12)),
             ])),
           panel('Hábitos', Icons.spa_outlined, violeta,
             Column(children: [
               Row(children: [
                 numero('Por incorporar',
-                  '$'+'{incorporar.where((h) => h.realizado).length} / $'+'{incorporar.length}',
+                  '${incorporar.where((h) => h.realizado).length} / ${incorporar.length}',
                   const Color(0xFF56DFAE), 'Marcas afirmativas'),
                 const SizedBox(width: 9),
                 numero('Por alejar',
-                  '$'+'{alejar.where((h) => h.realizado).length} / $'+'{alejar.length}',
+                  '${alejar.where((h) => h.realizado).length} / ${alejar.length}',
                   violeta, 'Marcas afirmativas'),
               ]),
               const SizedBox(height: 8),
