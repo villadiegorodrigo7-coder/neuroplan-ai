@@ -33,6 +33,9 @@ jobs:
       - name: Generate native splash
         run: flutter pub run flutter_native_splash:create
 
+      - name: Generate NEUROPLAN Android launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Build APK
         run: flutter build apk --release
 
