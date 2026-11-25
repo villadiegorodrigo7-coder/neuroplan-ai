@@ -17,6 +17,7 @@ import '../widgets/panel_cuenta.dart';
 import '../widgets/pulso_painter.dart';
 import '../widgets/radar_diagnostico_painter.dart';
 import 'chat_screen.dart';
+import 'concierto_final_screen.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
 /// (Mi ritmo) y las intenciones elegidas (Mis intenciones).
@@ -512,7 +513,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatScreen(conciertoFinalSnapshot: snapshot),
+          builder: (_) => ConciertoFinalScreen(snapshot: snapshot),
         ),
       );
     } catch (error, stackTrace) {
