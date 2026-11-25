@@ -61,6 +61,7 @@ class AgendaScreen extends StatefulWidget {
 
 class _AgendaScreenState extends State<AgendaScreen> {
   bool _loading = true, _mensual = false;
+  final _bloquesAbiertos = <String>{};
   DateTime _seleccion = _fecha(DateTime.now());
   DateTime _mes = DateTime(DateTime.now().year, DateTime.now().month);
   final _tasks = TasksService.instance;
@@ -226,9 +227,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   Widget _calendario(ColorScheme s) {
     final dias = _diasCalendario();
-    final titulo = _mensual
-        ? '${_meses[_mes.month - 1][0].toUpperCase()}${_meses[_mes.month - 1].substring(1)} ${_mes.year}'
-        : '${DateFormat('d MMM').format(dias.first)} – ${DateFormat('d MMM yyyy').format(dias.last)}';
+    final mes = _meses[_mes.month - 1];
+    final titulo = '${mes[0].toUpperCase()}${mes.substring(1)} ${_mes.year}';
+    final rango = '${_fechaBreve(dias.first)} – ${_fechaBreve(dias.last)}';
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -259,37 +260,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
               ),
-              IconButton(
-                onPressed: () => _moverPeriodo(-1),
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-              IconButton(
-                onPressed: () => _moverPeriodo(1),
-                icon: const Icon(Icons.chevron_right),
-              ),
+              _flechaPeriodo(-1),
+              Flexible(child: Text(titulo, textAlign: TextAlign.end)),
+              _flechaPeriodo(1),
             ],
           ),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(
-                value: false,
-                label: Text('Semana'),
-                icon: Icon(Icons.view_week_outlined),
-              ),
-              ButtonSegment(
-                value: true,
-                label: Text('Mes'),
-                icon: Icon(Icons.calendar_month_outlined),
-              ),
-            ],
-            selected: {_mensual},
-            onSelectionChanged: (v) => setState(() {
-              _mensual = v.first;
-              _mes = DateTime(_seleccion.year, _seleccion.month);
-            }),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           Row(
             children: [
               for (final d in _dias)
@@ -315,7 +291,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
               crossAxisCount: 7,
               mainAxisSpacing: 4,
               crossAxisSpacing: 3,
-              childAspectRatio: .9,
+              mainAxisExtent: 38,
             ),
             itemBuilder: (ctx, i) {
               final d = dias[i],
@@ -340,9 +316,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                         : null,
                     color: sel
                         ? null
-                        : (actual
-                              ? Colors.white.withValues(alpha: 0.055)
-                              : null),
+                        : Colors.white.withValues(alpha: actual ? 0.08 : 0.035),
                     borderRadius: BorderRadius.circular(11),
                     border: actual && !sel
                         ? Border.all(
@@ -385,27 +359,38 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
           Row(
             children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: s.tertiary,
-                  shape: BoxShape.circle,
+              Expanded(
+                child: Text(
+                  _mensual ? titulo : rango,
+                  style: TextStyle(fontSize: 11, color: s.onSurfaceVariant),
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                'Fecha con compromisos',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: s.onSurface.withValues(alpha: .65),
-                ),
-              ),
-              const Spacer(),
               TextButton(
-                onPressed: () =>
-                    setState(() => _seleccion = _fecha(DateTime.now())),
+                onPressed: () => setState(() {
+                  final hoy = DateTime.now();
+                  _seleccion = _fecha(hoy);
+                  _mes = DateTime(hoy.year, hoy.month);
+                }),
                 child: const Text('Hoy'),
+              ),
+              PopupMenuButton<bool>(
+                tooltip: 'Cambiar vista del calendario',
+                initialValue: _mensual,
+                onSelected: (mensual) => setState(() {
+                  _mensual = mensual;
+                  _mes = DateTime(_seleccion.year, _seleccion.month);
+                }),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: false, child: Text('Semana')),
+                  PopupMenuItem(value: true, child: Text('Mes')),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    _mensual ? 'Vista mensual' : 'Vista semanal',
+                    style: TextStyle(color: s.primary, fontSize: 12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -413,6 +398,17 @@ class _AgendaScreenState extends State<AgendaScreen> {
       ),
     );
   }
+
+  String _fechaBreve(DateTime fecha) =>
+      '${fecha.day} ${_meses[fecha.month - 1].substring(0, 3)}';
+
+  Widget _flechaPeriodo(int delta) => IconButton(
+    tooltip: delta < 0 ? 'Período anterior' : 'Período siguiente',
+    visualDensity: VisualDensity.compact,
+    iconSize: 18,
+    onPressed: () => _moverPeriodo(delta),
+    icon: Icon(delta < 0 ? Icons.chevron_left : Icons.chevron_right),
+  );
 
   String _bloqueHora(DateTime d) => d.hour < 12
       ? 'manana'
@@ -480,220 +476,233 @@ class _AgendaScreenState extends State<AgendaScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(2, 20, 2, 12),
-          child: Text(
-            '${_diasFull[_seleccion.weekday - 1]} ${DateFormat('d MMMM yyyy').format(_seleccion)}',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Tu día',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Flexible(
+                flex: 2,
+                child: Text(
+                  '${_diasFull[_seleccion.weekday - 1]}, ${_seleccion.day} de ${_meses[_seleccion.month - 1]}',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: 12, color: s.onSurfaceVariant),
+                ),
+              ),
+            ],
           ),
         ),
         for (final b in _bloques)
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color.lerp(
-                    const Color(0xFF171D39),
-                    _tonoBloque(b.clave),
-                    0.17,
-                  )!,
-                  const Color(0xFF151B36),
-                ],
+          _tarjetaJornada(
+            b,
+            eventos.where((e) => _bloqueHora(e.date) == b.clave).toList(),
+            tareas.where((t) => t.bloque == b.clave).toList(),
+            s,
+          ),
+      ],
+    );
+  }
+
+  Widget _tarjetaJornada(
+    _Bloque b,
+    List<AgendaEvent> eventos,
+    List<Task> tareas,
+    ColorScheme s,
+  ) {
+    final total = eventos.length + tareas.length;
+    final realizados =
+        eventos.where((e) => e.realizadaEn(_seleccion)).length +
+        tareas.where((t) => t.done).length;
+    final abierto = _bloquesAbiertos.contains(b.clave);
+    final tono = _tonoBloque(b.clave);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(const Color(0xFF171D39), tono, 0.17)!,
+            const Color(0xFF151B36),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: tono.withValues(alpha: 0.40)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            onTap: () => setState(() {
+              if (abierto) {
+                _bloquesAbiertos.remove(b.clave);
+              } else {
+                _bloquesAbiertos.add(b.clave);
+              }
+            }),
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: tono.withValues(alpha: .18),
+                borderRadius: BorderRadius.circular(9),
               ),
-              borderRadius: BorderRadius.circular(19),
-              border: Border.all(
-                color: _tonoBloque(b.clave).withValues(alpha: 0.40),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+              child: Icon(b.icono, color: tono, size: 18),
+            ),
+            title: Text(
+              b.titulo,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(b.rango),
+                Text(
+                  total == 0
+                      ? 'Espacio disponible'
+                      : '$realizados de $total actividades realizadas',
+                  style: TextStyle(color: tono, fontSize: 11),
                 ),
               ],
             ),
-            child: Column(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: _tonoBloque(b.clave).withValues(alpha: 0.24),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _tonoBloque(b.clave).withValues(alpha: 0.18),
-                            blurRadius: 14,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        b.icono,
-                        color: _tonoBloque(b.clave),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            b.titulo,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            b.rango,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: s.onSurface.withValues(alpha: .65),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Agregar tarea de la matriz',
-                      onPressed: () => _agregarTarea(b.clave),
-                      icon: Icon(
-                        Icons.add_circle_outline,
-                        color: _tonoBloque(b.clave),
-                      ),
-                    ),
-                  ],
+                Text(
+                  total == 0 ? '0' : '$realizados/$total',
+                  style: TextStyle(color: tono),
                 ),
-                const SizedBox(height: 8),
-                for (final e in eventos.where(
-                  (e) => _bloqueHora(e.date) == b.clave,
-                ))
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => AgendaStore.instance.alternarCumplimiento(
-                          e.id,
-                          _seleccion,
-                        ),
-                        child: Icon(
-                          e.realizadaEn(_seleccion)
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color: e.realizadaEn(_seleccion)
-                              ? s.primary
-                              : s.onSurface.withValues(alpha: .58),
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      SizedBox(
-                        width: 91,
-                        child: Text(
-                          '${DateFormat('HH:mm').format(e.date)}–${DateFormat('HH:mm').format(e.endDate)}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: s.onSurface.withValues(alpha: .65),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          e.title,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            decoration: e.realizadaEn(_seleccion)
-                                ? TextDecoration.lineThrough
-                                : null,
-                            color: e.realizadaEn(_seleccion)
-                                ? s.onSurface.withValues(alpha: .58)
-                                : null,
-                          ),
-                        ),
-                      ),
-                      if (e.aviso)
-                        Icon(
-                          Icons.notifications_active,
-                          size: 14,
-                          color: s.primary,
-                        ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () =>
-                            _eliminar(AgendaStore.instance.porId(e.id)!),
-                        icon: const Icon(Icons.delete_outline, size: 17),
-                      ),
-                    ],
-                  ),
-                for (final t in tareas.where((t) => t.bloque == b.clave))
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _colorTarea(t),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => _tasks.alternar(t),
-                        child: Icon(
-                          t.done ? Icons.check_circle : Icons.circle_outlined,
-                          color: t.done
-                              ? s.primary
-                              : s.onSurface.withValues(alpha: .6),
-                          size: 19,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          t.title,
-                          style: TextStyle(
-                            fontSize: 13,
-                            decoration: t.done
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        tooltip: 'Quitar de este día',
-                        onPressed: () => _tasks.quitarDeHoy(t),
-                        icon: const Icon(Icons.close, size: 17),
-                      ),
-                    ],
-                  ),
-                if (eventos
-                        .where((e) => _bloqueHora(e.date) == b.clave)
-                        .isEmpty &&
-                    tareas.where((t) => t.bloque == b.clave).isEmpty)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Espacio disponible para organizar tu día.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: s.onSurface.withValues(alpha: .6),
-                        ),
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 6),
+                Icon(
+                  abierto ? Icons.expand_less : Icons.expand_more,
+                  color: tono,
+                ),
               ],
             ),
           ),
-      ],
+          if (abierto) ...[
+            for (final e in eventos)
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => AgendaStore.instance.alternarCumplimiento(
+                      e.id,
+                      _seleccion,
+                    ),
+                    child: Icon(
+                      e.realizadaEn(_seleccion)
+                          ? Icons.check_circle
+                          : Icons.circle_outlined,
+                      color: e.realizadaEn(_seleccion)
+                          ? s.primary
+                          : s.onSurface.withValues(alpha: .58),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  SizedBox(
+                    width: 91,
+                    child: Text(
+                      '${DateFormat('HH:mm').format(e.date)}–${DateFormat('HH:mm').format(e.endDate)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: s.onSurface.withValues(alpha: .65),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      e.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        decoration: e.realizadaEn(_seleccion)
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: e.realizadaEn(_seleccion)
+                            ? s.onSurface.withValues(alpha: .58)
+                            : null,
+                      ),
+                    ),
+                  ),
+                  if (e.aviso)
+                    Icon(
+                      Icons.notifications_active,
+                      size: 14,
+                      color: s.primary,
+                    ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () =>
+                        _eliminar(AgendaStore.instance.porId(e.id)!),
+                    icon: const Icon(Icons.delete_outline, size: 17),
+                  ),
+                ],
+              ),
+            for (final t in tareas)
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _colorTarea(t),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _tasks.alternar(t),
+                    child: Icon(
+                      t.done ? Icons.check_circle : Icons.circle_outlined,
+                      color: t.done
+                          ? s.primary
+                          : s.onSurface.withValues(alpha: .6),
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        decoration: t.done ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Quitar de este día',
+                    onPressed: () => _tasks.quitarDeHoy(t),
+                    icon: const Icon(Icons.close, size: 17),
+                  ),
+                ],
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _agregarTarea(b.clave),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Agregar tarea de la matriz'),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -719,50 +728,64 @@ class _AgendaScreenState extends State<AgendaScreen> {
           color: const Color(0xFF55DDF2).withValues(alpha: 0.38),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: const Color(0xFF55DDF2).withValues(alpha: 0.24),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.waves_rounded,
-              color: Color(0xFF72E4F2),
-              size: 23,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tu ritmo de hoy',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF55DDF2).withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  total == 0
-                      ? 'Un espacio abierto para organizar tu tiempo'
-                      : '$realizados de $total compromisos y tareas realizados',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: s.onSurface.withValues(alpha: 0.70),
-                  ),
+                child: const Icon(
+                  Icons.waves_rounded,
+                  color: Color(0xFF72E4F2),
+                  size: 23,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tu ritmo de hoy',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      total == 0
+                          ? 'Un espacio abierto para organizar tu tiempo'
+                          : '$realizados de $total compromisos y tareas realizados',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: s.onSurface.withValues(alpha: 0.70),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${total == 0 ? 0 : (realizados * 100 / total).round()}%',
+                style: const TextStyle(
+                  color: Color(0xFF72E4F2),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          Text(
-            '${total == 0 ? 0 : (realizados * 100 / total).round()}%',
-            style: const TextStyle(
-              color: Color(0xFF72E4F2),
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-            ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: total == 0 ? 0 : realizados / total,
+            minHeight: 4,
+            color: const Color(0xFF72E4F2),
+            borderRadius: BorderRadius.circular(4),
           ),
         ],
       ),
@@ -774,28 +797,24 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final s = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Agenda')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addEvent,
-        backgroundColor: s.primary,
-        child: const Icon(Icons.add),
-      ),
+
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 90),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 18),
               children: [
                 const Center(
                   child: Icon(
                     Icons.calendar_month_rounded,
                     color: Color(0xFFC18AFF),
-                    size: 35,
+                    size: 26,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Center(
                   child: Text(
                     'Tu tiempo, a tu ritmo',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -809,6 +828,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 _resumenDia(s),
                 _calendario(s),
                 _jornada(s),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _addEvent,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Organizar mi día'),
+                  ),
+                ),
               ],
             ),
     );

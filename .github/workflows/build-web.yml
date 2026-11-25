@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - feature/agenda-calendario-organizacion-dia
 
 permissions:
   contents: read
@@ -37,7 +36,41 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Compilar aplicación web
-        run: flutter build web --release --base-href "/neuroplan-ai/"
+        run: flutter build web --release --base-href "/neuroplan-ai/" --pwa-strategy=none
+
+      - name: Versionar los archivos de arranque
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import shutil
+          from pathlib import Path
+
+          carpeta = Path("build/web")
+          version = os.environ["GITHUB_SHA"][:12]
+          app = f"main.{version}.dart.js"
+          arranque = f"flutter_bootstrap.{version}.js"
+          bootstrap = (carpeta / "flutter_bootstrap.js").read_text()
+          index = carpeta / "index.html"
+          html = index.read_text()
+          if '"main.dart.js"' not in bootstrap or '"flutter_bootstrap.js"' not in html:
+              raise SystemExit("Cambió el formato del arranque web de Flutter.")
+
+          shutil.copyfile(carpeta / "main.dart.js", carpeta / app)
+          (carpeta / arranque).write_text(
+              bootstrap.replace('"main.dart.js"', f'"{app}"')
+          )
+          index.write_text(html.replace('"flutter_bootstrap.js"', f'"{arranque}"'))
+
+          # Sustituye el worker antiguo para que deje de interceptar recargas.
+          (carpeta / "flutter_service_worker.js").write_text("""\
+          self.addEventListener('install', event => {
+            event.waitUntil(self.skipWaiting());
+          });
+          self.addEventListener('activate', event => {
+            event.waitUntil(self.registration.unregister());
+          });
+          """)
+          PYTHON
 
       - name: Subir aplicación web
         uses: actions/upload-pages-artifact@v4
@@ -45,6 +78,7 @@ jobs:
           path: build/web
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build-web
     runs-on: ubuntu-latest
     concurrency:

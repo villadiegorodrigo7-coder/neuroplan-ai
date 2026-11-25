@@ -125,13 +125,17 @@ class _NuevoCompromisoDialogState extends State<NuevoCompromisoDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: _duracion,
                       decoration: const InputDecoration(labelText: 'Duración'),
                       items: [
                         for (final minutos in _duraciones)
                           DropdownMenuItem(
                             value: minutos,
-                            child: Text(_etiquetaDuracion(minutos)),
+                            child: Text(
+                              _etiquetaDuracion(minutos),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                       ],
                       onChanged: (valor) =>
@@ -141,13 +145,17 @@ class _NuevoCompromisoDialogState extends State<NuevoCompromisoDialog> {
                 ],
               ),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _frecuencia,
                 decoration: const InputDecoration(labelText: 'Se repite'),
                 items: [
                   for (final frecuencia in _frecuencias.entries)
                     DropdownMenuItem(
                       value: frecuencia.key,
-                      child: Text(frecuencia.value),
+                      child: Text(
+                        frecuencia.value,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: (valor) =>
