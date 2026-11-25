@@ -836,6 +836,35 @@ class _AgendaScreenState extends State<AgendaScreen> {
                     label: const Text('Organizar mi día'),
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.music_note_rounded,
+                          color: Color(0xFFBDA8DE),
+                          size: 15,
+                        ),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Cada momento tiene su propio compás.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFFBDA8DE),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
     );
