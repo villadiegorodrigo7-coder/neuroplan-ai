@@ -65,6 +65,9 @@ jobs:
       - name: Habilitar plataforma Web
         run: flutter create . --platforms=web --project-name neuroplan_ai
 
+      - name: Generate NEUROPLAN Web icons
+        run: dart run flutter_launcher_icons
+
       - name: Build Web
         run: flutter build web --release
 
