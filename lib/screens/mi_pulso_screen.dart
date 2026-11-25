@@ -13,6 +13,7 @@ import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
 import '../services/tasks_service.dart';
+import '../widgets/panel_cuenta.dart';
 import '../widgets/pulso_painter.dart';
 import '../widgets/radar_diagnostico_painter.dart';
 import 'chat_screen.dart';
@@ -266,7 +267,16 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi pulso')),
+      appBar: AppBar(
+        title: const Text('Mi pulso'),
+        actions: [
+          IconButton(
+            tooltip: 'Cuenta',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => mostrarPanelCuenta(context),
+          ),
+        ],
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(

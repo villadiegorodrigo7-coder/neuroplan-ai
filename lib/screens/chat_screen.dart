@@ -12,7 +12,6 @@ import '../services/concierto_final_service.dart';
 import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
-import '../services/reflexion_service.dart';
 import '../services/tasks_service.dart';
 import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
@@ -57,25 +56,8 @@ class _ChatScreenState extends State<ChatScreen>
   int _sesionDictado = 0;
   static const String _prefVoz = 'chat_voz_activada';
 
-  /// Si no es null, esta conversación es la "reflexión del día" de esa fecha
-  /// (por ejemplo "2026-10-24") y se muestra el botón para guardarla en el diario.
-  String? _reflexionFecha;
   int? _revisionSemanalSemana;
 
-  static const List<String> _mesesNombre = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
-  ];
   bool _loadingHistory = true;
   bool _cerrandoConcierto = false;
   bool _proponerInicioCiclo = false;
@@ -91,125 +73,6 @@ class _ChatScreenState extends State<ChatScreen>
     )..repeat();
     _loadHistory();
     _loadVoicePreference();
-    ReflexionService.instance.senal.addListener(_alSolicitarReflexion);
-  }
-
-  // ------------------------------------------------------------------
-  // Reflexión del día con Ágora
-  // ------------------------------------------------------------------
-
-  String _nombreFecha(String fecha) {
-    final d = DateTime.tryParse(fecha);
-    if (d == null) return fecha;
-    return '${d.day} de ${_mesesNombre[d.month - 1]}';
-  }
-
-  /// Mi diario pidió una reflexión: se abre una conversación nueva.
-  void _alSolicitarReflexion() {
-    final fecha = ReflexionService.instance.consumir();
-    if (fecha != null) _iniciarReflexion(fecha);
-  }
-
-  /// Primer mensaje de Ágora: lo arma la app (no gasta mensajes de la IA).
-  String _aperturaReflexion(EntradaDiario? e) {
-    final partes = <String>['Vamos a mirar tu día con calma.'];
-    if (e != null && e.semaforo.isNotEmpty) {
-      partes.add('Marcaste ${nombreDeSemaforo(e.semaforo).toLowerCase()}.');
-    }
-    if (e != null && e.prioridad.isNotEmpty) {
-      partes.add('Tu prioridad era: ${e.prioridad}.');
-    }
-    partes.add('Cuéntame, hablando o escribiendo: ¿cómo te sentiste hoy?');
-    return partes.join(' ');
-  }
-
-  Future<void> _iniciarReflexion(String fecha) async {
-    try {
-      await DiarioStore.instance.cargar();
-    } catch (_) {}
-    final entrada = DiarioStore.instance.de(fecha);
-    final conv = await ChatHistoryService.createConversation();
-    conv.title = 'Reflexión del ${_nombreFecha(fecha)}';
-    conv.messages.add(
-      ChatMessageData(role: 'system', content: 'REFLEXION_DIARIA_FECHA:$fecha'),
-    );
-    conv.messages.add(
-      ChatMessageData(role: 'model', content: _aperturaReflexion(entrada)),
-    );
-    if (!mounted) return;
-    setState(() {
-      _conversations.insert(0, conv);
-      _current = conv;
-      _reflexionFecha = fecha;
-    });
-    await _persist();
-    _scrollToBottom();
-  }
-
-  /// Guarda en Mi diario lo que la persona dijo en esta conversación, con sus
-  /// propias palabras. Se agrega a la reflexión que ya hubiera ese día.
-  Future<void> _guardarReflexion() async {
-    final fecha = _reflexionFecha;
-    final conv = _current;
-    if (fecha == null || conv == null) return;
-
-    final texto = conv.messages
-        .where((m) => m.role == 'user')
-        .map((m) => m.content.trim())
-        .where((t) => t.isNotEmpty)
-        .join('\n\n');
-    if (texto.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Todavía no has dicho nada para guardar.'),
-        ),
-      );
-      return;
-    }
-
-    final store = DiarioStore.instance;
-    try {
-      await store.cargar();
-    } catch (_) {}
-    final entrada = store.obtenerOCrear(fecha);
-    entrada.reflexion =
-        entrada.reflexion.isEmpty ? texto : '${entrada.reflexion}\n\n$texto';
-    store.cambio(entrada);
-    await store.guardarYa();
-
-    if (!mounted) return;
-    setState(() => _reflexionFecha = null);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Guardado en tu diario.')));
-  }
-
-  Widget _bannerReflexion(ColorScheme scheme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
-      color: scheme.primary.withValues(alpha: 0.14),
-      child: Row(
-        children: [
-          Icon(Icons.menu_book_rounded, size: 18, color: scheme.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Reflexión del día · ${_nombreFecha(_reflexionFecha ?? '')}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-          TextButton(
-            onPressed: _guardarReflexion,
-            child: const Text('Guardar en mi diario'),
-          ),
-          IconButton(
-            tooltip: 'Terminar sin guardar',
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: () => setState(() => _reflexionFecha = null),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _loadVoicePreference() async {
@@ -419,8 +282,7 @@ class _ChatScreenState extends State<ChatScreen>
       conv.messages.add(
         ChatMessageData(
           role: 'model',
-          content:
-              'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
+          content: 'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
         ),
       );
       _conversations.insert(0, conv);
@@ -430,7 +292,6 @@ class _ChatScreenState extends State<ChatScreen>
     setState(() {
       _current = conv;
       _loadingHistory = false;
-      _reflexionFecha = null;
       _revisionSemanalSemana = null;
       _proponerInicioCiclo = false;
     });
@@ -467,14 +328,16 @@ class _ChatScreenState extends State<ChatScreen>
             },
           )
           .toList();
-      final respuestasUsuario =
-          historial.where((m) => m['role'] == 'user').length;
+      final respuestasUsuario = historial
+          .where((m) => m['role'] == 'user')
+          .length;
       if (respuestasUsuario == 0) return;
 
       // La conversación puede cubrir varias preguntas en una sola respuesta.
       // No imponemos un mínimo artificial de turnos: el clasificador evalúa
       // el contenido real y el cierre integrador, no el número de mensajes.
-      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+      final tieneMarcador =
+          diagnostico.diagnosticoCompleto ||
           diagnostico.messages.any(
             (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
           );
@@ -574,8 +437,8 @@ class _ChatScreenState extends State<ChatScreen>
 
   int? _semanaDeRevision(ChatConversation? conv) {
     if (conv == null) return null;
-    final match =
-        RegExp(r'^Revisión semanal · semana (\d+)$').firstMatch(conv.title);
+    final match = RegExp(r'^Revisión semanal · semana (\d+)$')
+        .firstMatch(conv.title);
     return match == null ? null : int.tryParse(match.group(1)!);
   }
 
@@ -609,7 +472,8 @@ class _ChatScreenState extends State<ChatScreen>
     conv.messages.add(
       ChatMessageData(
         role: 'model',
-        content: 'Ya ha pasado una semana desde que comenzaste NEUROPLAN. '
+        content:
+            'Ya ha pasado una semana desde que comenzaste NEUROPLAN. '
             'Quiero que miremos cómo transcurrieron estos días teniendo presente '
             'lo que me contaste al iniciar. No es una evaluación ni una lista de '
             'cumplimientos. Empecemos por algo sencillo: ¿qué ocupó más tu tiempo '
@@ -660,8 +524,7 @@ class _ChatScreenState extends State<ChatScreen>
 
       final aviso = ChatMessageData(
         role: 'model',
-        content:
-            'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
+        content: 'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
       );
       conv.messages.add(aviso);
       await _persist();
@@ -776,8 +639,8 @@ class _ChatScreenState extends State<ChatScreen>
                   cerrado
                       ? 'Ciclo cerrado · Disponible en tu historial'
                       : _cierreConciertoDisponible
-                          ? 'Puedes cerrar tu ciclo cuando quieras.'
-                          : 'Reflexión de cierre con Ágora',
+                      ? 'Puedes cerrar tu ciclo cuando quieras.'
+                      : 'Reflexión de cierre con Ágora',
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ],
@@ -936,13 +799,13 @@ class _ChatScreenState extends State<ChatScreen>
     // del día) se envía con un primer turno de la persona, porque el servicio
     // de IA exige que la conversación empiece por ella.
     if (history.isNotEmpty && history.first['role'] == 'model') {
-      final mensajeDeContexto = _reflexionFecha != null
+      final mensajeDeContexto = _esReflexionDiaria(conv)
           ? 'Quiero hacer mi reflexión del día.'
           : _revisionSemanalSemana != null
-              ? 'Quiero hacer mi revisión semanal de NEUROPLAN.'
-              : conv.title == 'Diagnóstico inicial'
-                  ? 'Estoy comenzando el diagnóstico inicial de NEUROPLAN y respondo al saludo de Ágora.'
-                  : 'Quiero continuar esta conversación con Ágora.';
+          ? 'Quiero hacer mi revisión semanal de NEUROPLAN.'
+          : conv.title == 'Diagnóstico inicial'
+          ? 'Estoy comenzando el diagnóstico inicial de NEUROPLAN y respondo al saludo de Ágora.'
+          : 'Quiero continuar esta conversación con Ágora.';
       history.insert(0, {'role': 'user', 'content': mensajeDeContexto});
     }
 
@@ -956,7 +819,8 @@ class _ChatScreenState extends State<ChatScreen>
       history: history,
       contextoUsuario: contexto,
     );
-    final diagnosticoCompleto = conv.title == 'Diagnóstico inicial' &&
+    final diagnosticoCompleto =
+        conv.title == 'Diagnóstico inicial' &&
         (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
             conv.diagnosticoCompleto);
     if (diagnosticoCompleto) {
@@ -1002,19 +866,13 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
-  /// Comparte con Ágora únicamente el diagnóstico conversacional confirmado.
-  String? get _fechaReflexionDeConversacionActual {
-    if (_reflexionFecha != null) return _reflexionFecha;
-    final conv = _current;
-    if (conv == null) return null;
-    for (final m in conv.messages) {
-      if (m.role == 'system' &&
-          m.content.startsWith('REFLEXION_DIARIA_FECHA:')) {
-        return m.content.substring('REFLEXION_DIARIA_FECHA:'.length).trim();
-      }
-    }
-    return null;
-  }
+  // Conserva el contexto de las reflexiones ya guardadas en el historial.
+  bool _esReflexionDiaria(ChatConversation conversacion) =>
+      conversacion.messages.any(
+        (mensaje) =>
+            mensaje.role == 'system' &&
+            mensaje.content.startsWith('REFLEXION_DIARIA_FECHA:'),
+      );
 
   Future<String?> _construirContextoUsuario(
     ChatConversation conversacionActual, {
@@ -1105,7 +963,7 @@ class _ChatScreenState extends State<ChatScreen>
       final tareas = await _construirContextoTareas();
       if (tareas != null) partes.add(tareas);
 
-      // --- Mi diario ---
+      // --- Registro diario ---
       final diario = await _construirContextoDiario();
       if (diario != null) partes.add(diario);
     }
@@ -1154,7 +1012,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     // --- Modo reflexión del día ---
-    if (_fechaReflexionDeConversacionActual != null) {
+    if (_esReflexionDiaria(conversacionActual)) {
       partes.insert(
         0,
         'MODO REFLEXIÓN DIARIA. La persona está haciendo su reflexión del día. '
@@ -1179,7 +1037,7 @@ class _ChatScreenState extends State<ChatScreen>
     return partes.join('\n\n');
   }
 
-  /// Resume Mi diario: el día de hoy, los últimos semáforos y las últimas
+  /// Resume el registro diario: el día de hoy, los últimos semáforos y las últimas
   /// reflexiones. Devuelve null si el diario está vacío.
   Future<String?> _construirContextoDiario() async {
     final store = DiarioStore.instance;
@@ -1211,13 +1069,14 @@ class _ChatScreenState extends State<ChatScreen>
       if (p.isNotEmpty) lineas.add('Hoy: ${p.join('; ')}.');
     }
 
-    final anteriores = store.entradas
-        .where((e) => e.fecha.compareTo(hoy) < 0)
-        .toList()
-      ..sort((a, b) => b.fecha.compareTo(a.fecha));
+    final anteriores =
+        store.entradas.where((e) => e.fecha.compareTo(hoy) < 0).toList()
+          ..sort((a, b) => b.fecha.compareTo(a.fecha));
 
-    final semaforos =
-        anteriores.where((e) => e.semaforo.isNotEmpty).take(7).toList();
+    final semaforos = anteriores
+        .where((e) => e.semaforo.isNotEmpty)
+        .take(7)
+        .toList();
     if (semaforos.isNotEmpty) {
       lineas.add(
         'Semáforos de días anteriores (del más reciente): '
@@ -1232,7 +1091,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
 
     if (lineas.isEmpty) return null;
-    return 'Mi diario del usuario (el método usa un semáforo diario: Bien, '
+    return 'Registro diario de Mi Pulso (el método usa un semáforo diario: Bien, '
         'Atención y Riesgo; un día en rojo no es un fracaso). Úsalo como '
         'contexto, sin repetirlo textualmente.\n${lineas.join('\n')}';
   }
@@ -1259,8 +1118,9 @@ class _ChatScreenState extends State<ChatScreen>
     const maxPorGrupo = 10;
 
     String lista(List<String> titulos) {
-      final mostrados =
-          titulos.take(maxPorGrupo).map((t) => _recortar(t, max: 80));
+      final mostrados = titulos
+          .take(maxPorGrupo)
+          .map((t) => _recortar(t, max: 80));
       final resto = titulos.length - maxPorGrupo;
       return mostrados.join('; ') + (resto > 0 ? ' (y $resto más)' : '');
     }
@@ -1310,7 +1170,6 @@ class _ChatScreenState extends State<ChatScreen>
     _agoraMotionController.dispose();
     _controller.dispose();
     _scrollController.dispose();
-    ReflexionService.instance.senal.removeListener(_alSolicitarReflexion);
     VoiceService.stopSpeaking();
     VoiceService.stopListening();
     super.dispose();
@@ -1556,7 +1415,6 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
                 Column(
                   children: [
-                    if (_reflexionFecha != null) _bannerReflexion(scheme),
                     if (_cicloDeConcierto(_current) != null)
                       _panelConciertoFinal(scheme),
                     Expanded(child: _contenidoConversacion(scheme)),
@@ -1628,8 +1486,10 @@ class _ChatScreenState extends State<ChatScreen>
                                 _esPrimerCiclo
                                     ? 'Hemos terminado este primer reconocimiento. Si estás de acuerdo, podemos comenzar tu primer ciclo de 30 días. Tú decides cuándo iniciar; tus registros anteriores seguirán conservados como historia.'
                                     : 'Si estás de acuerdo, podemos comenzar un nuevo ciclo de 30 días. Tu recorrido anterior seguirá conservado como historia.',
-                                style:
-                                    const TextStyle(fontSize: 13, height: 1.4),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               SizedBox(
@@ -1651,8 +1511,8 @@ class _ChatScreenState extends State<ChatScreen>
                                     _iniciandoCiclo
                                         ? 'Iniciando…'
                                         : (_esPrimerCiclo
-                                            ? 'Comenzar mi primer ciclo'
-                                            : 'Comenzar un nuevo ciclo'),
+                                              ? 'Comenzar mi primer ciclo'
+                                              : 'Comenzar un nuevo ciclo'),
                                   ),
                                 ),
                               ),
@@ -1688,13 +1548,8 @@ class _ChatScreenState extends State<ChatScreen>
         return Align(
           alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            margin: const EdgeInsets.symmetric(
-              vertical: 6,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 17,
-              vertical: 13,
-            ),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 13),
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.78,
             ),
@@ -1703,9 +1558,7 @@ class _ChatScreenState extends State<ChatScreen>
                   ? LinearGradient(
                       colors: [
                         scheme.primary,
-                        scheme.primary.withValues(
-                          alpha: 0.75,
-                        ),
+                        scheme.primary.withValues(alpha: 0.75),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -1716,20 +1569,14 @@ class _ChatScreenState extends State<ChatScreen>
                   : scheme.surfaceContainerHighest.withValues(alpha: 0.86),
               border: Border.all(
                 color: isUser
-                    ? Colors.white.withValues(
-                        alpha: 0.10,
-                      )
+                    ? Colors.white.withValues(alpha: 0.10)
                     : const Color(0xFF8B5CF6).withValues(alpha: 0.16),
               ),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(18),
                 topRight: const Radius.circular(18),
-                bottomLeft: Radius.circular(
-                  isUser ? 18 : 4,
-                ),
-                bottomRight: Radius.circular(
-                  isUser ? 4 : 18,
-                ),
+                bottomLeft: Radius.circular(isUser ? 18 : 4),
+                bottomRight: Radius.circular(isUser ? 4 : 18),
               ),
             ),
             child: Text(
@@ -1737,9 +1584,7 @@ class _ChatScreenState extends State<ChatScreen>
               style: TextStyle(
                 color: isUser
                     ? Colors.white
-                    : Colors.white.withValues(
-                        alpha: 0.9,
-                      ),
+                    : Colors.white.withValues(alpha: 0.9),
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -1753,10 +1598,7 @@ class _ChatScreenState extends State<ChatScreen>
   Widget _bienvenidaAgora(ColorScheme scheme) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 28,
-          vertical: 32,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1777,12 +1619,8 @@ class _ChatScreenState extends State<ChatScreen>
                 ],
                 gradient: LinearGradient(
                   colors: [
-                    scheme.primary.withValues(
-                      alpha: 0.25,
-                    ),
-                    scheme.primary.withValues(
-                      alpha: 0.05,
-                    ),
+                    scheme.primary.withValues(alpha: 0.25),
+                    scheme.primary.withValues(alpha: 0.05),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1810,9 +1648,7 @@ class _ChatScreenState extends State<ChatScreen>
               'Te acompaño en tu organización y en cada etapa de NEUROPLAN, a tu ritmo. Escríbeme o háblame cuando quieras.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(
-                  alpha: 0.75,
-                ),
+                color: Colors.white.withValues(alpha: 0.75),
                 fontSize: 14,
                 height: 1.45,
               ),
@@ -1822,9 +1658,7 @@ class _ChatScreenState extends State<ChatScreen>
               'Soy una IA y puedo equivocarme. No soy psicólogo ni otro profesional de la salud: si estás pasando por algo difícil, busca también a una persona de confianza o a un profesional.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(
-                  alpha: 0.7,
-                ),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12.5,
                 height: 1.4,
               ),
@@ -1834,9 +1668,7 @@ class _ChatScreenState extends State<ChatScreen>
               'Puedes escribirme hasta 30 mensajes al día.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(
-                  alpha: 0.66,
-                ),
+                color: Colors.white.withValues(alpha: 0.66),
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -1852,14 +1684,9 @@ class _ChatScreenState extends State<ChatScreen>
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withValues(
-              alpha: 0.78,
-            ),
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.78),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: const Color(0xFF8B5CF6).withValues(alpha: 0.28),
@@ -1882,10 +1709,10 @@ class _ChatScreenState extends State<ChatScreen>
                   onKeyEvent: (node, event) {
                     final esEnter =
                         event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter;
                     final esTelefono =
                         defaultTargetPlatform == TargetPlatform.android ||
-                            defaultTargetPlatform == TargetPlatform.iOS;
+                        defaultTargetPlatform == TargetPlatform.iOS;
                     if (!esEnter ||
                         esTelefono ||
                         HardwareKeyboard.instance.isShiftPressed ||
@@ -1907,9 +1734,7 @@ class _ChatScreenState extends State<ChatScreen>
                           ? 'Te escucho...'
                           : 'Escribe un mensaje...',
                       hintStyle: TextStyle(
-                        color: Colors.white.withValues(
-                          alpha: 0.62,
-                        ),
+                        color: Colors.white.withValues(alpha: 0.62),
                       ),
                       border: InputBorder.none,
                       isDense: true,
@@ -1932,29 +1757,27 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
               ),
               IconButton(
-                tooltip:
-                    _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
+                tooltip: _isListening
+                    ? 'Terminar de dictar'
+                    : 'Dictar con la voz',
                 onPressed: _isLoading ? null : _toggleDictado,
                 icon: Icon(
                   _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
-                  color:
-                      _isListening ? Colors.redAccent : const Color(0xFF67E8F9),
+                  color: _isListening
+                      ? Colors.redAccent
+                      : const Color(0xFF67E8F9),
                   size: 21,
                 ),
                 style: IconButton.styleFrom(
                   fixedSize: const Size(44, 44),
                   backgroundColor: _isListening
-                      ? Colors.redAccent.withValues(
-                          alpha: 0.13,
-                        )
+                      ? Colors.redAccent.withValues(alpha: 0.13)
                       : const Color(0xFF22D3EE).withValues(alpha: 0.09),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                     side: BorderSide(
                       color: _isListening
-                          ? Colors.redAccent.withValues(
-                              alpha: 0.35,
-                            )
+                          ? Colors.redAccent.withValues(alpha: 0.35)
                           : const Color(0xFF22D3EE).withValues(alpha: 0.20),
                     ),
                   ),
@@ -1989,13 +1812,9 @@ class _ChatScreenState extends State<ChatScreen>
                     style: IconButton.styleFrom(
                       fixedSize: const Size(46, 46),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          15,
-                        ),
+                        borderRadius: BorderRadius.circular(15),
                         side: BorderSide(
-                          color: Colors.white.withValues(
-                            alpha: 0.30,
-                          ),
+                          color: Colors.white.withValues(alpha: 0.30),
                         ),
                       ),
                     ),

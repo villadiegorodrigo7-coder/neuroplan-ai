@@ -6,10 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/entrada_diario.dart';
 import 'diario_service.dart';
 
-/// Estado compartido de Mi diario.
-///
-/// El Perfil, la Etapa 4, el mes y el chat usan esta misma lista. Así ninguna
-/// pantalla guarda una copia vieja encima de lo que escribió otra.
+/// Registros diarios compartidos por Mi Pulso, Ágora y Concierto Final.
 class DiarioStore extends ChangeNotifier {
   DiarioStore._();
   static final DiarioStore instance = DiarioStore._();

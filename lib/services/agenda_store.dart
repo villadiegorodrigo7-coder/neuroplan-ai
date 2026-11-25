@@ -9,8 +9,7 @@ import 'actividad_diaria_service.dart';
 
 /// Estado compartido de la Agenda.
 ///
-/// La pantalla de la Agenda y Mi diario (que programa recordatorios) usan esta
-/// misma lista, para que ninguna guarde una copia vieja encima de la otra.
+/// Agenda, los recordatorios y Concierto Final consultan la misma lista.
 class AgendaStore extends ChangeNotifier {
   AgendaStore._();
   static final AgendaStore instance = AgendaStore._();

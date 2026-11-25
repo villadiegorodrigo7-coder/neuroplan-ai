@@ -8,13 +8,11 @@ import 'screens/chat_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/mi_pulso_screen.dart';
-import 'screens/profile_screen.dart';
 import 'models/agenda_event.dart';
 import 'services/agenda_avisos.dart';
 import 'services/agenda_store.dart';
 import 'services/diario_store.dart';
 import 'services/recordatorio_diario.dart';
-import 'services/reflexion_service.dart';
 
 // NUEVO: main ahora es async e inicia Supabase
 Future<void> main() async {
@@ -88,7 +86,6 @@ class _MainNavigationState extends State<MainNavigation>
     const TasksScreen(),
     const AgendaScreen(),
     const MiPulsoScreen(),
-    const ProfileScreen(),
   ];
 
   @override
@@ -103,7 +100,6 @@ class _MainNavigationState extends State<MainNavigation>
     AgendaStore.instance.cargar();
     AgendaAvisos.instance.addListener(_evaluarAviso);
     AgendaAvisos.instance.cargar();
-    ReflexionService.instance.senal.addListener(_irAlChat);
     // Revisa cada 30 segundos mientras la app está abierta (es una
     // comparación local, no gasta datos).
     _vigilante = Timer.periodic(
@@ -119,7 +115,6 @@ class _MainNavigationState extends State<MainNavigation>
     DiarioStore.instance.removeListener(_evaluarAviso);
     AgendaStore.instance.removeListener(_evaluarAviso);
     AgendaAvisos.instance.removeListener(_evaluarAviso);
-    ReflexionService.instance.senal.removeListener(_irAlChat);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -129,13 +124,8 @@ class _MainNavigationState extends State<MainNavigation>
     if (state == AppLifecycleState.resumed) _evaluarAviso();
   }
 
-  /// "Reflexionar con Ágora": se pasa a la pestaña del chat.
-  void _irAlChat() {
-    if (mounted) setState(() => _currentIndex = 0);
-  }
-
   /// Decide qué invitación mostrar: primero los recordatorios de la Agenda
-  /// que ya llegaron a su hora; si no hay, la invitación a llenar Mi diario.
+  /// que ya llegaron a su hora; si no hay, la invitación a registrar el semáforo en Mi Pulso.
   void _evaluarAviso() {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -261,11 +251,6 @@ class _MainNavigationState extends State<MainNavigation>
             icon: Icon(Icons.graphic_eq_outlined),
             selectedIcon: Icon(Icons.graphic_eq),
             label: 'Mi Pulso',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Perfil',
           ),
         ],
       ),

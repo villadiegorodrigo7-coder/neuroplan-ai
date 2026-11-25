@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/entrada_diario.dart';
 import 'diario_store.dart';
 
-/// Recordatorio de Mi diario, dentro de la app.
+/// Recordatorio para registrar el semáforo en Mi Pulso.
 ///
 /// Sirve para invitar con calma, a la hora que la persona elija, a marcar su
 /// semáforo del día. Solo se muestra mientras la app está abierta. No hay
