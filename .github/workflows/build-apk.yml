@@ -33,6 +33,9 @@ jobs:
       - name: Generate native splash
         run: flutter pub run flutter_native_splash:create
 
+      - name: Preparar recursos Web para generador de iconos multiplataforma
+        run: flutter create . --platforms=web --project-name neuroplan_ai
+
       - name: Generate NEUROPLAN Android launcher icons
         run: dart run flutter_launcher_icons
 
