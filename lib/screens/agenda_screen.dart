@@ -347,6 +347,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
           const SizedBox(height:5),
           const Center(child:Text('Dale espacio a lo que importa',style:TextStyle(fontSize:12,color:Color(0xFFC4C9E2)))),
           const SizedBox(height:18),
-          _resumenDia(s),_calendario(s),_jornada(s)]));
+          _resumenDia(s),_calendario(s),_jornada(s),
+          const SizedBox(height:14),
+          const Center(child:Padding(
+            padding:EdgeInsets.symmetric(horizontal:12,vertical:8),
+            child:Text('Cada momento tiene su propio compás.',
+              textAlign:TextAlign.center,
+              style:TextStyle(fontSize:12,fontStyle:FontStyle.italic,
+                color:Color(0xFFBDA8DE),letterSpacing:0.2)))),
+        ]));
   }
 }
