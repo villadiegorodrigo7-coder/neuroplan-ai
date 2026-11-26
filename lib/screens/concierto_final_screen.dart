@@ -176,8 +176,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       Row(children: [
         const Icon(Icons.album_rounded, color: _lila, size: 18),
         const SizedBox(width: 8),
-        const Text('Los colores de tu ciclo',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        const Expanded(child: Text('Los colores de tu ciclo',
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800))),
       ]),
       const SizedBox(height: 4),
       SizedBox(
@@ -211,13 +212,18 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       const SizedBox(height: 15),
       Container(height: 1, color: Colors.white.withValues(alpha: .09)),
       const SizedBox(height: 10),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text('● ${sinRegistro} sin valoración',
-          style: const TextStyle(fontSize: 11, color: _textoTenue)),
-        if (snapshot.esVistaPrevia)
-          Text('○ ${porVivir} por vivir',
+      Wrap(
+        spacing: 16,
+        runSpacing: 6,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Text('● ${sinRegistro} sin valoración',
             style: const TextStyle(fontSize: 11, color: _textoTenue)),
-      ]),
+          if (snapshot.esVistaPrevia)
+            Text('○ ${porVivir} por vivir',
+              style: const TextStyle(fontSize: 11, color: _textoTenue)),
+        ],
+      ),
     ]));
   }
 
