@@ -47,6 +47,19 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     );
   }
 
+  Widget explicacion(String mensaje) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.info_outline_rounded, size: 15,
+          color: Color(0xFFBAC3DB)),
+        const SizedBox(width: 7),
+        Expanded(child: Text(mensaje, style: const TextStyle(
+          color: Color(0xFFBAC3DB), fontSize: 11.5, height: 1.4))),
+      ]),
+    );
+  }
+
   Widget numero(String titulo, String valor, Color color, String detalle) {
     return Expanded(child: Container(
       padding: const EdgeInsets.all(11),
@@ -58,8 +71,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
         const SizedBox(height: 5),
         Text(valor, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
           color: color)),
-        Text(detalle, style: const TextStyle(fontSize: 10,
-          color: Color(0xFFBAC3DB))),
+        Text(detalle, style: const TextStyle(fontSize: 11,
+          color: Color(0xFFBAC3DB), height: 1.25)),
       ]),
     ));
   }
@@ -180,6 +193,14 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           const SizedBox(height: 7),
           Center(child: Text('${snapshot.ciclo.fechaInicio} — ${EntradaDiario.claveFecha(snapshot.ciclo.fechaFin!)}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB)))),
+          const SizedBox(height: 8),
+          Center(child: Text(
+            snapshot.esVistaPrevia
+                ? 'Indicadores observados hasta hoy, no una calificación.'
+                : 'Una mirada a tus registros de los 30 días.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12,
+              color: Color(0xFFBAC3DB)))),
           if (snapshot.esVistaPrevia) ...[
             const SizedBox(height: 12),
             Container(
@@ -256,8 +277,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const SizedBox(height: 12),
               _detalleDia(diario, inicio, colores),
               const SizedBox(height: 8),
-              Text('${snapshot.diasConPulso} días con indicadores en Mi Pulso',
-                style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
+              Text('${snapshot.diasConPulso} días con al menos un indicador registrado',
+                style: const TextStyle(fontSize: 12,
+                  fontWeight: FontWeight.w700, color: Color(0xFFE0E5F7))),
               Text(snapshot.esVistaPrevia
                   ? 'Gris: día sin valoración. Azul oscuro: día por vivir.'
                   : 'Gris: sin valoración del semáforo, no incumplimiento.',
@@ -273,7 +295,11 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               numero('Estado medio', emocion == null ? '—' :
                 '${emocion.toStringAsFixed(1)} / 5', violeta,
                 '${snapshot.diasConEstado} días registrados'),
-            ])),
+              ]),
+              explicacion(
+                'Cada promedio se calcula únicamente con los días en los que '
+                'seleccionaste un nivel de 1 a 5. No se cuentan días vacíos.'),
+            ),
           panel('Tareas', Icons.check_circle_outline,
             const Color(0xFF56DFAE), Row(children: [
               numero('Cumplidas', '${snapshot.tareasCompletadas}',
@@ -281,7 +307,11 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const SizedBox(width: 9),
               numero('Pendientes', '${snapshot.tareasPendientesRegistradas}',
                 violeta, 'Registros disponibles'),
-            ])),
+              ]),
+              explicacion(
+                'Se cuentan las tareas que actualmente siguen guardadas '
+                'con fecha dentro de este período. Las eliminadas no aparecen.'),
+            ),
           panel('Agenda', Icons.calendar_month_outlined, celeste,
             Column(children: [
               Row(children: [
@@ -294,6 +324,10 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const SizedBox(height: 8),
               Text('Marcados no cumplidos: ${snapshot.compromisosMarcadosNoCumplidos}',
                 style: const TextStyle(fontSize: 12)),
+              explicacion(
+                'Cada compromiso programado se cuenta por fecha. '
+                'Sin marcar significa que no se registró un resultado, '
+                'no que se haya incumplido.'),
             ])),
           panel('Hábitos', Icons.spa_outlined, violeta,
             Column(children: [
@@ -307,8 +341,11 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                   violeta, 'Marcas afirmativas'),
               ]),
               const SizedBox(height: 8),
-              const Text('Estas cifras indican registros, no califican a la persona.',
-                style: TextStyle(fontSize: 11, color: Color(0xFFBAC3DB))),
+              explicacion(
+                'Ejemplo: 3 / 5 significa 3 marcas afirmativas entre 5 '
+                'registros de seguimiento. En hábitos por alejar, '
+                'una marca afirmativa no significa necesariamente '
+                'que evitaste la conducta.'),
             ])),
           panel('Rueda de la Vida', Icons.radar_rounded, violeta,
             const Text('La comparación inicial y final se mostrará después de tu evaluación y confirmación. No estimamos cambios sin tus respuestas.',
