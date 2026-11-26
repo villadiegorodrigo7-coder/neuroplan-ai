@@ -4,9 +4,17 @@ import '../services/concierto_final_service.dart';
 import '../widgets/pulso_painter.dart';
 import 'chat_screen.dart';
 
-class ConciertoFinalScreen extends StatelessWidget {
+class ConciertoFinalScreen extends StatefulWidget {
   const ConciertoFinalScreen({super.key, required this.snapshot});
   final ConciertoFinalSnapshot snapshot;
+
+  @override
+  State<ConciertoFinalScreen> createState() => _ConciertoFinalScreenState();
+}
+
+class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
+  int _diaSeleccionado = 0;
+  ConciertoFinalSnapshot get snapshot => widget.snapshot;
   static const oscuro = Color(0xFF0B1023);
   static const violeta = Color(0xFFA98BFF);
   static const celeste = Color(0xFF67E2F0);
@@ -70,6 +78,63 @@ class ConciertoFinalScreen extends StatelessWidget {
     return validos.reduce((a, b) => a + b) / validos.length;
   }
 
+  Widget _detalleDia(Map<String, EntradaDiario> diario, DateTime inicio,
+      List<Color> colores) {
+    final fecha = EntradaDiario.claveFecha(DateTime(
+      inicio.year, inicio.month, inicio.day + _diaSeleccionado));
+    final entrada = diario[fecha];
+    final semaforo = entrada?.semaforo ?? '';
+    final nombre = semaforo.isEmpty
+        ? 'Sin valoración del semáforo'
+        : semaforo == 'bien'
+            ? 'Bien'
+            : semaforo == 'atencion'
+                ? 'Atención'
+                : (semaforo == 'riesgo' || semaforo == 'desafio')
+                    ? 'Desafío'
+                    : 'Sin valoración del semáforo';
+    final textos = <String>[
+      if (entrada != null && entrada.prioridad.trim().isNotEmpty)
+        'Prioridad: ${entrada.prioridad}',
+      if (entrada != null && entrada.energia > 0)
+        'Energía: ${entrada.energia}/5',
+      if (entrada != null && entrada.estado > 0)
+        'Estado emocional: ${entrada.estado}/5',
+      if (entrada != null && entrada.reflexion.trim().isNotEmpty)
+        'Reflexión: ${entrada.reflexion}',
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .055),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Día ${_diaSeleccionado + 1} · $fecha',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Row(children: [
+          CircleAvatar(radius: 5, backgroundColor: colores[_diaSeleccionado]),
+          const SizedBox(width: 7),
+          Text(nombre, style: const TextStyle(fontSize: 12)),
+        ]),
+        if (textos.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('No hay detalles registrados para este día.',
+              style: TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
+          ),
+        for (final texto in textos)
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Text(texto, style: const TextStyle(
+              fontSize: 12, height: 1.4, color: Color(0xFFE0E5F7))),
+          ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final inicio = snapshot.ciclo.inicio!;
@@ -120,6 +185,42 @@ class ConciertoFinalScreen extends StatelessWidget {
               leyenda('Atención', atencion, kColorAtencion),
               leyenda('Desafío', desafio, kColorDesafio),
               leyenda('Sin registro', colores.length-bien-atencion-desafio, gris),
+              const SizedBox(height: 13),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Explora cada día',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(height: 9),
+              Wrap(spacing: 6, runSpacing: 7, children: [
+                for (var indice = 0; indice < colores.length; indice++)
+                  Tooltip(
+                    message: 'Día ${indice + 1}',
+                    child: InkWell(
+                      key: ValueKey('concierto-dia-${indice + 1}'),
+                      onTap: () => setState(() => _diaSeleccionado = indice),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 37, height: 37,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: colores[indice].withValues(alpha: .22),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colores[indice],
+                            width: indice == _diaSeleccionado ? 2.5 : 1,
+                          ),
+                        ),
+                        child: Text('${indice + 1}',
+                          style: TextStyle(fontSize: 12,
+                            fontWeight: indice == _diaSeleccionado
+                                ? FontWeight.w900 : FontWeight.w500)),
+                      ),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              _detalleDia(diario, inicio, colores),
               const SizedBox(height: 8),
               Text('${snapshot.diasConDiario} días con información en Mi Pulso',
                 style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
