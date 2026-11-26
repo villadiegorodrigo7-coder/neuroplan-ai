@@ -1,0 +1,27 @@
+name: NEUROPLAN - Pruebas Concierto Final
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/screens/concierto_final_screen.dart'
+      - 'lib/services/concierto_final_service.dart'
+      - 'test/concierto_final_indicadores_test.dart'
+      - '.github/workflows/concierto-final-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  verificar-concierto-final:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Dependencias
+        run: flutter pub get
+      - name: Comprobar indicadores y lectura sin cambios
+        run: flutter test test/concierto_final_indicadores_test.dart
