@@ -119,7 +119,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
         Row(children: [
           CircleAvatar(radius: 5, backgroundColor: colores[_diaSeleccionado]),
           const SizedBox(width: 7),
-          Text(nombre, style: const TextStyle(fontSize: 12)),
+          Expanded(child: Text(nombre,
+            softWrap: true,
+            style: const TextStyle(fontSize: 12))),
         ]),
         if (textos.isEmpty)
           const Padding(
