@@ -36,7 +36,8 @@ void main() {
     expect(find.text('Reflexionar con Ágora'), findsNothing);
     expect(find.textContaining('días por vivir'), findsOneWidget);
     final dia16 = find.byKey(const ValueKey('concierto-dia-16'));
-    await tester.ensureVisible(dia16);
+    await tester.scrollUntilVisible(dia16, 210,
+      scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     await tester.tap(dia16);
     await tester.pump();
