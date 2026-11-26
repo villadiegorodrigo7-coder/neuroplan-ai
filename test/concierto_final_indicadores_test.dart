@@ -10,12 +10,11 @@ void main() {
       (tester) async {
     final primero = EntradaDiario(
       id: 'uno', fecha: '2026-11-01', semaforo: 'bien',
-      prioridad: 'Estudiar', energia: 4, estado: 5,
-      reflexion: 'Avancé con calma.',
+      energia: 4, estado: 5,
     );
     final segundo = EntradaDiario(
       id: 'dos', fecha: '2026-11-02', semaforo: 'riesgo',
-      prioridad: 'Descansar', energia: 2,
+      energia: 2,
     );
     final ciclo = CicloNeuroplan(
       id: 'prueba', fechaInicio: '2026-11-01',
@@ -42,7 +41,8 @@ void main() {
     ));
     expect(find.text('Los colores de tu ciclo'), findsOneWidget);
     expect(find.text('Día 1 · 2026-11-01'), findsOneWidget);
-    expect(find.text('Prioridad: Estudiar'), findsOneWidget);
+    expect(find.textContaining('Prioridad:'), findsNothing);
+    expect(find.textContaining('Reflexión:'), findsNothing);
     expect(find.text('Energía: 4/5'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const ValueKey('concierto-dia-2')));
@@ -51,7 +51,7 @@ void main() {
 
     expect(find.text('Día 2 · 2026-11-02'), findsOneWidget);
     expect(find.text('Desafío'), findsWidgets);
-    expect(find.text('Prioridad: Descansar'), findsOneWidget);
+    expect(find.textContaining('Prioridad:'), findsNothing);
     expect(find.text('Energía: 2/5'), findsOneWidget);
     expect(primero.energia, 4);
     expect(segundo.semaforo, 'riesgo');
