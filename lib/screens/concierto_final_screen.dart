@@ -19,6 +19,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
   static const violeta = Color(0xFFA98BFF);
   static const celeste = Color(0xFF67E2F0);
   static const gris = Color(0xFF30384D);
+  static const porVivir = Color(0xFF20273A);
+
 
   Widget panel(String titulo, IconData icon, Color color, Widget body) {
     return Container(
@@ -82,9 +84,13 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       List<Color> colores) {
     final fecha = EntradaDiario.claveFecha(DateTime(
       inicio.year, inicio.month, inicio.day + _diaSeleccionado));
-    final entrada = diario[fecha];
+    final esFuturo = snapshot.esVistaPrevia &&
+        fecha.compareTo(snapshot.fechaHasta) > 0;
+    final entrada = esFuturo ? null : diario[fecha];
     final semaforo = entrada?.semaforo ?? '';
-    final nombre = semaforo.isEmpty
+    final nombre = esFuturo
+        ? 'Por vivir'
+        : semaforo.isEmpty
         ? 'Sin valoración del semáforo'
         : semaforo == 'bien'
             ? 'Bien'
@@ -138,11 +144,16 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     final colores = List<Color>.generate(snapshot.ciclo.duracionDias, (i) {
       final fecha = EntradaDiario.claveFecha(
         DateTime(inicio.year, inicio.month, inicio.day + i));
+      if (snapshot.esVistaPrevia && fecha.compareTo(snapshot.fechaHasta) > 0) {
+        return porVivir;
+      }
       return colorDeSemaforo(diario[fecha]?.semaforo ?? '') ?? gris;
     });
     final bien = colores.where((c) => c == kColorBien).length;
     final atencion = colores.where((c) => c == kColorAtencion).length;
     final desafio = colores.where((c) => c == kColorDesafio).length;
+    final futuros = colores.where((c) => c == porVivir).length;
+    final sinRegistro = colores.length - bien - atencion - desafio - futuros;
     final energia = promedio(snapshot.diarios.map((e) => e.energia));
     final emocion = promedio(snapshot.diarios.map((e) => e.estado));
     final incorporar = snapshot.habitos.where((h) => h.tipo == 'incorporar').toList();
@@ -150,7 +161,11 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
 
     return Scaffold(
       backgroundColor: oscuro,
-      appBar: AppBar(title: const Text('Concierto Final'), backgroundColor: oscuro),
+      appBar: AppBar(
+        title: Text(snapshot.esVistaPrevia
+            ? 'Mi recorrido · Vista previa' : 'Concierto Final'),
+        backgroundColor: oscuro,
+      ),
       body: SafeArea(child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 26),
         children: [
@@ -163,6 +178,23 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           const SizedBox(height: 7),
           Center(child: Text('${snapshot.ciclo.fechaInicio} — ${EntradaDiario.claveFecha(snapshot.ciclo.fechaFin!)}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB)))),
+          if (snapshot.esVistaPrevia) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: violeta.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: violeta.withValues(alpha: .33)),
+              ),
+              child: Text(
+                'Vista previa · información registrada hasta ${snapshot.fechaHasta}. '
+                'El ciclo sigue activo y el Concierto Final aún no está habilitado.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           panel('Los colores de tu ciclo', Icons.donut_large_rounded, violeta,
             Column(children: [
@@ -180,7 +212,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               leyenda('Bien', bien, kColorBien),
               leyenda('Atención', atencion, kColorAtencion),
               leyenda('Desafío', desafio, kColorDesafio),
-              leyenda('Sin registro', colores.length-bien-atencion-desafio, gris),
+              leyenda('Sin registro', sinRegistro, gris),
+              if (snapshot.esVistaPrevia)
+                leyenda('Por vivir', futuros, porVivir),
               const SizedBox(height: 13),
               const Align(
                 alignment: Alignment.centerLeft,
@@ -194,7 +228,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                     message: 'Día ${indice + 1}',
                     child: InkWell(
                       key: ValueKey('concierto-dia-${indice + 1}'),
-                      onTap: () => setState(() => _diaSeleccionado = indice),
+                      onTap: snapshot.esVistaPrevia && colores[indice] == porVivir
+                          ? null
+                          : () => setState(() => _diaSeleccionado = indice),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         width: 37, height: 37,
@@ -220,7 +256,9 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const SizedBox(height: 8),
               Text('${snapshot.diasConPulso} días con indicadores en Mi Pulso',
                 style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
-              const Text('Gris: sin valoración del semáforo, no incumplimiento.',
+              Text(snapshot.esVistaPrevia
+                  ? 'Gris: día sin valoración. Azul oscuro: día por vivir.'
+                  : 'Gris: sin valoración del semáforo, no incumplimiento.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: Color(0xFFBAC3DB))),
             ])),
@@ -273,7 +311,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           panel('Rueda de la Vida', Icons.radar_rounded, violeta,
             const Text('La comparación inicial y final se mostrará después de tu evaluación y confirmación. No estimamos cambios sin tus respuestas.',
               style: TextStyle(fontSize: 13, height: 1.5))),
-          panel('Ágora y el sentido del recorrido',
+          if (!snapshot.esVistaPrevia)
+            panel('Ágora y el sentido del recorrido',
             Icons.auto_awesome_rounded, violeta, Column(children: [
               const Text('Estos indicadores describen tus registros. Ágora te ayudará a reflexionar sobre ellos y decidir cuándo cerrar este ciclo.',
                 style: TextStyle(fontSize: 13, height: 1.5)),
