@@ -6,6 +6,43 @@ import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
 import 'package:neuroplan_ai/services/concierto_final_service.dart';
 
 void main() {
+  testWidgets('Vista previa desde el dia 16 no ofrece cierre ni lee el futuro',
+      (tester) async {
+    final ciclo = CicloNeuroplan(
+      id: 'vista-previa', fechaInicio: '2026-11-01', duracionDias: 30,
+    );
+    final registro = EntradaDiario(
+      id: 'registro', fecha: '2026-11-16',
+      semaforo: 'atencion', energia: 3, estado: 4,
+    );
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: ciclo,
+      esVistaPrevia: true,
+      fechaHasta: '2026-11-16',
+      diarios: [registro], tareas: [], agenda: [], habitos: [],
+      evaluaciones: [], conversaciones: [],
+      historialActividades: [],
+      historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+    expect(find.text('Mi recorrido · Vista previa'), findsOneWidget);
+    expect(find.text('Reflexionar con Ágora'), findsNothing);
+    expect(find.text('Por vivir'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('concierto-dia-16')));
+    await tester.tap(find.byKey(const ValueKey('concierto-dia-16')));
+    await tester.pump();
+    expect(find.text('Día 16 · 2026-11-16'), findsOneWidget);
+    expect(find.text('Energía: 3/5'), findsOneWidget);
+    expect(ciclo.estado, 'activo');
+    expect(ciclo.conciertoFinalCompletado, false);
+  });
+
   testWidgets('El Concierto Final consulta el día sin alterar los registros',
       (tester) async {
     final primero = EntradaDiario(
