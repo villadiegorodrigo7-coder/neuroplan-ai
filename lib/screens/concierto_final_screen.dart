@@ -158,7 +158,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
 
   Widget _cifraLeyenda(String nombre, int numero, Color color) {
     return Expanded(child: Column(children: [
-      Text('$numero,
+      Text('$numero',
         style: TextStyle(color: color, fontWeight: FontWeight.w900,
           fontSize: 21)),
       const SizedBox(height: 3),
@@ -267,8 +267,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                         color: seleccionado ? color : _textoTenue)),
                     ]),
                   ),
-                )));
-              })),
+                ));
+              })), 
             ])),
           );
         }));
@@ -369,7 +369,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 10, color: _textoTenue)),
       ]),
-    )));
+    ));
   }
 
   Widget _progreso(int marcado, int total, Color color) {
