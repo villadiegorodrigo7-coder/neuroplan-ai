@@ -94,14 +94,10 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                     ? 'Desafío'
                     : 'Sin valoración del semáforo';
     final textos = <String>[
-      if (entrada != null && entrada.prioridad.trim().isNotEmpty)
-        'Prioridad: ${entrada.prioridad}',
       if (entrada != null && entrada.energia > 0)
         'Energía: ${entrada.energia}/5',
       if (entrada != null && entrada.estado > 0)
         'Estado emocional: ${entrada.estado}/5',
-      if (entrada != null && entrada.reflexion.trim().isNotEmpty)
-        'Reflexión: ${entrada.reflexion}',
     ];
     return Container(
       width: double.infinity,
@@ -222,7 +218,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const SizedBox(height: 12),
               _detalleDia(diario, inicio, colores),
               const SizedBox(height: 8),
-              Text('${snapshot.diasConDiario} días con información en Mi Pulso',
+              Text('${snapshot.diasConPulso} días con indicadores en Mi Pulso',
                 style: const TextStyle(fontSize: 12, color: Color(0xFFBAC3DB))),
               const Text('Gris: sin valoración del semáforo, no incumplimiento.',
                 textAlign: TextAlign.center,
