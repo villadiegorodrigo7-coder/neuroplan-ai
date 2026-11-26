@@ -34,8 +34,10 @@ void main() {
     expect(find.text('Mi recorrido · Vista previa'), findsOneWidget);
     expect(find.text('Reflexionar con Ágora'), findsNothing);
     expect(find.text('Por vivir'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const ValueKey('concierto-dia-16')));
-    await tester.tap(find.byKey(const ValueKey('concierto-dia-16')));
+    final dia16 = find.byKey(const ValueKey('concierto-dia-16'));
+    await tester.ensureVisible(dia16);
+    await tester.pumpAndSettle();
+    await tester.tap(dia16);
     await tester.pump();
     expect(find.text('Día 16 · 2026-11-16'), findsOneWidget);
     expect(find.text('Energía: 3/5'), findsOneWidget);
