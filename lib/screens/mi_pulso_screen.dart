@@ -320,6 +320,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           true) ...[
                         _invitacionConciertoFinal(scheme),
                         const SizedBox(height: 22),
+                      ] else if (_cicloActual?.estado == 'activo' &&
+                          _diasTranscurridos > 15 &&
+                          _diasTranscurridos <= _duracionCiclo &&
+                          !(_cicloActual?.conciertoFinalCompletado ?? false)) ...[
+                        _invitacionVistaPrevia(scheme),
+                        const SizedBox(height: 22),
                       ],
                       resumen,
                       const SizedBox(height: 22),
@@ -495,6 +501,63 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Vista de lectura sin acciones de cierre ni cambios en el ciclo.
+  Future<void> _abrirVistaPreviaConcierto() async {
+    final ciclo = _cicloActual;
+    if (ciclo == null || ciclo.estado != 'activo' ||
+        _diasTranscurridos <= 15 ||
+        _diasTranscurridos > ciclo.duracionDias ||
+        ciclo.conciertoFinalCompletado || _preparandoConcierto) {
+      return;
+    }
+    setState(() => _preparandoConcierto = true);
+    try {
+      final snapshot = await ConciertoFinalService.preparar(
+        cicloId: ciclo.id, vistaPrevia: true);
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ConciertoFinalScreen(snapshot: snapshot)));
+    } catch (error, stackTrace) {
+      debugPrint('Vista previa Concierto Final: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No pudimos cargar tu vista previa. Inténtalo de nuevo.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _preparandoConcierto = false);
+    }
+  }
+
+  Widget _invitacionVistaPrevia(ColorScheme scheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: scheme.primary.withValues(alpha: .10),
+        border: Border.all(color: scheme.primary.withValues(alpha: .38)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.insights_rounded, color: scheme.primary),
+          const SizedBox(width: 9),
+          const Expanded(child: Text('Vista previa · Concierto Final',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+        ]),
+        const SizedBox(height: 8),
+        Text('Día $_diasTranscurridos de $_duracionCiclo. Mira los indicadores que llevas registrados. No finaliza ni modifica tu ciclo.',
+          style: const TextStyle(fontSize: 12, height: 1.4)),
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, child: FilledButton.icon(
+          onPressed: _preparandoConcierto ? null : _abrirVistaPreviaConcierto,
+          icon: const Icon(Icons.visibility_outlined),
+          label: const Text('Ver mi recorrido hasta hoy'),
+        )),
+      ]),
     );
   }
 
