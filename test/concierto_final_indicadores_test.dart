@@ -79,13 +79,21 @@ void main() {
       home: ConciertoFinalScreen(snapshot: snapshot),
     ));
     expect(find.text('Los colores de tu ciclo'), findsOneWidget);
+    // El nuevo recorrido abre el último día: seleccionamos el primero.
+    final dia1 = find.byKey(const ValueKey('concierto-dia-1'));
+    await tester.ensureVisible(dia1);
+    await tester.pumpAndSettle();
+    await tester.tap(dia1);
+    await tester.pump();
     expect(find.text('Día 1 · 2026-11-01'), findsOneWidget);
     expect(find.textContaining('Prioridad:'), findsNothing);
     expect(find.textContaining('Reflexión:'), findsNothing);
     expect(find.text('Energía: 4/5'), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('concierto-dia-2')));
-    await tester.tap(find.byKey(const ValueKey('concierto-dia-2')));
+    final dia2 = find.byKey(const ValueKey('concierto-dia-2'));
+    await tester.ensureVisible(dia2);
+    await tester.pumpAndSettle();
+    await tester.tap(dia2);
     await tester.pump();
 
     expect(find.text('Día 2 · 2026-11-02'), findsOneWidget);
