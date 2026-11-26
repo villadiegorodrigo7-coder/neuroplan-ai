@@ -31,7 +31,8 @@ void main() {
       theme: ThemeData.dark(),
       home: ConciertoFinalScreen(snapshot: snapshot),
     ));
-    expect(find.text('Mi recorrido · Vista previa'), findsOneWidget);
+    expect(find.text('Mi recorrido'), findsOneWidget);
+    expect(find.text('Vista previa'), findsOneWidget);
     expect(find.text('Reflexionar con Ágora'), findsNothing);
     expect(find.textContaining('días por vivir'), findsOneWidget);
     final dia16 = find.byKey(const ValueKey('concierto-dia-16'));
