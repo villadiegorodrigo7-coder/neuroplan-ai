@@ -47,7 +47,11 @@ class ConciertoFinalSnapshot {
         conversaciones = List.unmodifiable(conversaciones),
         historialActividades = List.unmodifiable(historialActividades);
 
-  int get diasConDiario => diarios.where((e) => e.tieneAlgo).length;
+  /// Solo los tres indicadores actualmente disponibles en Mi Pulso.
+  int get diasConPulso => diarios.where((e) =>
+      e.semaforo.trim().isNotEmpty || e.energia > 0 || e.estado > 0).length;
+  // Compatibilidad con consumidores previos; no representa una pantalla Diario.
+  int get diasConDiario => diasConPulso;
   int get diasConEnergia => diarios.where((e) => e.energia > 0).length;
   int get diasConEstado => diarios.where((e) => e.estado > 0).length;
   int get tareasCompletadas => tareas.where((t) => t.done).length;
@@ -66,23 +70,19 @@ class ConciertoFinalSnapshot {
       ..writeln('Período: ${ciclo.fechaInicio} a ${ciclo.fechaFin ?? 'sin fecha final'}.')
       ..writeln('Duración prevista: ${ciclo.duracionDias} días.')
       ..writeln('Estos datos son registros disponibles, no una medida del valor ni del esfuerzo de la persona.')
-      ..writeln('Días con diario: $diasConDiario. Registros de energía: $diasConEnergia. Registros de estado emocional: $diasConEstado.')
+      ..writeln('Días con indicadores de Mi Pulso: $diasConPulso. Registros de energía: $diasConEnergia. Registros de estado emocional: $diasConEstado.')
       ..writeln('Tareas completadas: $tareasCompletadas. Tareas pendientes registradas: $tareasPendientesRegistradas.')
       ..writeln('Ocurrencias de agenda cumplidas: $compromisosCumplidos. Marcadas como no cumplidas: $compromisosMarcadosNoCumplidos. Sin marca: $compromisosSinMarca.')
       ..writeln('Registros de hábitos: $registrosHabitos. Evaluaciones de bloques: ${evaluaciones.length}.')
       ..writeln('Historial de actividad: ${!historialActividadesConsultado ? 'no consultado' : (historialActividadesDisponible ? 'disponible' : 'no disponible')}.');
     if (diarios.isNotEmpty) {
-      salida.writeln('REGISTROS DEL DIARIO:');
-      for (final e in diarios.where((e) => e.tieneAlgo).take(20)) {
+      salida.writeln('INDICADORES DE MI PULSO:');
+      for (final e in diarios.where((e) =>
+          e.semaforo.trim().isNotEmpty || e.energia > 0 || e.estado > 0).take(30)) {
         final partes = <String>[];
-        if (e.prioridad.trim().isNotEmpty) partes.add('prioridad: ${e.prioridad}');
         if (e.semaforo.trim().isNotEmpty) partes.add('semáforo: ${e.semaforo}');
         if (e.energia > 0) partes.add('energía: ${e.energia}');
         if (e.estado > 0) partes.add('estado: ${e.estado}');
-        if (e.reflexion.trim().isNotEmpty) partes.add('reflexión: ${e.reflexion}');
-        if (e.notas.isNotEmpty) {
-          partes.add('notas: ${e.notas.map((n) => n.texto).where((t) => t.trim().isNotEmpty).join(' | ')}');
-        }
         if (partes.isNotEmpty) salida.writeln('- ${e.fecha}: ${partes.join('; ')}');
       }
     }
