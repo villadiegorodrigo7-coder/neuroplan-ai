@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:neuroplan_ai/models/entrada_diario.dart';
+import 'package:neuroplan_ai/models/productividad_data.dart';
+import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
+import 'package:neuroplan_ai/services/concierto_final_service.dart';
+
+void main() {
+  testWidgets('El Concierto Final consulta el día sin alterar los registros',
+      (tester) async {
+    final primero = EntradaDiario(
+      id: 'uno', fecha: '2026-11-01', semaforo: 'bien',
+      prioridad: 'Estudiar', energia: 4, estado: 5,
+      reflexion: 'Avancé con calma.',
+    );
+    final segundo = EntradaDiario(
+      id: 'dos', fecha: '2026-11-02', semaforo: 'riesgo',
+      prioridad: 'Descansar', energia: 2,
+    );
+    final ciclo = CicloNeuroplan(
+      id: 'prueba', fechaInicio: '2026-11-01',
+      duracionDias: 30,
+    );
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: ciclo,
+      diarios: [primero, segundo],
+      tareas: [],
+      agenda: [],
+      habitos: [],
+      evaluaciones: [],
+      conversaciones: [],
+      historialActividades: [],
+      historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+    expect(find.text('Los colores de tu ciclo'), findsOneWidget);
+    expect(find.text('Día 1 · 2026-11-01'), findsOneWidget);
+    expect(find.text('Prioridad: Estudiar'), findsOneWidget);
+    expect(find.text('Energía: 4/5'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('concierto-dia-2')));
+    await tester.tap(find.byKey(const ValueKey('concierto-dia-2')));
+    await tester.pump();
+
+    expect(find.text('Día 2 · 2026-11-02'), findsOneWidget);
+    expect(find.text('Desafío'), findsWidgets);
+    expect(find.text('Prioridad: Descansar'), findsOneWidget);
+    expect(find.text('Energía: 2/5'), findsOneWidget);
+    expect(primero.energia, 4);
+    expect(segundo.semaforo, 'riesgo');
+    expect(ciclo.estado, 'activo');
+    expect(ciclo.conciertoFinalCompletado, isFalse);
+  });
+}
