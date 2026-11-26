@@ -16,6 +16,9 @@ import 'tasks_service.dart';
 /// No cierra el ciclo, no modifica registros y no genera interpretaciones.
 class ConciertoFinalSnapshot {
   final CicloNeuroplan ciclo;
+  /// Vista de seguimiento: no habilita reflexión ni cierre definitivo.
+  final bool esVistaPrevia;
+  final String fechaHasta;
   final List<EntradaDiario> diarios;
   final List<Task> tareas;
   final List<AgendaOcurrenciaSnapshot> agenda;
@@ -29,6 +32,8 @@ class ConciertoFinalSnapshot {
 
   ConciertoFinalSnapshot({
     required this.ciclo,
+    this.esVistaPrevia = false,
+    this.fechaHasta = '',
     required List<EntradaDiario> diarios,
     required List<Task> tareas,
     required List<AgendaOcurrenciaSnapshot> agenda,
@@ -190,6 +195,7 @@ class ConciertoFinalService {
 
   static Future<ConciertoFinalSnapshot> preparar({
     required String cicloId,
+    bool vistaPrevia = false,
   }) async {
     final herramientasFuture = HerramientasService.cargar();
     final diariosFuture = DiarioStore.instance.cargar();
@@ -212,7 +218,20 @@ class ConciertoFinalService {
     if (ciclo.estado != 'activo' || ciclo.conciertoFinalCompletado) {
       throw StateError('Este ciclo no está disponible para un nuevo Concierto Final.');
     }
-    if (!ciclo.periodoCompletado(DateTime.now())) {
+    final hoy = DateTime.now();
+    final inicioCiclo = ciclo.inicio;
+    if (inicioCiclo == null) {
+      throw StateError('El ciclo no tiene una fecha de inicio válida.');
+    }
+    final diasVividos = DateTime(hoy.year, hoy.month, hoy.day)
+        .difference(DateTime(inicioCiclo.year, inicioCiclo.month, inicioCiclo.day))
+        .inDays + 1;
+    if (vistaPrevia) {
+      if (ciclo.periodoCompletado(hoy) || diasVividos <= 15 ||
+          diasVividos > ciclo.duracionDias) {
+        throw StateError('La vista previa solo está disponible desde el día 16 y antes del Concierto Final.');
+      }
+    } else if (!ciclo.periodoCompletado(hoy)) {
       throw StateError('El período del ciclo todavía no ha terminado.');
     }
 
@@ -229,7 +248,9 @@ class ConciertoFinalService {
     ]);
 
     final desde = _clave(inicio);
-    final hasta = _clave(fin);
+    // La vista previa no cuenta compromisos o registros de fechas futuras.
+    final hasta = _clave(vistaPrevia ? hoy : fin);
+    final finConsulta = vistaPrevia ? hoy : fin;
 
     final diarios = DiarioStore.instance.entradas
         .where((e) => e.fecha.compareTo(desde) >= 0 && e.fecha.compareTo(hasta) <= 0)
@@ -244,7 +265,7 @@ class ConciertoFinalService {
     final agenda = _recopilarAgenda(
       AgendaStore.instance.eventos,
       inicio,
-      fin,
+      finConsulta,
     );
 
     final habitos = <HabitoRegistroSnapshot>[];
@@ -277,7 +298,7 @@ class ConciertoFinalService {
         .where((c) {
           final fecha = DateTime(c.createdAt.year, c.createdAt.month, c.createdAt.day);
           final primero = DateTime(inicio.year, inicio.month, inicio.day);
-          final ultimo = DateTime(fin.year, fin.month, fin.day);
+          final ultimo = DateTime(finConsulta.year, finConsulta.month, finConsulta.day);
           return !fecha.isBefore(primero) && !fecha.isAfter(ultimo);
         })
         .toList()
@@ -287,6 +308,8 @@ class ConciertoFinalService {
 
     return ConciertoFinalSnapshot(
       ciclo: ciclo,
+      esVistaPrevia: vistaPrevia,
+      fechaHasta: hasta,
       diarios: diarios,
       tareas: tareas,
       agenda: agenda,
