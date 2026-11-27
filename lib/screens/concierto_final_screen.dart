@@ -491,6 +491,88 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     );
   }
 
+  Widget _filaAccion({
+    required IconData icono,
+    required Color color,
+    required String fecha,
+    required String texto,
+    required String estado,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(children: [
+        Icon(icono, color: color, size: 17),
+        const SizedBox(width: 9),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(texto, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12,
+                fontWeight: FontWeight.w600)),
+            Text('$fecha · $estado',
+              style: const TextStyle(color: _textoTenue, fontSize: 10)),
+          ],
+        )),
+      ]),
+    );
+  }
+
+  Widget _detalleAcciones() {
+    final tareas = snapshot.tareas;
+    final compromisos = snapshot.agenda;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 9),
+      Container(height: 1, color: Colors.white.withValues(alpha: .09)),
+      const SizedBox(height: 12),
+      const Text('Tareas registradas', style: TextStyle(
+        fontSize: 12, fontWeight: FontWeight.w800, color: _verde)),
+      if (tareas.isEmpty)
+        const Padding(padding: EdgeInsets.only(top: 6),
+          child: Text('Sin tareas guardadas en este período.',
+            style: TextStyle(fontSize: 11, color: _textoTenue))),
+      for (final tarea in tareas.take(8))
+        _filaAccion(
+          icono: tarea.done ? Icons.check_circle_rounded
+              : Icons.circle_outlined,
+          color: tarea.done ? _verde : _sinRegistro,
+          fecha: tarea.fecha,
+          texto: tarea.title,
+          estado: tarea.done ? 'Cumplida' : 'Pendiente registrada',
+        ),
+      if (tareas.length > 8)
+        Padding(padding: const EdgeInsets.only(top: 8),
+          child: Text('Y ${tareas.length - 8} tareas guardadas más',
+            style: const TextStyle(fontSize: 11, color: _textoTenue))),
+      const SizedBox(height: 16),
+      const Text('Compromisos registrados', style: TextStyle(
+        fontSize: 12, fontWeight: FontWeight.w800, color: _turquesa)),
+      if (compromisos.isEmpty)
+        const Padding(padding: EdgeInsets.only(top: 6),
+          child: Text('Sin compromisos registrados en este período.',
+            style: TextStyle(fontSize: 11, color: _textoTenue))),
+      for (final evento in compromisos.take(8))
+        _filaAccion(
+          icono: evento.cumplida ? Icons.check_circle_rounded
+              : evento.marcada ? Icons.cancel_outlined
+              : Icons.radio_button_unchecked_rounded,
+          color: evento.cumplida ? _turquesa
+              : evento.marcada ? _rosa : _sinRegistro,
+          fecha: evento.fecha,
+          texto: evento.titulo,
+          estado: evento.cumplida ? 'Cumplido'
+              : evento.marcada ? 'Marcado como no cumplido'
+              : 'Sin marcar',
+        ),
+      if (compromisos.length > 8)
+        Padding(padding: const EdgeInsets.only(top: 8),
+          child: Text('Y ${compromisos.length - 8} compromisos más',
+            style: const TextStyle(fontSize: 11, color: _textoTenue))),
+      const SizedBox(height: 12),
+      const Text('Se muestran registros disponibles; las tareas eliminadas '
+        'no forman parte de este resumen.',
+        style: TextStyle(color: _textoTenue, fontSize: 10.5)),
+    ]);
+  }
+
   Widget _acciones() {
     final cumplidas = snapshot.tareasCompletadas;
     final pendientes = snapshot.tareasPendientesRegistradas;
@@ -552,41 +634,64 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       const SizedBox(height: 13),
       _progreso(agendaCumplida,
         agendaCumplida + sinMarcar + noCumplida, _turquesa),
+      const SizedBox(height: 9),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          key: const ValueKey('concierto-toggle-acciones'),
+          onPressed: () => setState(() => _mostrarAcciones = !_mostrarAcciones),
+          label: Text(_mostrarAcciones ? 'Ocultar registros' : 'Explorar registros'),
+          icon: Icon(_mostrarAcciones
+              ? Icons.keyboard_arrow_up_rounded
+              : Icons.keyboard_arrow_down_rounded),
+          style: TextButton.styleFrom(foregroundColor: _turquesa),
+        ),
+      ),
+      AnimatedSize(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        child: _mostrarAcciones ? _detalleAcciones() : const SizedBox.shrink(),
+      ),
     ]));
   }
 
   Widget _cultivando() {
-    final incorporar = snapshot.habitos.where((h) => h.tipo == 'incorporar');
-    final alejar = snapshot.habitos.where((h) => h.tipo == 'alejar');
-    final siIncorporar = incorporar.where((h) => h.realizado).length;
-    final siAlejar = alejar.where((h) => h.realizado).length;
+    final incorporar = snapshot.habitos
+        .where((h) => h.tipo == 'incorporar')
+        .map((h) => h.realizado).toList();
+    final alejar = snapshot.habitos
+        .where((h) => h.tipo == 'alejar')
+        .map((h) => h.realizado).toList();
     return _superficieCard(child: Row(children: [
-      Expanded(child: _habitoIlustrado(
-        'Por incorporar', siIncorporar, incorporar.length, _verde,
-        Icons.spa_rounded)),
-      Container(width: 1, height: 137,
+      Expanded(child: _habitoIlustrado('Por incorporar', incorporar, _verde)),
+      Container(width: 1, height: 150,
         color: Colors.white.withValues(alpha: .10)),
-      Expanded(child: _habitoIlustrado(
-        'Por alejar', siAlejar, alejar.length, _lila,
-        Icons.eco_outlined)),
+      Expanded(child: _habitoIlustrado('Por alejar', alejar, _lila)),
     ]));
   }
 
-  Widget _habitoIlustrado(String titulo, int si, int total,
-      Color color, IconData icono) {
+  Widget _habitoIlustrado(String titulo, List<bool> marcas, Color color) {
+    final afirmativas = marcas.where((m) => m).length;
+    final ultimas = marcas.length > 6
+        ? marcas.sublist(marcas.length - 6) : marcas;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
       child: Column(children: [
-        Icon(icono, size: 56, color: color),
-        const SizedBox(height: 9),
-        Text('${si} / ${total}', style: TextStyle(
+        SizedBox(height: 71, child: marcas.isEmpty
+          ? Icon(Icons.spa_outlined, size: 50,
+              color: color.withValues(alpha: .45))
+          : CustomPaint(
+              painter: _BrotesHabitosPainter(marcas: ultimas, color: color),
+              size: const Size(double.infinity, 71))),
+        const SizedBox(height: 6),
+        Text('${afirmativas} / ${marcas.length}', style: TextStyle(
           color: color, fontSize: 22, fontWeight: FontWeight.w900)),
         Text(titulo, textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
         const SizedBox(height: 5),
-        const Text('Marcas afirmativas',
+        Text(marcas.length > 6 ? 'Últimas 6 marcas' : 'Marcas afirmativas',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10, color: _textoTenue)),
+          style: const TextStyle(fontSize: 10, color: _textoTenue)),
       ]),
     );
   }
@@ -908,4 +1013,56 @@ class _EvolucionDiasPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _EvolucionDiasPainter old) =>
       old.avance != avance || old.color != color || old.valores != valores;
+}
+
+/// Una planta por cada una de las últimas seis marcas observadas.
+/// Los brotes destacados corresponden exactamente a registros afirmativos.
+class _BrotesHabitosPainter extends CustomPainter {
+  const _BrotesHabitosPainter({required this.marcas, required this.color});
+  final List<bool> marcas;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (marcas.isEmpty) return;
+    final suelo = Paint()
+      ..color = const Color(0xFFB6BED8).withValues(alpha: .28)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    final base = size.height - 11;
+    canvas.drawLine(Offset(4, base),
+      Offset(size.width - 4, base), suelo);
+    final paso = (size.width - 12) / (marcas.length + 1);
+    for (var i = 0; i < marcas.length; i++) {
+      final x = 6 + paso * (i + 1);
+      final altura = 20.0 + (i % 3) * 9.0;
+      final tono = marcas[i] ? color : const Color(0xFF48516C);
+      final tallo = Paint()
+        ..color = tono.withValues(alpha: marcas[i] ? .95 : .58)
+        ..strokeWidth = 2.8
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(x, base),
+        Offset(x, base - altura), tallo);
+      final hojas = Paint()
+        ..color = tono.withValues(alpha: marcas[i] ? .90 : .40);
+      final izquierda = Path()
+        ..moveTo(x, base - altura * .47)
+        ..quadraticBezierTo(x - 17, base - altura * .51,
+          x - 13, base - altura * .75)
+        ..quadraticBezierTo(x + 1, base - altura * .72,
+          x, base - altura * .47);
+      canvas.drawPath(izquierda, hojas);
+      final derecha = Path()
+        ..moveTo(x, base - altura * .64)
+        ..quadraticBezierTo(x + 18, base - altura * .72,
+          x + 10, base - altura)
+        ..quadraticBezierTo(x - 3, base - altura * .90,
+          x, base - altura * .64);
+      canvas.drawPath(derecha, hojas);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BrotesHabitosPainter old) =>
+      old.marcas != marcas || old.color != color;
 }
