@@ -470,7 +470,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                 style: TextStyle(fontWeight: FontWeight.w900,
                   fontSize: 18, color: tono)),
             ]),
-          )),
+          ),
         ]),
         const SizedBox(height: 12),
         ClipRRect(borderRadius: BorderRadius.circular(8),
@@ -788,7 +788,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               color: _textoTenue, fontSize: 10,
               fontStyle: FontStyle.italic)),
           ]),
-        )),
+        ),
       ]),
     );
   }
@@ -825,7 +825,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               'después de tu evaluación.', style: TextStyle(
               fontSize: 11, color: _textoTenue, height: 1.45)),
           ]),
-        )),
+        ),
       ]),
     );
   }
