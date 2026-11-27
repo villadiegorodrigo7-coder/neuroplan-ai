@@ -7,6 +7,41 @@ import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
 import 'package:neuroplan_ai/services/concierto_final_service.dart';
 
 void main() {
+  testWidgets('El recorrido mantiene el diseño en un móvil angosto',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final ciclo = CicloNeuroplan(
+      id: 'movil', fechaInicio: '2026-11-01', duracionDias: 30,
+    );
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: ciclo, esVistaPrevia: true, fechaHasta: '2026-11-16',
+      diarios: [EntradaDiario(
+        id: 'dato', fecha: '2026-11-02',
+        semaforo: 'bien', energia: 4, estado: 2)],
+      tareas: [], agenda: [], evaluaciones: [], conversaciones: [],
+      habitos: List.generate(8, (i) => HabitoRegistroSnapshot(
+        habitoId: 'habito', nombre: 'Practicar', tipo: 'incorporar',
+        fecha: '2026-11-${(i + 1).toString().padLeft(2, '0')}',
+        realizado: i.isEven,
+      )),
+      historialActividades: [], historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    for (var i = 0; i < 6; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    expect(ciclo.estado, 'activo');
+  });
+
   testWidgets('El recorrido abre detalles visuales al tocarlos sin editar registros',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 820));
