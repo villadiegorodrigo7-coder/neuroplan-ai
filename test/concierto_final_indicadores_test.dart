@@ -78,7 +78,9 @@ void main() {
     final rect = tester.getRect(anillo);
     await tester.tapAt(rect.topCenter + const Offset(7, 25));
     await tester.pumpAndSettle();
-    expect(find.text('Día 1 · Bien'), findsOneWidget);
+    expect(find.text('Día 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('concierto-toggle-partitura')),
+      findsOneWidget);
     expect(diario.energia, 4);
 
     final ritmo = find.byKey(const ValueKey('concierto-toggle-ritmo'));
