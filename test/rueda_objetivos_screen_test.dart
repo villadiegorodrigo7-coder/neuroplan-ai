@@ -4,6 +4,7 @@ import 'package:neuroplan_ai/models/productividad_data.dart';
 import 'package:neuroplan_ai/models/entrada_diario.dart';
 import 'package:neuroplan_ai/screens/rueda_objetivos_screen.dart';
 import 'package:neuroplan_ai/services/herramientas_service.dart';
+import 'package:neuroplan_ai/widgets/radar_diagnostico_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -52,6 +53,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Guardar objetivo'), findsNothing);
     expect(find.text('Inglés'), findsOneWidget);
+    final radar = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint && widget.painter is RadarDiagnosticoPainter,
+    );
+    expect(radar, findsOneWidget);
+    final pintor =
+        tester.widget<CustomPaint>(radar).painter! as RadarDiagnosticoPainter;
+    expect(pintor.labels, ['Inglés']);
+    expect(pintor.missingIndices, {0});
+    expect(pintor.axisColors, hasLength(1));
 
     final datos = await HerramientasService.cargar();
     final objetivo = datos.objetivosRueda.single;

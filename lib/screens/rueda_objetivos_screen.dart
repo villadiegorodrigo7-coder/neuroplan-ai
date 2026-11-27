@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/entrada_diario.dart';
 import '../models/objetivo_rueda.dart';
 import '../services/herramientas_service.dart';
+import '../widgets/estilo_rueda.dart';
 import '../widgets/radar_diagnostico_painter.dart';
 
 class RuedaObjetivosScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class _RuedaObjetivosScreenState extends State<RuedaObjetivosScreen> {
   late Future<HerramientasData> _datos = HerramientasService.cargar();
   bool _guardando = false;
 
-  Future<void> _editar([ObjetivoRueda? objetivo]) async {
+  Future<void> _editar({ObjetivoRueda? objetivo, required Color color}) async {
     var nombre = objetivo?.nombre ?? '';
     var meta = objetivo?.meta ?? '';
     var fecha =
@@ -74,13 +75,20 @@ class _RuedaObjetivosScreenState extends State<RuedaObjetivosScreen> {
                   Text(
                     valor == null ? 'Avance por valorar' : 'Avance: $valor/10',
                   ),
-                  Slider(
-                    value: (valor ?? 0).toDouble(),
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    onChanged: (numero) =>
-                        actualizar(() => valor = numero.round()),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: color,
+                      thumbColor: color,
+                      inactiveTrackColor: color.withValues(alpha: .20),
+                    ),
+                    child: Slider(
+                      value: (valor ?? 0).toDouble(),
+                      min: 0,
+                      max: 10,
+                      divisions: 10,
+                      onChanged: (numero) =>
+                          actualizar(() => valor = numero.round()),
+                    ),
                   ),
                   if (valor == null)
                     TextButton(
@@ -169,9 +177,164 @@ class _RuedaObjetivosScreenState extends State<RuedaObjetivosScreen> {
       '${EntradaDiario.claveFecha(avance.fecha.toLocal())} · ${avance.valor}/10'
       '${avance.nota.isEmpty ? '' : ' · ${avance.nota}'}';
 
+  Widget _radar(List<ObjetivoRueda> objetivos, List<Color> colores) {
+    final valorados = objetivos
+        .where((objetivo) => objetivo.valor != null)
+        .length;
+    return Container(
+      width: double.infinity,
+      decoration: decoracionRadarRueda(),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+      child: objetivos.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 26),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.track_changes_rounded,
+                    color: Color(0xFFC0A7FF),
+                    size: 40,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Agrega el primer objetivo que quieras trabajar.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Semantics(
+                  image: true,
+                  label:
+                      'Radar de objetivos. $valorados de ${objetivos.length} con avance registrado.',
+                  child: SizedBox(
+                    height: 280,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: RadarDiagnosticoPainter(
+                        values: objetivos
+                            .map((o) => (o.valor ?? 0).toDouble())
+                            .toList(),
+                        labels: objetivos.map((o) => o.nombre).toList(),
+                        axisColors: colores,
+                        fontFamily: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.fontFamily,
+                        missingIndices: {
+                          for (var i = 0; i < objetivos.length; i++)
+                            if (objetivos[i].valor == null) i,
+                        },
+                        color: const Color(0xFF9B75FF),
+                        textColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  '$valorados de ${objetivos.length} con avance registrado',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _filaObjetivo(ObjetivoRueda objetivo, Color color) {
+    final valor = objetivo.valor;
+    final tema = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: tema.colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withValues(alpha: .25)),
+      ),
+      child: ExpansionTile(
+        key: ValueKey(objetivo.id),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        leading: Icon(Icons.circle, size: 11, color: color),
+        title: Text(
+          objetivo.nombre,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 5, bottom: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(objetivo.meta, maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ExcludeSemantics(
+                      child: LinearProgressIndicator(
+                        value: (valor ?? 0) / 10,
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(4),
+                        color: color,
+                        backgroundColor: color.withValues(alpha: .18),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Semantics(
+                    label: valor == null
+                        ? 'Avance por valorar'
+                        : 'Avance: $valor de 10',
+                    excludeSemantics: true,
+                    child: Text(
+                      valor == null ? '—' : '$valor/10',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Revisar el ${objetivo.fechaMeta}',
+            style: tema.textTheme.bodySmall,
+          ),
+          if (objetivo.avances.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Por valorar'),
+            ),
+          for (final avance in objetivo.avances.reversed)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_valor(avance)),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _guardando
+                  ? null
+                  : () => _editar(objetivo: objetivo, color: color),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Editar o registrar avance'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colores = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Rueda de Objetivos')),
       body: FutureBuilder<HerramientasData>(
@@ -190,69 +353,41 @@ class _RuedaObjetivosScreenState extends State<RuedaObjetivosScreen> {
             );
           }
           final objetivos = datos.objetivosRueda;
+          final colores = List.generate(
+            objetivos.length,
+            (indice) => coloresRueda[indice % coloresRueda.length],
+          );
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: [
-              if (objetivos.isEmpty)
-                const Text('Agrega el primer objetivo que quieras trabajar.'),
-              if (objetivos.length >= 3)
-                SizedBox(
-                  height: 280,
-                  child: CustomPaint(
-                    painter: RadarDiagnosticoPainter(
-                      values: objetivos
-                          .map((o) => (o.valor ?? 0).toDouble())
-                          .toList(),
-                      labels: objetivos
-                          .map(
-                            (o) => o.nombre.length > 17
-                                ? '${o.nombre.substring(0, 16)}…'
-                                : o.nombre,
-                          )
-                          .toList(),
-                      missingIndices: {
-                        for (var i = 0; i < objetivos.length; i++)
-                          if (objetivos[i].valor == null) i,
-                      },
-                      color: colores.primary,
-                      textColor: colores.onSurface,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              for (final objetivo in objetivos)
-                Card(
-                  child: ExpansionTile(
-                    title: Text(objetivo.nombre),
-                    subtitle: Text(
-                      '${objetivo.valor == null ? 'Por valorar' : '${objetivo.valor}/10'} · Revisar el ${objetivo.fechaMeta}',
-                    ),
-                    childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(objetivo.meta),
-                      for (final avance in objetivo.avances.reversed)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(_valor(avance)),
-                        ),
+                      _radar(objetivos, colores),
+                      const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: TextButton(
+                        child: FilledButton.icon(
                           onPressed: _guardando
                               ? null
-                              : () => _editar(objetivo),
-                          child: const Text('Editar o registrar avance'),
+                              : () => _editar(
+                                  color:
+                                      coloresRueda[objetivos.length %
+                                          coloresRueda.length],
+                                ),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Agregar objetivo'),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      for (var i = 0; i < objetivos.length; i++)
+                        _filaObjetivo(objetivos[i], colores[i]),
                     ],
                   ),
                 ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _guardando ? null : () => _editar(),
-                icon: const Icon(Icons.add),
-                label: const Text('Agregar objetivo'),
               ),
             ],
           );

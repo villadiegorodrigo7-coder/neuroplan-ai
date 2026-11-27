@@ -14,6 +14,7 @@ import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
 import '../services/historial_rueda_service.dart';
 import '../services/tasks_service.dart';
+import '../widgets/estilo_rueda.dart';
 import '../widgets/panel_cuenta.dart';
 import '../widgets/pulso_painter.dart';
 import '../widgets/radar_diagnostico_painter.dart';
@@ -1026,26 +1027,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
-  /// Dos discos superpuestos: cada uno conserva su gráfico y sus valores.
-  /// El toque intercambia el primer plano; la transición combina profundidad,
-  /// inclinación y giro tipo flip sin convertir los gráficos en imágenes.
-  static const List<Color> _coloresRueda = [
-    Color(0xFF35D07F), // Salud
-    Color(0xFF45A9FF), // Estudios
-    Color(0xFFFF9F43), // Trabajo
-    Color(0xFFFFD166), // Finanzas
-    Color(0xFFFF6FAE), // Familia
-    Color(0xFF35D6C5), // Amigos
-    Color(0xFFB28DFF), // Descanso
-    Color(0xFFA6D854), // Crecimiento
-    Color(0xFFFFE45E), // Energía
-    Color(0xFFFF5C65), // Estrés
-    Color(0xFF65D8FF), // Claridad mental
-    Color(0xFF788BFF), // Organización
-    Color(0xFFFF65D4), // Motivación
-    Color(0xFFFF876B), // Satisfacción general
-  ];
-
   bool get _hayPropuestaRueda =>
       (_herramientas?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ??
           false) ||
@@ -1132,28 +1113,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               width: double.infinity,
               constraints: const BoxConstraints(maxWidth: 430),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF121E3B),
-                    Color(0xFF10172F),
-                    Color(0xFF211D43),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(
-                  color: const Color(0xFF8CEBFF).withValues(alpha: 0.13),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-                    blurRadius: 26,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
+              decoration: decoracionRadarRueda(),
               child: Column(
                 children: [
                   SizedBox(
@@ -1163,7 +1123,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         values: valores,
                         labels: pilaresRuedaVida,
                         color: const Color(0xFF9B75FF),
-                        axisColors: _coloresRueda,
+                        axisColors: coloresRueda,
                         textColor: Colors.white,
                         missingIndices: _dimensionesSinDatoRueda,
                       ),
@@ -1431,7 +1391,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                   values: editados,
                                   labels: pilaresRuedaVida,
                                   color: const Color(0xFF9B75FF),
-                                  axisColors: _coloresRueda,
+                                  axisColors: coloresRueda,
                                   textColor: Colors.white,
                                   missingIndices: {
                                     for (final i in faltantesIniciales)
@@ -1464,7 +1424,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                               width: 9,
                               height: 9,
                               decoration: BoxDecoration(
-                                color: _coloresRueda[index],
+                                color: coloresRueda[index],
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1507,9 +1467,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                               flex: 6,
                               child: SliderTheme(
                                 data: SliderTheme.of(context).copyWith(
-                                  activeTrackColor: _coloresRueda[index],
-                                  thumbColor: _coloresRueda[index],
-                                  inactiveTrackColor: _coloresRueda[index]
+                                  activeTrackColor: coloresRueda[index],
+                                  thumbColor: coloresRueda[index],
+                                  inactiveTrackColor: coloresRueda[index]
                                       .withValues(alpha: 0.20),
                                 ),
                                 child: Slider(
@@ -1535,7 +1495,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                     : editados[index].toStringAsFixed(0),
                                 textAlign: TextAlign.end,
                                 style: TextStyle(
-                                  color: _coloresRueda[index],
+                                  color: coloresRueda[index],
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),

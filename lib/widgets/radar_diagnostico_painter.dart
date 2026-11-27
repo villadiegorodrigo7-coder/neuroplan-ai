@@ -10,6 +10,7 @@ class RadarDiagnosticoPainter extends CustomPainter {
   final Color textColor;
   final List<Color>? axisColors;
   final Set<int> missingIndices;
+  final String? fontFamily;
 
   RadarDiagnosticoPainter({
     required this.values,
@@ -17,6 +18,7 @@ class RadarDiagnosticoPainter extends CustomPainter {
     required this.color,
     required this.textColor,
     this.axisColors,
+    this.fontFamily,
     this.missingIndices = const {},
   });
 
@@ -32,6 +34,10 @@ class RadarDiagnosticoPainter extends CustomPainter {
       ..strokeWidth = 0.8;
     for (var level = 1; level <= 10; level++) {
       final r = radius * level / 10;
+      if (count < 3) {
+        canvas.drawCircle(center, r, gridPaint);
+        continue;
+      }
       final points = List.generate(count, (i) {
         final angle = -math.pi / 2 + 2 * math.pi * i / count;
         return center + Offset(math.cos(angle) * r, math.sin(angle) * r);
@@ -139,6 +145,7 @@ class RadarDiagnosticoPainter extends CustomPainter {
           style: TextStyle(
             color: labelColor,
             fontSize: 9.5,
+            fontFamily: fontFamily,
             fontWeight: FontWeight.w600,
             shadows: const [Shadow(color: Color(0xFFB66BFF), blurRadius: 5)],
           ),
@@ -163,6 +170,7 @@ class RadarDiagnosticoPainter extends CustomPainter {
           style: TextStyle(
             color: textColor.withValues(alpha: 0.58),
             fontSize: 8,
+            fontFamily: fontFamily,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -178,5 +186,6 @@ class RadarDiagnosticoPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.textColor != textColor ||
       oldDelegate.axisColors != axisColors ||
+      oldDelegate.fontFamily != fontFamily ||
       oldDelegate.missingIndices != missingIndices;
 }
