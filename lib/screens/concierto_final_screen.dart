@@ -677,12 +677,16 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5),
       child: Column(children: [
-        SizedBox(height: 71, child: marcas.isEmpty
-          ? Icon(Icons.spa_outlined, size: 50,
-              color: color.withValues(alpha: .45))
-          : CustomPaint(
-              painter: _BrotesHabitosPainter(marcas: ultimas, color: color),
-              size: const Size(double.infinity, 71))),
+        SizedBox(
+          width: double.infinity,
+          height: 71,
+          child: marcas.isEmpty
+              ? Icon(Icons.spa_outlined, size: 50,
+                  color: color.withValues(alpha: .45))
+              : CustomPaint(
+                  painter: _BrotesHabitosPainter(
+                    marcas: ultimas, color: color)),
+        ),
         const SizedBox(height: 6),
         Text('${afirmativas} / ${marcas.length}', style: TextStyle(
           color: color, fontSize: 22, fontWeight: FontWeight.w900)),
