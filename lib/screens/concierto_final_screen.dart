@@ -5,6 +5,7 @@ import '../models/entrada_diario.dart';
 import '../models/productividad_data.dart';
 import '../widgets/radar_diagnostico_painter.dart';
 import '../services/concierto_final_service.dart';
+import '../services/herramientas_service.dart';
 import 'chat_screen.dart';
 
 /// Concierto Final: una lectura musical de registros reales.
@@ -34,6 +35,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
   bool _mostrarRitmo = false;
   bool _mostrarAcciones = false;
   bool _mostrarPartitura = false;
+  Map<String, int> _valoresActualesRueda = const {};
   ConciertoFinalSnapshot get snapshot => widget.snapshot;
 
   int get _diasVividos {
@@ -51,6 +53,37 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
   void initState() {
     super.initState();
     _diaSeleccionado = _diasVividos > 0 ? _diasVividos - 1 : 0;
+    _valoresActualesRueda = Map.of(snapshot.valoresRuedaActual);
+    HerramientasService.cambios.addListener(_actualizarRuedaConfirmada);
+  }
+
+  Future<void> _actualizarRuedaConfirmada() async {
+    try {
+      final datos = await HerramientasService.cargar();
+      final diagnostico = datos.diagnosticoConversacional;
+      if (!mounted) return;
+      final actuales = <String, int>{};
+      if (diagnostico?.confirmado == true) {
+        for (final pilar in pilaresRuedaVida) {
+          final valor = diagnostico!.valoresConfirmados[pilar];
+          if (valor != null && valor >= 0 && valor <= 10) {
+            actuales[pilar] = valor;
+          }
+        }
+      }
+      if (actuales.length != _valoresActualesRueda.length ||
+          actuales.keys.any((p) => actuales[p] != _valoresActualesRueda[p])) {
+        setState(() => _valoresActualesRueda = actuales);
+      }
+    } catch (_) {
+      // Conserva la última Rueda confirmada si falla la lectura local o nube.
+    }
+  }
+
+  @override
+  void dispose() {
+    HerramientasService.cambios.removeListener(_actualizarRuedaConfirmada);
+    super.dispose();
   }
 
   DateTime _fechaDelDia(int indice) {
@@ -797,213 +830,201 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
 
 
 
-  void _abrirRuedaInicial() {
-    final valores = snapshot.valoresRuedaInicial;
-    if (valores.isEmpty) return;
-    final faltantes = <int>{
-      for (var i = 0; i < pilaresRuedaVida.length; i++)
-        if (!valores.containsKey(pilaresRuedaVida[i])) i,
-    };
+
+  List<String> _pilaresComparables() => [
+    for (final p in pilaresRuedaVida)
+      if (snapshot.valoresRuedaInicial.containsKey(p) &&
+          _valoresActualesRueda.containsKey(p)) p,
+  ];
+
+  List<String> _pilaresModificados() => _pilaresComparables()
+      .where((p) => snapshot.valoresRuedaInicial[p] != _valoresActualesRueda[p])
+      .toList();
+
+  void _abrirComparacionRueda() {
+    final inicio = snapshot.valoresRuedaInicial;
+    final ahora = _valoresActualesRueda;
+    if (inicio.isEmpty && ahora.isEmpty) return;
+    final cambios = _pilaresModificados();
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF12182F),
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
       builder: (context) => DraggableScrollableSheet(
-        expand: false, initialChildSize: .85,
-        minChildSize: .48, maxChildSize: .96,
-        builder: (context, scrollController) => ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(19, 18, 19, 30),
+        expand: false,
+        initialChildSize: .75,
+        minChildSize: .46,
+        maxChildSize: .94,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 29),
           children: [
-            Center(child: Container(
-              height: 4, width: 42,
+            Center(child: Container(width: 42, height: 4,
               decoration: BoxDecoration(
-                color: _lila.withValues(alpha: .40),
+                color: _lila.withValues(alpha: .5),
                 borderRadius: BorderRadius.circular(9)))),
-            const SizedBox(height: 17),
-            const Text('Tu Rueda de la Vida',
-              style: TextStyle(color: Colors.white, fontSize: 19,
-                fontWeight: FontWeight.w800)),
+            const SizedBox(height: 15),
+            const Text('Tu Rueda de la Vida', style: TextStyle(
+              fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
             const SizedBox(height: 5),
-            Text(snapshot.ruedaInicialHistorica
-                ? 'Punto de partida registrado'
-                : 'Valores de tu diagnóstico confirmado',
-              style: const TextStyle(color: _textoTenue, fontSize: 12)),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 310, width: double.infinity,
+            const Text('Dos momentos de tus valoraciones confirmadas',
+              style: TextStyle(color: _textoTenue, fontSize: 12)),
+            const SizedBox(height: 17),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _leyendaRueda('Inicial', _lila),
+              const SizedBox(width: 22),
+              _leyendaRueda('Actual', _turquesa),
+            ]),
+            const SizedBox(height: 12),
+            SizedBox(height: 300, width: double.infinity,
               child: CustomPaint(
                 key: const ValueKey('concierto-radar-real'),
-                painter: RadarDiagnosticoPainter(
-                  values: [
-                    for (final p in pilaresRuedaVida)
-                      (valores[p] ?? 0).toDouble(),
-                  ],
-                  labels: pilaresRuedaVida,
-                  color: _lila,
-                  textColor: const Color(0xFFDDE3FB),
-                  missingIndices: faltantes,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text('Dimensiones registradas · ${valores.length} de '
-                '${pilaresRuedaVida.length}',
+                painter: _ComparacionRuedaPainter(
+                  inicial: inicio,
+                  actual: ahora,
+                  colorInicial: _lila,
+                  colorActual: _turquesa,
+                ))),
+            const SizedBox(height: 13),
+            if (!snapshot.ruedaInicialHistorica)
+              const Text('La referencia inicial no tiene un registro histórico '
+                'completo; no se deducen cambios donde falta ese dato.',
+                style: TextStyle(fontSize: 11,
+                  color: _textoTenue, height: 1.4)),
+            const SizedBox(height: 12),
+            Text(cambios.isEmpty
+                ? 'No hay cambios de valoración confirmados entre ambos registros.'
+                : 'Dimensiones con nueva valoración: ${cambios.length}',
               style: const TextStyle(color: _textoTenue,
                 fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            for (final pilar in pilaresRuedaVida)
-              if (valores.containsKey(pilar))
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  child: Row(children: [
-                    Expanded(child: Text(pilar, style: const TextStyle(
-                      color: Color(0xFFE6E8FC), fontSize: 12))),
-                    Text('${valores[pilar]}/10', style: const TextStyle(
-                      color: _lila, fontSize: 13,
-                      fontWeight: FontWeight.w800)),
-                  ]),
-                ),
-            const SizedBox(height: 12),
-            const Row(children: [
-              Icon(Icons.lock_outline_rounded, color: _lila, size: 17),
-              SizedBox(width: 8),
-              Expanded(child: Text(
-                'Esta Rueda acompaña tu vida: puedes revisarla cuando quieras, sin esperar al cierre del ciclo.',
-                style: TextStyle(color: _textoTenue, fontSize: 11))),
-            ]),
+            const SizedBox(height: 9),
+            for (final p in cambios)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Expanded(child: Text(p, style: const TextStyle(
+                    fontSize: 12, color: Colors.white))),
+                  Text('${inicio[p]}/10', style: const TextStyle(
+                    color: _lila, fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 9),
+                    child: Icon(Icons.arrow_forward_rounded,
+                      color: _textoTenue, size: 14)),
+                  Text('${ahora[p]}/10', style: const TextStyle(
+                    color: _turquesa, fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            const SizedBox(height: 14),
+            const Text('La Rueda puede actualizarse cuando tú lo decidas. '
+              'No depende del cierre de los 30 días.',
+              style: TextStyle(color: _textoTenue, fontSize: 11,
+                height: 1.4)),
           ],
         ),
       ),
     );
   }
 
-  Widget _avanceRueda() {
-    final colores = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _titulo('Evolución de la Rueda de la Vida', icono: Icons.track_changes_rounded),
-        if (snapshot.recorridoRueda.where((pilar) => pilar.ultimo != null).length >= 3)
-          SizedBox(
-            height: 260,
-            child: CustomPaint(
-              painter: RadarDiagnosticoPainter(
-                values: snapshot.recorridoRueda.map((pilar) => (pilar.ultimo?.valor ?? 0).toDouble()).toList(),
-                labels: snapshot.recorridoRueda.map((pilar) => pilar.pilar).toList(),
-                missingIndices: {
-                  for (var i = 0; i < snapshot.recorridoRueda.length; i++)
-                    if (snapshot.recorridoRueda[i].ultimo == null) i,
-                },
-                color: colores.primary,
-                textColor: colores.onSurface,
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-        for (final pilar in snapshot.recorridoRueda)
-          Card(
-            child: ExpansionTile(
-              title: Text(pilar.pilar),
-              subtitle: Text(
-                'Partida: ${pilar.inicio?.valor == null ? 'sin dato' : '${pilar.inicio!.valor}/10'}'
-                ' · Última: ${pilar.ultimo?.valor == null ? 'sin valoración posterior' : '${pilar.ultimo!.valor}/10'}',
-              ),
-              trailing: pilar.cambio == null
-                  ? null
-                  : Text(
-                      '${pilar.cambio! > 0 ? '+' : ''}${pilar.cambio}',
-                      style: TextStyle(color: colores.primary, fontWeight: FontWeight.w700),
-                    ),
-              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              children: [
-                if (pilar.notas.isEmpty) const Text('Sin notas en este ciclo.'),
-                for (final nota in pilar.notas)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text('${EntradaDiario.claveFecha(nota.fecha.toLocal())} · ${nota.nota}'),
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
+  Widget _leyendaRueda(String nombre, Color color) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 9, height: 9, decoration: BoxDecoration(
+        color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Text(nombre, style: const TextStyle(
+        color: Colors.white, fontSize: 12)),
+    ]);
+  }
+
+  Widget _miniRueda(String titulo, Map<String, int> valores,
+      Color color, String clave) {
+    return Expanded(child: Column(children: [
+      SizedBox(width: 106, height: 106,
+        child: valores.isEmpty
+          ? const Center(child: Icon(Icons.circle_outlined,
+              color: _textoTenue, size: 54))
+          : CustomPaint(
+              key: ValueKey(clave),
+              painter: _RadarInicialCompactoPainter(
+                valores: valores, color: color)),
+      ),
+      const SizedBox(height: 8),
+      Text(titulo, textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, color: color,
+          fontWeight: FontWeight.w800)),
+      const SizedBox(height: 3),
+      Text(valores.isEmpty ? 'Sin valoración' :
+        '${valores.length} dimensiones',
+        style: const TextStyle(color: _textoTenue, fontSize: 10)),
+    ]));
   }
 
   Widget _transformacion() {
-    final valores = snapshot.valoresRuedaInicial;
-    final tieneRueda = valores.isNotEmpty;
+    final inicial = snapshot.valoresRuedaInicial;
+    final actual = _valoresActualesRueda;
+    final hayValores = inicial.isNotEmpty || actual.isNotEmpty;
+    final comparables = _pilaresComparables();
+    final modificados = _pilaresModificados();
     return InkWell(
       key: const ValueKey('concierto-rueda-inicial'),
-      onTap: tieneRueda ? _abrirRuedaInicial : null,
+      onTap: hayValores ? _abrirComparacionRueda : null,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 15),
+        padding: const EdgeInsets.fromLTRB(12, 15, 12, 13),
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [
-            Color(0xFF241E3E), Color(0xFF1A203B), Color(0xFF291D46),
-          ]),
+            Color(0xFF241E3E), Color(0xFF1A203B), Color(0xFF291D46)]),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _lila.withValues(alpha: .28)),
         ),
-        child: Row(children: [
-          SizedBox(width: 92, height: 94,
-            child: tieneRueda
-                ? Semantics(
-                    label: 'Rueda inicial con ${valores.length} '
-                      'dimensiones registradas',
-                    child: CustomPaint(
-                      key: const ValueKey('concierto-radar-inicial'),
-                      painter: _RadarInicialCompactoPainter(
-                        valores: valores, color: _lila)),
-                  )
-                : const Stack(alignment: Alignment.center, children: [
-                    CustomPaint(size: Size(88, 88),
-                      painter: _RadarVacioPainter()),
-                    Icon(Icons.lock_outline_rounded,
-                      color: _lila, size: 24),
-                  ]),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Rueda de la Vida', style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              if (tieneRueda) ...[
-                Text(snapshot.ruedaInicialHistorica
-                    ? 'Tu punto de partida registrado'
-                    : 'Tu diagnóstico confirmado',
-                  style: const TextStyle(
-                    fontSize: 11, color: Color(0xFFDBC7FC),
-                    fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text('${valores.length} dimensiones · Toca para ampliar',
-                  style: const TextStyle(
-                    fontSize: 10.5, color: _textoTenue)),
-              ] else
-                const Text('No hay dimensiones confirmadas. '
-                    'Revisa tu diagnóstico inicial en Mi Pulso.',
-                  style: TextStyle(
-                    fontSize: 11, height: 1.4, color: _textoTenue)),
-              const SizedBox(height: 8),
-              const Row(children: [
-                Icon(Icons.lock_outline_rounded, size: 13, color: _lila),
-                SizedBox(width: 4),
-                Expanded(child: Text('Tu perspectiva de vida · actualización libre',
-                  style: TextStyle(fontSize: 10,
-                    color: _textoTenue))),
-              ]),
+        child: Column(children: [
+          Row(children: [
+            const Icon(Icons.track_changes_rounded,
+              color: _lila, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Rueda de la Vida',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+            if (hayValores)
+              const Icon(Icons.open_in_full_rounded,
+                color: _textoTenue, size: 16),
+          ]),
+          const SizedBox(height: 11),
+          if (hayValores) ...[
+            Row(children: [
+              _miniRueda('Inicial', inicial, _lila,
+                'concierto-radar-inicial'),
+              const SizedBox(width: 7),
+              const Icon(Icons.arrow_forward_rounded,
+                color: _textoTenue, size: 20),
+              const SizedBox(width: 7),
+              _miniRueda('Actual', actual, _turquesa,
+                'concierto-radar-actual'),
             ]),
-          ),
-          if (tieneRueda)
-            const Icon(Icons.chevron_right_rounded,
-              color: _lila, size: 18),
+            const SizedBox(height: 13),
+            Text(
+              comparables.isEmpty
+                ? 'Sin valores suficientes para comparar'
+                : modificados.isEmpty
+                  ? '${comparables.length} dimensiones · sin nuevas valoraciones'
+                  : '${modificados.length} dimensiones con cambios registrados',
+              key: const ValueKey('concierto-resumen-ruedas'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _textoTenue, fontSize: 11)),
+            if (!snapshot.ruedaInicialHistorica) ...[
+              const SizedBox(height: 6),
+              const Text('Referencia inicial histórica incompleta',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: _textoTenue)),
+            ],
+          ] else
+            const Text('No hay dimensiones confirmadas. Revisa tu '
+              'diagnóstico inicial en Mi Pulso.',
+              style: TextStyle(fontSize: 11, color: _textoTenue)),
         ]),
       ),
     );
@@ -1144,7 +1165,6 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
             _cultivando(),
             const SizedBox(height: 18),
             _transformacion(),
-            if (snapshot.recorridoRueda.isNotEmpty) _avanceRueda(),
             const SizedBox(height: 19),
             _pieMusical(),
           ],
@@ -1551,3 +1571,69 @@ class _RadarInicialCompactoPainter extends CustomPainter {
       old.valores != valores || old.color != color;
 }
 
+
+class _ComparacionRuedaPainter extends CustomPainter {
+  const _ComparacionRuedaPainter({
+    required this.inicial,
+    required this.actual,
+    required this.colorInicial,
+    required this.colorActual,
+  });
+  final Map<String, int> inicial;
+  final Map<String, int> actual;
+  final Color colorInicial;
+  final Color colorActual;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centro = Offset(size.width / 2, size.height / 2);
+    final r = math.min(size.width * .34, size.height * .39);
+    final grid = Paint()
+      ..color = const Color(0xFFB6BED8).withValues(alpha: .17)
+      ..strokeWidth = .8
+      ..style = PaintingStyle.stroke;
+    for (final f in [.25, .5, .75, 1.0]) {
+      canvas.drawCircle(centro, r * f, grid);
+    }
+    final n = pilaresRuedaVida.length;
+    for (var i = 0; i < n; i++) {
+      final ang = -math.pi / 2 + 2 * math.pi * i / n;
+      canvas.drawLine(centro, centro + Offset(
+        math.cos(ang) * r, math.sin(ang) * r), grid);
+    }
+    void dibujar(Map<String, int> valores, Color color) {
+      final puntos = <Offset?>[];
+      for (var i = 0; i < n; i++) {
+        final valor = valores[pilaresRuedaVida[i]];
+        if (valor == null || valor < 0 || valor > 10) {
+          puntos.add(null);
+          continue;
+        }
+        final ang = -math.pi / 2 + 2 * math.pi * i / n;
+        puntos.add(centro + Offset(
+          math.cos(ang) * r * valor / 10,
+          math.sin(ang) * r * valor / 10));
+      }
+      final stroke = Paint()
+        ..color = color
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      final point = Paint()..color = color;
+      for (var i = 0; i < n; i++) {
+        final current = puntos[i];
+        if (current == null) continue;
+        canvas.drawCircle(current, 3.4, point);
+        final next = puntos[(i + 1) % n];
+        if (next != null) canvas.drawLine(current, next, stroke);
+      }
+    }
+    dibujar(inicial, colorInicial);
+    dibujar(actual, colorActual);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ComparacionRuedaPainter old) =>
+      old.inicial != inicial || old.actual != actual ||
+      old.colorInicial != colorInicial || old.colorActual != colorActual;
+}
