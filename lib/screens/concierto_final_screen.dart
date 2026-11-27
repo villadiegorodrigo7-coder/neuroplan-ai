@@ -31,6 +31,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
   int _diaSeleccionado = 0;
   bool _mostrarRitmo = false;
   bool _mostrarAcciones = false;
+  bool _mostrarPartitura = false;
   ConciertoFinalSnapshot get snapshot => widget.snapshot;
 
   int get _diasVividos {
@@ -83,6 +84,10 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
         (2 * math.pi);
     final indice = (angulo / (2 * math.pi) * cantidad).floor();
     _seleccionarDia(indice);
+    if (!_mostrarPartitura && (!snapshot.esVistaPrevia ||
+        indice < _diasVividos)) {
+      setState(() => _mostrarPartitura = true);
+    }
   }
 
   String _nombre(Color color) {
@@ -177,93 +182,136 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     ]);
   }
 
-  Widget _cifraLeyenda(String nombre, int numero, Color color) {
-    return Expanded(child: Column(children: [
-      Text('$numero',
-        style: TextStyle(color: color, fontWeight: FontWeight.w900,
-          fontSize: 21)),
-      const SizedBox(height: 3),
-      Text(nombre, style: const TextStyle(color: _textoTenue, fontSize: 11)),
-    ]));
+
+  Widget _estadoCompacto(String etiqueta, int cifra, Color tono,
+      IconData icono) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 11),
+      decoration: BoxDecoration(
+        color: tono.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: tono.withValues(alpha: .16)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icono, size: 15, color: tono),
+          const SizedBox(width: 4),
+          Text('$cifra', style: TextStyle(
+            color: tono, fontSize: 21, fontWeight: FontWeight.w900)),
+        ]),
+        Text(etiqueta, style: TextStyle(color: tono,
+          fontSize: 11, fontWeight: FontWeight.w700)),
+      ]),
+    ));
   }
 
   Widget _anillo(List<Color> colores) {
     final bien = colores.where((c) => c == _verde).length;
     final atencion = colores.where((c) => c == _amarillo).length;
     final desafio = colores.where((c) => c == _rosa).length;
-    final porVivir = colores.where((c) => c == _futuro).length;
-    final sinRegistro = colores.length - bien - atencion - desafio - porVivir;
-    return _superficieCard(child: Column(children: [
-      Row(children: [
-        const Icon(Icons.album_rounded, color: _lila, size: 18),
-        const SizedBox(width: 8),
-        const Expanded(child: Text('Los colores de tu ciclo',
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800))),
-      ]),
-      const SizedBox(height: 4),
-      LayoutBuilder(builder: (context, medidas) {
-        final lado = math.min(276.0, medidas.maxWidth);
-        return Center(child: GestureDetector(
-          key: const ValueKey('concierto-anillo-interactivo'),
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (toque) => _tocarAnillo(toque, lado, colores.length),
-          child: SizedBox(
-            height: lado, width: lado,
-            child: Stack(alignment: Alignment.center, children: [
-              CustomPaint(size: Size(lado, lado),
-                painter: _AnilloConciertoPainter(
-                  colores: colores, seleccionado: _diaSeleccionado)),
-              Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('TU CICLO', style: TextStyle(color: _lila,
-                  letterSpacing: 4, fontSize: 11)),
-                const SizedBox(height: 5),
-                Text('${_diasVividos}',
-                  key: const ValueKey('concierto-dias-vividos'),
-                  style: const TextStyle(fontSize: 62, height: 1.1,
-                    fontWeight: FontWeight.w300, color: Colors.white)),
-                Text('de ${snapshot.ciclo.duracionDias} días',
-                  style: const TextStyle(color: _textoTenue, fontSize: 14)),
-                const SizedBox(height: 9),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: Text('Día ${_diaSeleccionado + 1} · ${_nombre(colores[_diaSeleccionado])}',
-                    key: ValueKey(_diaSeleccionado),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11,
-                      color: colores[_diaSeleccionado])),
-                ),
-              ]),
-            ]),
-          ),
-        ));
-      }),
-      if (snapshot.esVistaPrevia)
-        Text('${porVivir} días por vivir',
-          style: const TextStyle(color: _textoTenue, fontSize: 12)),
-      const SizedBox(height: 15),
-      Row(children: [
-        _cifraLeyenda('Bien', bien, _verde),
-        _cifraLeyenda('Atención', atencion, _amarillo),
-        _cifraLeyenda('Desafío', desafio, _rosa),
-      ]),
-      const SizedBox(height: 15),
-      Container(height: 1, color: Colors.white.withValues(alpha: .09)),
-      const SizedBox(height: 10),
-      Wrap(
-        spacing: 16,
-        runSpacing: 6,
-        alignment: WrapAlignment.spaceBetween,
-        children: [
-          Text('● ${sinRegistro} sin valoración',
-            style: const TextStyle(fontSize: 11, color: _textoTenue)),
-          if (snapshot.esVistaPrevia)
-            Text('○ ${porVivir} por vivir',
-              style: const TextStyle(fontSize: 11, color: _textoTenue)),
+    final futuros = colores.where((c) => c == _futuro).length;
+    final sinRegistro = colores.length - bien - atencion - desafio - futuros;
+    return Container(
+      key: const ValueKey('concierto-portada-premium'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF171A37), Color(0xFF121C38), Color(0xFF211731)]),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: _lila.withValues(alpha: .22)),
+        boxShadow: [
+          BoxShadow(color: _lila.withValues(alpha: .07),
+            blurRadius: 26, spreadRadius: 2),
         ],
       ),
-    ]));
+      child: Column(children: [
+        SizedBox(height: 252, child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(painter: _OrnamentoConciertoPainter()))),
+            const Positioned(left: 12, top: 55, child: Icon(
+              Icons.music_note_rounded, color: _lila, size: 21)),
+            const Positioned(right: 15, bottom: 54, child: Icon(
+              Icons.music_note_outlined, color: _turquesa, size: 19)),
+            LayoutBuilder(builder: (context, medidas) {
+              final lado = math.min(242.0, medidas.maxWidth);
+              return GestureDetector(
+                key: const ValueKey('concierto-anillo-interactivo'),
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (toque) =>
+                    _tocarAnillo(toque, lado, colores.length),
+                child: SizedBox(width: lado, height: lado, child: Stack(
+                  alignment: Alignment.center, children: [
+                    CustomPaint(size: Size(lado, lado),
+                      painter: _AnilloConciertoPainter(
+                        colores: colores, seleccionado: _diaSeleccionado)),
+                    Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('TU RECORRIDO', style: TextStyle(
+                        fontSize: 11, letterSpacing: 2.4, color: _textoTenue)),
+                      const SizedBox(height: 5),
+                      Row(mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic, children: [
+                          Text('$_diasVividos', key:
+                            const ValueKey('concierto-dias-vividos'),
+                            style: const TextStyle(color: Colors.white,
+                              fontSize: 57, height: 1,
+                              fontWeight: FontWeight.w800)),
+                          Text('/${snapshot.ciclo.duracionDias}', style:
+                            const TextStyle(color: _textoTenue,
+                              fontSize: 22, fontWeight: FontWeight.w600)),
+                        ]),
+                      const SizedBox(height: 5),
+                      const Text('días de ciclo', style: TextStyle(
+                        fontSize: 13, color: Colors.white)),
+                      const SizedBox(height: 8),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 190),
+                        child: Text('Día ${_diaSeleccionado + 1}',
+                          key: ValueKey(_diaSeleccionado),
+                          style: TextStyle(fontSize: 10,
+                            color: colores[_diaSeleccionado])),
+                      ),
+                    ]),
+                  ]),
+                ),
+              );
+            }),
+          ],
+        )),
+        const SizedBox(height: 1),
+        const Text('Cada día tiene su propio color.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+            color: Color(0xFFE4DFF8))),
+        const SizedBox(height: 15),
+        Row(children: [
+          _estadoCompacto('Bien', bien, _verde, Icons.spa_outlined),
+          const SizedBox(width: 7),
+          _estadoCompacto('Atención', atencion, _amarillo,
+            Icons.warning_amber_rounded),
+          const SizedBox(width: 7),
+          _estadoCompacto('Desafío', desafio, _rosa,
+            Icons.bolt_rounded),
+        ]),
+        const SizedBox(height: 13),
+        Wrap(
+          alignment: WrapAlignment.center, spacing: 12, runSpacing: 5,
+          children: [
+            Text('$sinRegistro sin registro', style: const TextStyle(
+              color: _textoTenue, fontSize: 11)),
+            if (snapshot.esVistaPrevia)
+              Text('$futuros por vivir', style: const TextStyle(
+                color: _textoTenue, fontSize: 11)),
+          ],
+        ),
+      ]),
+    );
   }
+
 
   Widget _partitura(List<Color> colores, Map<String, EntradaDiario> diarios) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -380,53 +428,68 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     );
   }
 
-  Widget _medidor({
-    required String titulo,
-    required IconData icono,
-    required Color color,
-    required double? valor,
-    required int registros,
+
+  Widget _bienestarVisual({
+    required String titulo, required IconData icono,
+    required Color tono, required double? valor, required int registros,
   }) {
+    final porcentaje = ((valor ?? 0) / 5).clamp(0.0, 1.0);
     return Expanded(child: Container(
-      padding: const EdgeInsets.fromLTRB(9, 15, 9, 14),
+      key: ValueKey('concierto-bienestar-$titulo'),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _superficie,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(children: [
-        SizedBox(width: 113, height: 113, child: Stack(
-          alignment: Alignment.center, children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(
-                begin: 0, end: ((valor ?? 0) / 5).clamp(0.0, 1.0)),
-              duration: MediaQuery.maybeOf(context)?.disableAnimations == true
-                  ? Duration.zero : const Duration(milliseconds: 650),
-              curve: Curves.easeOutCubic,
-              builder: (context, progreso, _) => CustomPaint(
-                size: const Size(113, 113),
-                painter: _MedidorCircularPainter(
-                  progreso: progreso, color: color)),
-            ),
-            Icon(icono, size: 48, color: color),
+        gradient: LinearGradient(
+          colors: [
+            tono.withValues(alpha: .22),
+            const Color(0xFF172039),
           ],
-        )),
-        const SizedBox(height: 10),
-        Text(titulo, textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: tono.withValues(alpha: .30)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 42, height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(
+                color: tono.withValues(alpha: .20), blurRadius: 23)],
+            ),
+            child: Icon(icono, size: 39, color: tono)),
+          const SizedBox(width: 7),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(titulo, maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, height: 1.15,
+                  fontWeight: FontWeight.w700)),
+              const SizedBox(height: 5),
+              Text(valor == null ? '—' :
+                '${valor.toStringAsFixed(1).replaceAll('.', ',')} / 5',
+                style: TextStyle(fontWeight: FontWeight.w900,
+                  fontSize: 18, color: tono)),
+            ]),
+          )),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(borderRadius: BorderRadius.circular(8),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: porcentaje),
+            duration: MediaQuery.maybeOf(context)?.disableAnimations == true
+                ? Duration.zero : const Duration(milliseconds: 560),
+            builder: (context, value, _) => LinearProgressIndicator(
+              minHeight: 6, value: value,
+              backgroundColor: Colors.white.withValues(alpha: .12),
+              valueColor: AlwaysStoppedAnimation<Color>(tono)),
+          )),
         const SizedBox(height: 7),
-        RichText(text: TextSpan(children: [
-          TextSpan(text: valor == null ? '—' : valor.toStringAsFixed(1),
-            style: TextStyle(color: color, fontSize: 22,
-              fontWeight: FontWeight.w900)),
-          const TextSpan(text: ' / 5',
-            style: TextStyle(color: _textoTenue, fontSize: 12)),
-        ])),
-        Text('${registros} días registrados',
-          textAlign: TextAlign.center,
+        Text('$registros días registrados',
           style: const TextStyle(fontSize: 10, color: _textoTenue)),
       ]),
     ));
   }
+
 
   Widget _graficoRitmo(String titulo, Color color,
       int Function(EntradaDiario) valor, int totalDias,
@@ -573,163 +636,236 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     ]);
   }
 
-  Widget _acciones() {
-    final cumplidas = snapshot.tareasCompletadas;
-    final pendientes = snapshot.tareasPendientesRegistradas;
-    final agendaCumplida = snapshot.compromisosCumplidos;
-    final sinMarcar = snapshot.compromisosSinMarca;
-    final noCumplida = snapshot.compromisosMarcadosNoCumplidos;
-    return _superficieCard(color: _turquesa, child: Column(children: [
-      Row(children: [
-        Container(
-          width: 63, height: 63,
-          decoration: BoxDecoration(
-            color: _verde.withValues(alpha: .12),
-            borderRadius: BorderRadius.circular(18)),
-          child: const Icon(Icons.task_alt_rounded,
-            size: 42, color: _verde),
-        ),
-        const SizedBox(width: 15),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Tareas', style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 3),
-            Text('${cumplidas} cumplidas',
-              style: const TextStyle(color: _verde, fontSize: 19,
-                fontWeight: FontWeight.w900)),
-            Text('${pendientes} pendientes registradas',
-              style: const TextStyle(color: _textoTenue, fontSize: 11)),
-          ],
-        )),
-      ]),
-      const SizedBox(height: 13),
-      _progreso(cumplidas, cumplidas + pendientes, _verde),
-      const SizedBox(height: 20),
-      Container(height: 1, color: Colors.white.withValues(alpha: .10)),
-      const SizedBox(height: 18),
-      Row(children: [
-        Container(
-          width: 63, height: 63,
-          decoration: BoxDecoration(
-            color: _turquesa.withValues(alpha: .12),
-            borderRadius: BorderRadius.circular(18)),
-          child: const Icon(Icons.calendar_month_rounded,
-            size: 39, color: _turquesa),
-        ),
-        const SizedBox(width: 15),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Agenda', style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 3),
-            Text('${agendaCumplida} compromisos cumplidos',
-              style: const TextStyle(color: _turquesa, fontSize: 15,
-                fontWeight: FontWeight.w800)),
-            Text('${sinMarcar} sin marcar · ${noCumplida} no cumplidos',
-              style: const TextStyle(color: _textoTenue, fontSize: 11)),
-          ],
-        )),
-      ]),
-      const SizedBox(height: 13),
-      _progreso(agendaCumplida,
-        agendaCumplida + sinMarcar + noCumplida, _turquesa),
-      const SizedBox(height: 9),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton.icon(
-          key: const ValueKey('concierto-toggle-acciones'),
-          onPressed: () => setState(() => _mostrarAcciones = !_mostrarAcciones),
-          label: Text(_mostrarAcciones ? 'Ocultar registros' : 'Explorar registros'),
-          icon: Icon(_mostrarAcciones
-              ? Icons.keyboard_arrow_up_rounded
-              : Icons.keyboard_arrow_down_rounded),
-          style: TextButton.styleFrom(foregroundColor: _turquesa),
-        ),
+
+  Widget _accionVisual({
+    required String titulo, required int principal,
+    required int secundarios, required Color tono,
+    required IconData icono, required String descripcion,
+  }) {
+    final total = principal + secundarios;
+    final llenas = total == 0 ? 0 : (principal / total * 5).round();
+    return Expanded(child: Container(
+      padding: const EdgeInsets.fromLTRB(11, 12, 11, 13),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [
+          tono.withValues(alpha: .23),
+          tono.withValues(alpha: .09),
+        ]),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tono.withValues(alpha: .30)),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icono, color: tono, size: 17),
+          const SizedBox(width: 6),
+          Text(titulo, style: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w800)),
+        ]),
+        const SizedBox(height: 9),
+        Row(children: [
+          Text('$principal', style: TextStyle(
+            color: tono, fontSize: 28, height: 1,
+            fontWeight: FontWeight.w900)),
+          const SizedBox(width: 10),
+          Expanded(child: Row(children: List.generate(5, (i) =>
+            Expanded(child: Container(
+              height: 12, margin: const EdgeInsets.only(right: 3),
+              decoration: BoxDecoration(
+                color: i < llenas ? tono :
+                  Colors.white.withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(4)),
+              child: i < llenas ? const Icon(Icons.check,
+                size: 9, color: Color(0xFF0B1022)) : null,
+            )),
+          ))),
+        ]),
+        const SizedBox(height: 7),
+        Text(descripcion, maxLines: 2,
+          style: const TextStyle(fontSize: 10,
+            color: _textoTenue, height: 1.25)),
+      ]),
+    ));
+  }
+
+  Widget _acciones() {
+    final hechas = snapshot.tareasCompletadas;
+    final pendientes = snapshot.tareasPendientesRegistradas;
+    final agendaHecha = snapshot.compromisosCumplidos;
+    final sinMarcar = snapshot.compromisosSinMarca;
+    final noCumplidos = snapshot.compromisosMarcadosNoCumplidos;
+    return Column(children: [
+      Row(children: [
+        _accionVisual(titulo: 'Tareas',
+          principal: hechas, secundarios: pendientes,
+          tono: _verde, icono: Icons.assignment_turned_in_outlined,
+          descripcion: '$hechas cumplidas · $pendientes pendientes'),
+        const SizedBox(width: 9),
+        _accionVisual(titulo: 'Agenda',
+          principal: agendaHecha, secundarios: sinMarcar + noCumplidos,
+          tono: _turquesa, icono: Icons.calendar_month_rounded,
+          descripcion: '$agendaHecha cumplidos · $sinMarcar sin marcar'),
+      ]),
+      Align(alignment: Alignment.centerRight, child: TextButton.icon(
+        key: const ValueKey('concierto-toggle-acciones'),
+        onPressed: () => setState(() => _mostrarAcciones = !_mostrarAcciones),
+        icon: Icon(_mostrarAcciones ?
+          Icons.keyboard_arrow_up_rounded :
+          Icons.keyboard_arrow_down_rounded, size: 16),
+        label: Text(_mostrarAcciones ? 'Ocultar registros' : 'Ver registros'),
+        style: TextButton.styleFrom(foregroundColor: _turquesa,
+          textStyle: const TextStyle(fontSize: 11)),
+      )),
       AnimatedSize(
         duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        child: _mostrarAcciones ? _detalleAcciones() : const SizedBox.shrink(),
+        child: _mostrarAcciones ? _superficieCard(
+          color: _turquesa, child: _detalleAcciones())
+          : const SizedBox.shrink(),
       ),
-    ]));
+    ]);
+  }
+
+
+
+  Widget _barraHabito(String nombre, int afirmativas,
+      int total, Color tono) {
+    final segmentos = total == 0 ? 5 : math.min(total, 12);
+    final usados = total == 0 ? 0 :
+      (afirmativas / total * segmentos).round();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(nombre, style: const TextStyle(
+          fontSize: 11, fontWeight: FontWeight.w700))),
+        Text('$afirmativas/$total', style: TextStyle(
+          color: tono, fontSize: 13, fontWeight: FontWeight.w900)),
+      ]),
+      const SizedBox(height: 7),
+      Row(children: List.generate(segmentos, (i) =>
+        Expanded(child: Container(
+          height: 6, margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: i < usados ? tono :
+              Colors.white.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(5)),
+        )),
+      )),
+    ]);
   }
 
   Widget _cultivando() {
-    final incorporar = snapshot.habitos
-        .where((h) => h.tipo == 'incorporar')
-        .map((h) => h.realizado).toList();
-    final alejar = snapshot.habitos
-        .where((h) => h.tipo == 'alejar')
-        .map((h) => h.realizado).toList();
-    return _superficieCard(child: Row(children: [
-      Expanded(child: _habitoIlustrado('Por incorporar', incorporar, _verde)),
-      Container(width: 1, height: 150,
-        color: Colors.white.withValues(alpha: .10)),
-      Expanded(child: _habitoIlustrado('Por alejar', alejar, _lila)),
-    ]));
-  }
-
-  Widget _habitoIlustrado(String titulo, List<bool> marcas, Color color) {
-    final afirmativas = marcas.where((m) => m).length;
-    final ultimas = marcas.length > 6
-        ? marcas.sublist(marcas.length - 6) : marcas;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      child: Column(children: [
-        SizedBox(
-          width: double.infinity,
-          height: 71,
-          child: marcas.isEmpty
-              ? Icon(Icons.spa_outlined, size: 50,
-                  color: color.withValues(alpha: .45))
-              : CustomPaint(
-                  painter: _BrotesHabitosPainter(
-                    marcas: ultimas, color: color)),
-        ),
-        const SizedBox(height: 6),
-        Text('${afirmativas} / ${marcas.length}', style: TextStyle(
-          color: color, fontSize: 22, fontWeight: FontWeight.w900)),
-        Text(titulo, textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 5),
-        Text(marcas.length > 6 ? 'Últimas 6 marcas' : 'Marcas afirmativas',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10, color: _textoTenue)),
+    final porIncorporar = snapshot.habitos
+        .where((h) => h.tipo == 'incorporar').toList();
+    final porAlejar = snapshot.habitos
+        .where((h) => h.tipo == 'alejar').toList();
+    final siIncorporar = porIncorporar.where((h) => h.realizado).length;
+    final siAlejar = porAlejar.where((h) => h.realizado).length;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 13, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [
+          Color(0xFF172F30), Color(0xFF13272D), Color(0xFF171C32),
+        ]),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _verde.withValues(alpha: .23)),
+      ),
+      child: Row(children: [
+        SizedBox(width: 105, height: 127,
+          child: CustomPaint(painter: _PlantaConciertoPainter(
+            progreso: porIncorporar.isEmpty ? 0.0 :
+              siIncorporar / porIncorporar.length))),
+        Container(width: 1, height: 101,
+          color: Colors.white.withValues(alpha: .12)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _barraHabito('Por incorporar', siIncorporar,
+              porIncorporar.length, _verde),
+            const SizedBox(height: 16),
+            _barraHabito('Por alejar', siAlejar,
+              porAlejar.length, _lila),
+            const SizedBox(height: 8),
+            const Text('Marcas afirmativas', style: TextStyle(
+              color: _textoTenue, fontSize: 10,
+              fontStyle: FontStyle.italic)),
+          ]),
+        )),
       ]),
     );
   }
 
+
+
   Widget _transformacion() {
-    return _superficieCard(child: Column(children: [
-      Row(children: [
-        Expanded(child: _radarEsquema('Punto de partida', false)),
-        const Icon(Icons.arrow_forward_rounded, color: _lila, size: 23),
-        Expanded(child: _radarEsquema('Evaluación final', true)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [
+          Color(0xFF241E3E), Color(0xFF1A203B), Color(0xFF291D46),
+        ]),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _lila.withValues(alpha: .28)),
+      ),
+      child: Row(children: [
+        SizedBox(width: 87, height: 87, child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const CustomPaint(size: Size(85, 85),
+              painter: _RadarVacioPainter()),
+            const Icon(Icons.lock_outline_rounded,
+              color: _lila, size: 25),
+          ],
+        )),
+        const SizedBox(width: 13),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Rueda de la Vida', style: TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            const Text('Tu comparación inicial y final estará disponible '
+              'después de tu evaluación.', style: TextStyle(
+              fontSize: 11, color: _textoTenue, height: 1.45)),
+          ]),
+        )),
       ]),
-      const SizedBox(height: 6),
-      const Text('La comparación estará disponible al evaluar tu ciclo.',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11, color: _textoTenue)),
-    ]));
+    );
   }
 
-  Widget _radarEsquema(String titulo, bool bloqueado) {
+  Widget _pieMusical() {
     return Column(children: [
-      SizedBox(width: 100, height: 100, child: Stack(
-        alignment: Alignment.center, children: [
-          const CustomPaint(size: Size(98, 98),
-            painter: _RadarVacioPainter()),
-          Icon(bloqueado ? Icons.lock_outline_rounded
-              : Icons.bookmark_border_rounded,
-            color: _lila, size: 25),
-        ],
-      )),
-      const SizedBox(height: 8),
-      Text(titulo, textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 11, color: _textoTenue)),
+      SizedBox(height: 42, child: Stack(alignment: Alignment.center, children: [
+        const Positioned.fill(child: CustomPaint(
+          painter: _OndasMusicalesPainter())),
+        const Icon(Icons.music_note_rounded, color: _lila, size: 29),
+      ])),
+      const Text('Concierto Final', style: TextStyle(
+        color: _lila, fontSize: 21,
+        fontWeight: FontWeight.w800, fontStyle: FontStyle.italic)),
+      const SizedBox(height: 5),
+      Text(snapshot.esVistaPrevia
+          ? 'Disponible al culminar tus 30 días.'
+          : 'Tu recorrido está listo para escucharse.',
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 12, color: _textoTenue)),
+      const SizedBox(height: 9),
+      if (!snapshot.esVistaPrevia) ...[
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) =>
+              ChatScreen(conciertoFinalSnapshot: snapshot))),
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: const Text('Reflexionar con Ágora'),
+          style: FilledButton.styleFrom(
+            backgroundColor: _lila, foregroundColor: _fondo),
+        ),
+        const SizedBox(height: 10),
+      ],
+      const Text('Un paso, un día, un compás.',
+        style: TextStyle(color: _lila,
+          fontSize: 11, fontStyle: FontStyle.italic)),
     ]);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -740,8 +876,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('Mi recorrido', style: TextStyle(
-          fontWeight: FontWeight.w800, fontSize: 17)),
+        title: const Text('Mi recorrido',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         backgroundColor: _fondo,
         surfaceTintColor: Colors.transparent,
         actions: [
@@ -751,75 +887,94 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               style: const TextStyle(color: _lila, fontSize: 12)))),
         ],
       ),
-      body: SafeArea(child: ListView(
-        padding: const EdgeInsets.fromLTRB(15, 4, 15, 30),
-        children: [
-          _portada(),
-          const SizedBox(height: 22),
-          _anillo(colores),
-          const SizedBox(height: 7),
-          _partitura(colores, diarios),
-          InkWell(
-            key: const ValueKey('concierto-toggle-ritmo'),
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => setState(() => _mostrarRitmo = !_mostrarRitmo),
-            child: Row(children: [
-              Expanded(child: _titulo('Cómo te has sentido',
-                icono: Icons.favorite_border_rounded)),
-              Text(_mostrarRitmo ? 'Ocultar' : 'Ver evolución',
-                style: const TextStyle(color: _lila, fontSize: 11)),
-              Icon(_mostrarRitmo ? Icons.keyboard_arrow_up_rounded
-                : Icons.keyboard_arrow_down_rounded, color: _lila),
-            ]),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0B1022), Color(0xFF0D1429),
+              Color(0xFF121027)],
           ),
-          Row(children: [
-            _medidor(titulo: 'Energía', icono: Icons.wb_sunny_outlined,
-              color: _turquesa, valor: energia,
-              registros: snapshot.diasConEnergia),
-            const SizedBox(width: 10),
-            _medidor(titulo: 'Estado emocional',
-              icono: Icons.favorite_border_rounded,
-              color: _lila, valor: estado,
-              registros: snapshot.diasConEstado),
-          ]),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            child: _mostrarRitmo
-                ? Padding(padding: const EdgeInsets.only(top: 10),
-                    child: _tendencias(diarios))
-                : const SizedBox.shrink(),
-          ),
-          _titulo('Tus acciones en movimiento',
-            icono: Icons.auto_graph_rounded),
-          _acciones(),
-          _titulo('Lo que estás cultivando', icono: Icons.spa_outlined),
-          _cultivando(),
-          _titulo('Tu transformación', icono: Icons.radar_rounded),
-          _transformacion(),
-          const SizedBox(height: 28),
-          if (!snapshot.esVistaPrevia) ...[
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) =>
-                  ChatScreen(conciertoFinalSnapshot: snapshot))),
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: const Text('Reflexionar con Ágora'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _lila,
-                foregroundColor: _fondo,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: SafeArea(child: ListView(
+          padding: const EdgeInsets.fromLTRB(13, 7, 13, 31),
+          children: [
+            _anillo(colores),
+            const SizedBox(height: 7),
+            InkWell(
+              key: const ValueKey('concierto-toggle-partitura'),
+              borderRadius: BorderRadius.circular(13),
+              onTap: () => setState(() =>
+                _mostrarPartitura = !_mostrarPartitura),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9, vertical: 11),
+                child: Row(children: [
+                  const Icon(Icons.queue_music_rounded,
+                    color: _lila, size: 17),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Explorar mis días',
+                    style: TextStyle(fontSize: 12,
+                      fontWeight: FontWeight.w700))),
+                  Icon(_mostrarPartitura ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                    size: 20, color: _lila),
+                ]),
               ),
-            )),
-            const SizedBox(height: 14),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOut,
+              child: _mostrarPartitura
+                  ? _partitura(colores, diarios)
+                  : const SizedBox.shrink(),
+            ),
+            InkWell(
+              key: const ValueKey('concierto-toggle-ritmo'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _mostrarRitmo = !_mostrarRitmo),
+              child: Row(children: [
+                Expanded(child: _titulo('Tu bienestar',
+                  icono: Icons.monitor_heart_outlined)),
+                Text(_mostrarRitmo ? 'Ocultar' : 'Ver evolución',
+                  style: const TextStyle(color: _lila, fontSize: 11)),
+                Icon(_mostrarRitmo ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded, color: _lila),
+              ]),
+            ),
+            Row(children: [
+              _bienestarVisual(titulo: 'Energía media',
+                icono: Icons.wb_sunny_outlined,
+                tono: _turquesa, valor: energia,
+                registros: snapshot.diasConEnergia),
+              const SizedBox(width: 9),
+              _bienestarVisual(titulo: 'Estado emocional medio',
+                icono: Icons.favorite_rounded,
+                tono: _lila, valor: estado,
+                registros: snapshot.diasConEstado),
+            ]),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              child: _mostrarRitmo ? Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _tendencias(diarios)) : const SizedBox.shrink(),
+            ),
+            _titulo('Tus acciones', icono: Icons.task_alt_rounded),
+            _acciones(),
+            _titulo('Hábitos', icono: Icons.spa_outlined),
+            _cultivando(),
+            const SizedBox(height: 18),
+            _transformacion(),
+            const SizedBox(height: 19),
+            _pieMusical(),
           ],
-          const Center(child: Text('Un paso, un día, un compás.',
-            style: TextStyle(color: _lila,
-              fontSize: 12, fontStyle: FontStyle.italic))),
-        ],
-      )),
+        )),
+      ),
     );
   }
+
+
+
 }
 
 /// Portada: ondas y estrellas dibujadas, sin recursos externos.
@@ -1069,4 +1224,94 @@ class _BrotesHabitosPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BrotesHabitosPainter old) =>
       old.marcas != marcas || old.color != color;
+}
+
+
+/// Orbitales musicales detrás del anillo; no representan datos.
+class _OrnamentoConciertoPainter extends CustomPainter {
+  const _OrnamentoConciertoPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centro = Offset(size.width / 2, size.height / 2);
+    final contorno = Paint()
+      ..color = const Color(0xFFB395F8).withValues(alpha: .18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .9;
+    canvas.save();
+    canvas.translate(centro.dx, centro.dy);
+    canvas.rotate(-.28);
+    canvas.drawOval(Rect.fromCenter(center: Offset.zero,
+      width: size.width * .97, height: size.height * .39), contorno);
+    canvas.rotate(.63);
+    canvas.drawOval(Rect.fromCenter(center: Offset.zero,
+      width: size.width * .98, height: size.height * .40),
+      contorno..color = const Color(0xFF68DFE8).withValues(alpha: .12));
+    canvas.restore();
+    final puntos = <Offset>[
+      Offset(.08, .2), Offset(.91, .28), Offset(.15, .74),
+      Offset(.88, .79), Offset(.54, .05),
+    ];
+    for (final p in puntos) {
+      final ubicacion = Offset(p.dx * size.width, p.dy * size.height);
+      final tinta = Paint()
+        ..color = const Color(0xFFB395F8).withValues(alpha: .55)
+        ..strokeWidth = 1;
+      canvas.drawLine(ubicacion + const Offset(-3, 0),
+        ubicacion + const Offset(3, 0), tinta);
+      canvas.drawLine(ubicacion + const Offset(0, -3),
+        ubicacion + const Offset(0, 3), tinta);
+    }
+  }
+  @override
+  bool shouldRepaint(covariant _OrnamentoConciertoPainter old) => false;
+}
+
+/// Brote ilustrativo; el progreso numérico procede de registros de hábitos.
+class _PlantaConciertoPainter extends CustomPainter {
+  const _PlantaConciertoPainter({required this.progreso});
+  final double progreso;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final base = size.height - 13;
+    final suelo = Paint()
+      ..color = const Color(0xFF77E5A5).withValues(alpha: .50)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawOval(Rect.fromCenter(
+      center: Offset(cx, base + 2), width: size.width * .77,
+      height: 9), suelo);
+    final tallo = Paint()
+      ..color = const Color(0xFF80DDA9)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final linea = Path()
+      ..moveTo(cx, base)
+      ..cubicTo(cx + 4, base - 21, cx - 4, base - 58, cx + 7, 22);
+    canvas.drawPath(linea, tallo);
+    void hoja(Offset inicio, Offset punta, Offset curva, Color color) {
+      final path = Path()
+        ..moveTo(inicio.dx, inicio.dy)
+        ..quadraticBezierTo(curva.dx, curva.dy, punta.dx, punta.dy)
+        ..quadraticBezierTo(
+          (punta.dx + inicio.dx) / 2, inicio.dy - 4,
+          inicio.dx, inicio.dy);
+      canvas.drawPath(path, Paint()
+        ..color = color.withValues(alpha: .78 + progreso * .18));
+    }
+    hoja(Offset(cx, base - 31), Offset(cx - 35, base - 61),
+      Offset(cx - 39, base - 28), const Color(0xFF85E6AA));
+    hoja(Offset(cx + 4, base - 68), Offset(cx + 41, base - 96),
+      Offset(cx + 42, base - 62), const Color(0xFFB1E98D));
+    hoja(Offset(cx + 1, base - 21), Offset(cx + 31, base - 44),
+      Offset(cx + 33, base - 19), const Color(0xFF5DD89F));
+    canvas.drawCircle(Offset(cx, base - 52), 42,
+      Paint()..color = const Color(0xFF68DFE8)
+        .withValues(alpha: .035 + .035 * progreso)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22));
+  }
+  @override
+  bool shouldRepaint(covariant _PlantaConciertoPainter old) =>
+      old.progreso != progreso;
 }
