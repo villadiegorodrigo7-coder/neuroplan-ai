@@ -32,10 +32,12 @@ class ColeccionNube<T> {
     required this.aFila,
     required this.deFila,
     this.claveLegacy,
+    this.soloAnexos = false,
   });
 
   /// Tabla de Supabase.
   final String tabla;
+  final bool soloAnexos;
 
   /// Prefijo de la copia local (se le agrega el id de usuario).
   final String claveLocal;
@@ -188,6 +190,23 @@ class ColeccionNube<T> {
     unawaited(_enCola(_subirPendientes));
   }
 
+  /// Agrega registros sin reemplazar otros que ya existan en la colección.
+  Future<void> anexar(List<T> nuevos) async {
+    if (nuevos.isEmpty) return;
+    final uid = _uid;
+    await _enCola(() async {
+      if (_uid != uid) return;
+      final existentes = await _cargarInterno();
+      if (_uid != uid) return;
+      final registros = {for (final registro in existentes) idDe(registro): registro};
+      for (final registro in nuevos) {
+        registros.putIfAbsent(idDe(registro), () => registro);
+      }
+      await _guardarLocal(registros.values.toList());
+    });
+    if (_uid == uid) unawaited(_enCola(_subirPendientes));
+  }
+
   Future<void> _guardarLocal(List<T> actuales) async {
     final prefs = await SharedPreferences.getInstance();
     final uid = _uid;
@@ -265,7 +284,7 @@ class ColeccionNube<T> {
         await _db.from(tabla).delete().eq('user_id', uid).inFilter('id', borradas);
       }
       if (filas.isNotEmpty) {
-        await _db.from(tabla).upsert(filas);
+        await _db.from(tabla).upsert(filas, ignoreDuplicates: soloAnexos);
       }
       // Una sesión distinta no debe limpiar los cambios pendientes anteriores.
       if (_uid != uid) return false;

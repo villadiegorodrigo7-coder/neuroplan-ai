@@ -12,6 +12,7 @@ import '../services/concierto_final_service.dart';
 import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
+import '../services/historial_rueda_service.dart';
 import '../services/tasks_service.dart';
 import '../services/voice_service.dart';
 import '../theme/app_theme.dart';
@@ -55,8 +56,6 @@ class _ChatScreenState extends State<ChatScreen>
   /// vuelve a escribir en la caja después de enviar o de editar a mano.
   int _sesionDictado = 0;
   static const String _prefVoz = 'chat_voz_activada';
-
-  int? _revisionSemanalSemana;
 
   bool _loadingHistory = true;
   bool _cerrandoConcierto = false;
@@ -206,15 +205,14 @@ class _ChatScreenState extends State<ChatScreen>
       }
     }
 
-    final revisionSemanal = await _crearRevisionSemanalSiCorresponde(list);
     final prefsSeleccion = await SharedPreferences.getInstance();
     final usuarioSeleccion =
         Supabase.instance.client.auth.currentUser?.id ?? 'local';
     final idSeleccionado = prefsSeleccion.getString(
       'agora_chat_activo_$usuarioSeleccion',
     );
-    ChatConversation? conversacionInicial = revisionSemanal;
-    if (conversacionInicial == null && idSeleccionado != null) {
+    ChatConversation? conversacionInicial;
+    if (idSeleccionado != null) {
       for (final candidata in list) {
         if (candidata.id == idSeleccionado) {
           conversacionInicial = candidata;
@@ -228,7 +226,6 @@ class _ChatScreenState extends State<ChatScreen>
     setState(() {
       _conversations = list;
       _current = conversacionInicial;
-      _revisionSemanalSemana = _semanaDeRevision(conversacionInicial);
       _loadingHistory = false;
     });
     // No crear seguimientos automáticamente al abrir Ágora: la apertura
@@ -292,7 +289,6 @@ class _ChatScreenState extends State<ChatScreen>
     setState(() {
       _current = conv;
       _loadingHistory = false;
-      _revisionSemanalSemana = null;
       _proponerInicioCiclo = false;
     });
     await _persist();
@@ -435,56 +431,6 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
-  int? _semanaDeRevision(ChatConversation? conv) {
-    if (conv == null) return null;
-    final match = RegExp(r'^Revisión semanal · semana (\d+)$')
-        .firstMatch(conv.title);
-    return match == null ? null : int.tryParse(match.group(1)!);
-  }
-
-  /// Abre una revisión al cumplirse cada periodo de siete días desde el diagnóstico.
-  Future<ChatConversation?> _crearRevisionSemanalSiCorresponde(
-    List<ChatConversation> list,
-  ) async {
-    ChatConversation? diagnostico;
-    for (final conv in list) {
-      if (conv.title == 'Diagnóstico inicial') {
-        diagnostico = conv;
-        break;
-      }
-    }
-    if (diagnostico == null) return null;
-
-    final ahora = DateTime.now();
-    final inicio = DateTime(
-      diagnostico.createdAt.year,
-      diagnostico.createdAt.month,
-      diagnostico.createdAt.day,
-    );
-    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
-    final semana = hoy.difference(inicio).inDays ~/ 7;
-    if (semana < 1) return null;
-    final titulo = 'Revisión semanal · semana $semana';
-    if (list.any((c) => c.title == titulo)) return null;
-
-    final conv = await ChatHistoryService.createConversation();
-    conv.title = titulo;
-    conv.messages.add(
-      ChatMessageData(
-        role: 'model',
-        content:
-            'Ya ha pasado una semana desde que comenzaste NEUROPLAN. '
-            'Quiero que miremos cómo transcurrieron estos días teniendo presente '
-            'lo que me contaste al iniciar. No es una evaluación ni una lista de '
-            'cumplimientos. Empecemos por algo sencillo: ¿qué ocupó más tu tiempo '
-            'y tu energía durante esta semana?',
-      ),
-    );
-    list.insert(0, conv);
-    await ChatHistoryService.saveConversations(list);
-    return conv;
-  }
-
   Future<void> _generarPropuestaDiagnostico(ChatConversation conv) async {
     try {
       final data = await HerramientasService.cargar();
@@ -568,7 +514,6 @@ class _ChatScreenState extends State<ChatScreen>
     setState(() {
       if (!yaExiste) _conversations.insert(0, conv!);
       _current = conv;
-      _revisionSemanalSemana = null;
     });
     // El borrador solo se persiste cuando se envía el primer mensaje.
     await _recordarChatActivo(conv);
@@ -578,7 +523,6 @@ class _ChatScreenState extends State<ChatScreen>
   void _selectConversation(ChatConversation conv) {
     setState(() {
       _current = conv;
-      _revisionSemanalSemana = _semanaDeRevision(conv);
     });
     _actualizarPropuestaInicioCiclo();
     _recordarChatActivo(conv);
@@ -591,7 +535,6 @@ class _ChatScreenState extends State<ChatScreen>
       _conversations.removeWhere((c) => c.id == conv.id);
       if (_current?.id == conv.id) {
         _current = _conversations.isNotEmpty ? _conversations.first : null;
-        _revisionSemanalSemana = _semanaDeRevision(_current);
       }
     });
     await _persist();
@@ -795,15 +738,11 @@ class _ChatScreenState extends State<ChatScreen>
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
-    // Una conversación que empieza con un mensaje de Ágora (como la reflexión
-    // del día) se envía con un primer turno de la persona, porque el servicio
+    // Una conversación que empieza con un mensaje de Ágora (como el diagnóstico
+    // inicial) se envía con un primer turno de la persona, porque el servicio
     // de IA exige que la conversación empiece por ella.
     if (history.isNotEmpty && history.first['role'] == 'model') {
-      final mensajeDeContexto = _esReflexionDiaria(conv)
-          ? 'Quiero hacer mi reflexión del día.'
-          : _revisionSemanalSemana != null
-          ? 'Quiero hacer mi revisión semanal de NEUROPLAN.'
-          : conv.title == 'Diagnóstico inicial'
+      final mensajeDeContexto = conv.title == 'Diagnóstico inicial'
           ? 'Estoy comenzando el diagnóstico inicial de NEUROPLAN y respondo al saludo de Ágora.'
           : 'Quiero continuar esta conversación con Ágora.';
       history.insert(0, {'role': 'user', 'content': mensajeDeContexto});
@@ -865,14 +804,6 @@ class _ChatScreenState extends State<ChatScreen>
       await VoiceService.speak(response);
     }
   }
-
-  // Conserva el contexto de las reflexiones ya guardadas en el historial.
-  bool _esReflexionDiaria(ChatConversation conversacion) =>
-      conversacion.messages.any(
-        (mensaje) =>
-            mensaje.role == 'system' &&
-            mensaje.content.startsWith('REFLEXION_DIARIA_FECHA:'),
-      );
 
   Future<String?> _construirContextoUsuario(
     ChatConversation conversacionActual, {
@@ -945,7 +876,7 @@ class _ChatScreenState extends State<ChatScreen>
         'MODO CONCIERTO FINAL. Estás acompañando a la persona a revisar un ciclo ya completado. '
         'No cierres el ciclo, no propongas empezar otro y no presentes esta conversación como examen. '
         'Primero escucha qué quiere mirar la persona. Puedes ayudar a reconocer patrones, momentos '
-        'significativos, cambios y preguntas abiertas. Haz una sola pregunta por turno. Diferencia '
+        'significativos, cambios y preguntas abiertas. Cuando haya historial confirmado de la rueda, recupera el primer valor disponible y compáralo con los avances del ciclo que se revisa. Si falta una valoración, describe los avances registrados sin inventar un número. Haz como máximo una pregunta por turno. Diferencia '
         'datos registrados, palabras de la persona e interpretaciones tentativas. Invita a corregir '
         'cualquier interpretación. La conversación debe ser cálida, honesta y sin juicios. '
         'No conviertas el Concierto Final en una lista de preguntas ni en una evaluación. '
@@ -968,68 +899,44 @@ class _ChatScreenState extends State<ChatScreen>
       if (diario != null) partes.add(diario);
     }
 
-    // --- Contexto del diagnóstico para las revisiones semanales ---
-    if (_revisionSemanalSemana != null) {
-      ChatConversation? diagnostico;
-      for (final conv in _conversations) {
-        if (conv.title == 'Diagnóstico inicial') {
-          diagnostico = conv;
-          break;
-        }
+    final diagnosticoInicial = _conversations
+        .where((chat) => chat.title == 'Diagnóstico inicial')
+        .firstOrNull;
+    if (diagnosticoInicial != null &&
+        diagnosticoInicial.id != conversacionActual.id) {
+      final detalles = diagnosticoInicial.messages
+          .where(
+            (mensaje) =>
+                mensaje.role == 'user' && mensaje.content.trim().isNotEmpty,
+          )
+          .take(20)
+          .map((mensaje) => '- ${_recortar(mensaje.content, max: 260)}')
+          .join('\n');
+      if (detalles.isNotEmpty) {
+        partes.add(
+          'Lo que la persona contó al iniciar. Úsalo cuando sea pertinente y verifica si sigue vigente:\n$detalles',
+        );
       }
-      if (diagnostico != null) {
-        final respuestas = diagnostico.messages
-            .where((m) => m.role == 'user' && m.content.trim().isNotEmpty)
-            .take(14)
-            .map((m) => _recortar(m.content, max: 220))
-            .toList();
-        if (respuestas.isNotEmpty) {
-          partes.add(
-            'Respuestas de la persona en su diagnóstico inicial. Úsalas para '
-            'personalizar la revisión semanal, relacionando el uso de tiempo y '
-            'energía con las áreas y preocupaciones que la propia persona nombró. '
-            'No conviertas estos datos en puntuaciones ni supongas que algo cambió.\n'
-            '${respuestas.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n')}',
-          );
-        }
-      }
-
-      partes.insert(
-        0,
-        'MODO REVISIÓN SEMANAL · semana $_revisionSemanalSemana. Guía una '
-        'conversación natural, no un formulario. Haz una pregunta por turno y '
-        'adáptala a las respuestas. Explora: qué ocupó el tiempo y la energía '
-        'durante la semana; qué ocurrió con las áreas, necesidades o dificultades '
-        'que aparecieron en el diagnóstico; qué cambios o patrones reconoce la '
-        'persona; y qué propósito pequeño y realista quiere llevar a la semana '
-        'siguiente. Conecta explícitamente las preguntas con lo que la persona '
-        'contó en su diagnóstico, sin repetirlo mecánicamente. No exijas una '
-        'racha diaria, no califiques el rendimiento, no juzgues y no interpretes '
-        'la ausencia de registros como incumplimiento. La revisión debe recoger '
-        'lo vivido durante los siete días como información para observar el '
-        'proceso, no como examen.',
-      );
     }
-
-    // --- Modo reflexión del día ---
-    if (_esReflexionDiaria(conversacionActual)) {
-      partes.insert(
-        0,
-        'MODO REFLEXIÓN DIARIA. La persona está haciendo su reflexión del día. '
-        'Guía una conversación breve con estas tres preguntas, siempre en este '
-        'orden y una por turno: 1) "¿Cómo te sentiste hoy?" 2) "¿Cómo crees que '
-        'salieron las cosas?" 3) "¿Qué crees que podrías mejorar y cómo podrías '
-        'hacerlo?". Espera la respuesta a cada pregunta antes de formular la '
-        'siguiente. Reconoce brevemente lo que escuchaste y distingue el estado '
-        'personal de la valoración de los resultados: alguien puede sentirse '
-        'mal y aun así haber conseguido lo que se propuso, o sentirse bien aunque '
-        'las cosas no hayan salido como esperaba. No agregues preguntas de '
-        'interrogatorio, no juzgues y no conviertas la reflexión en una evaluación. '
-        'Si el día fue difícil, ayuda a pensar sin culpa; si fue bien, permite '
-        'identificar qué desea mantener. Tras la tercera respuesta, ofrece una '
-        'síntesis breve y deja la conversación abierta. Un día sin reflexión no '
-        'es un error ni un incumplimiento.',
+    try {
+      final registros = await HistorialRuedaService.cargar();
+      final iniciales = registros.where(
+        (registro) => registro.tipo == 'inicio',
       );
+      final recientes = registros
+          .where((registro) => registro.tipo != 'inicio')
+          .take(20);
+      if (registros.isNotEmpty) {
+        final recorrido = [
+          for (final registro in [...iniciales, ...recientes])
+            '- ${registro.fecha.toLocal().toIso8601String().split('T').first} · ${registro.pilar} · ${registro.tipo} · ${registro.valor == null ? _recortar(registro.nota, max: 280) : '${registro.valor}/10'}',
+        ].join('\n');
+        partes.add(
+          'Historial de la rueda confirmado o escrito por la persona. Una nota aporta contexto y no cambia una valoración. En Concierto Final compara el punto de partida y las valoraciones disponibles.\n$recorrido',
+        );
+      }
+    } catch (_) {
+      // La conversación puede continuar con la rueda confirmada del dispositivo.
     }
 
     // Nada real todavía: no mandamos contexto.

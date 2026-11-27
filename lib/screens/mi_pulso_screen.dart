@@ -12,6 +12,7 @@ import '../services/concierto_final_service.dart';
 import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
+import '../services/historial_rueda_service.dart';
 import '../services/tasks_service.dart';
 import '../widgets/panel_cuenta.dart';
 import '../widgets/pulso_painter.dart';
@@ -113,11 +114,13 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         return data;
       }
 
-      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+      final tieneMarcador =
+          diagnostico.diagnosticoCompleto ||
           diagnostico.messages.any(
             (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
           );
-      final completo = tieneMarcador ||
+      final completo =
+          tieneMarcador ||
           await GeminiService.diagnosticoConversacionalCompleto(historial);
       if (!completo) return data;
 
@@ -179,8 +182,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final inicio = ciclo?.inicio;
     _herramientas = data;
     _cicloActual = inicio == null ? null : ciclo;
-    _inicioCiclo =
-        inicio == null ? null : DateTime(inicio.year, inicio.month, inicio.day);
+    _inicioCiclo = inicio == null
+        ? null
+        : DateTime(inicio.year, inicio.month, inicio.day);
 
     final hoy = _hoy;
     final dias = _dias;
@@ -345,8 +349,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     final subtitulo = ciclo == null
         ? 'Un espacio para observar tu tiempo, tu energía y tus decisiones.'
         : _cicloFinalizado
-            ? 'Este fue tu recorrido. Cada color conserva la memoria de tus días.'
-            : 'Tu ciclo está en marcha. Cada día forma parte de tu recorrido.';
+        ? 'Este fue tu recorrido. Cada color conserva la memoria de tus días.'
+        : 'Tu ciclo está en marcha. Cada día forma parte de tu recorrido.';
     return Container(
       padding: const EdgeInsets.fromLTRB(19, 19, 19, 17),
       decoration: BoxDecoration(
@@ -417,16 +421,18 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: (_cicloFinalizado
-                            ? const Color(0xFF34D399)
-                            : const Color(0xFFFFA94D))
-                        .withValues(alpha: 0.13),
+                    color:
+                        (_cicloFinalizado
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFFFFA94D))
+                            .withValues(alpha: 0.13),
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(
-                      color: (_cicloFinalizado
-                              ? const Color(0xFF34D399)
-                              : const Color(0xFFFFA94D))
-                          .withValues(alpha: 0.35),
+                      color:
+                          (_cicloFinalizado
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFFFFA94D))
+                              .withValues(alpha: 0.35),
                     ),
                   ),
                   child: Text(
@@ -918,7 +924,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
               ),
               child: Column(
                 children: List.generate(3, (i) {
-                  final activo = semaforo == claves[i] ||
+                  final activo =
+                      semaforo == claves[i] ||
                       (i == 0 && semaforo == 'desafio');
                   return SizedBox(
                     height: 63,
@@ -1066,9 +1073,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   Set<int> get _dimensionesSinDatoRueda => {
-        for (var i = 0; i < _etiquetasRueda.length; i++)
-          if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
-      };
+    for (var i = 0; i < _etiquetasRueda.length; i++)
+      if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
+  };
 
   List<double> _valoresRuedaUnificada() => _etiquetasRueda
       .map((etiqueta) => (_valoresDisponiblesRueda[etiqueta] ?? 0).toDouble())
@@ -1090,8 +1097,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
           !_hayPropuestaRueda
               ? 'Base inicial: todas las dimensiones parten de 0. Ágora las revisará mediante sondeo y propondrá valores a partir de lo que conversen.'
               : _tieneDiagnosticoConversacionalConfirmado
-                  ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
-                  : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
+              ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
+              : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
           style: TextStyle(
             fontSize: 12,
             height: 1.35,
@@ -1190,10 +1197,95 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     );
   }
 
+  Future<void> _abrirHistorialPilar(String pilar) async {
+    final historial = HistorialRuedaService.cargar();
+    String nota = '';
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(pilar),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FutureBuilder<List<RegistroRueda>>(
+                  future: historial,
+                  builder: (context, estado) {
+                    if (estado.hasError)
+                      return const Text('No se pudo leer el historial.');
+                    if (!estado.hasData) return const LinearProgressIndicator();
+                    final registros = estado.data!
+                        .where((r) => r.pilar == pilar)
+                        .toList();
+                    if (registros.isEmpty)
+                      return const Text('Aún no hay avances registrados.');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final registro in registros)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              registro.valor == null
+                                  ? '${_fechaLarga(registro.fecha.toLocal())} · ${registro.nota}'
+                                  : '${registro.tipo == 'inicio' ? 'Punto de partida' : _fechaLarga(registro.fecha.toLocal())} · ${registro.valor}/10',
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  maxLength: 500,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Anotar un objetivo o avance',
+                  ),
+                  onChanged: (texto) => nota = texto,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar nota'),
+          ),
+        ],
+      ),
+    );
+    if (guardar != true || nota.trim().isEmpty || !mounted) return;
+    try {
+      await HistorialRuedaService.registrarAvance(
+        pilar: pilar,
+        nota: nota,
+        cicloId: _cicloActual?.estado == 'activo' ? _cicloActual?.id : null,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar la nota. Inténtalo de nuevo.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _abrirEditorRadar({required ColorScheme scheme}) async {
     final editados = _valoresRuedaUnificada();
     final faltantesIniciales = _dimensionesSinDatoRueda;
     final dimensionesEditadas = <int>{};
+    var guardando = false;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -1225,7 +1317,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     child: Row(
                       children: [
                         IconButton(
-                          onPressed: () => Navigator.pop(dialogContext),
+                          onPressed: guardando
+                              ? null
+                              : () => Navigator.pop(dialogContext),
                           icon: const Icon(Icons.close, color: Colors.white),
                         ),
                         const Expanded(
@@ -1239,26 +1333,58 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () async {
-                            final data = _herramientas;
-                            if (data == null) return;
-                            final diagnostico = data.diagnosticoConversacional;
-                            if (diagnostico == null) return;
-                            for (var i = 0; i < _etiquetasRueda.length; i++) {
-                              final etiqueta = _etiquetasRueda[i];
-                              if (!faltantesIniciales.contains(i) ||
-                                  dimensionesEditadas.contains(i)) {
-                                diagnostico.valoresConfirmados[etiqueta] =
-                                    editados[i].round();
-                              }
-                            }
-                            diagnostico.confirmado = true;
-                            await HerramientasService.guardar(data);
-                            if (mounted) setState(() {});
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext);
-                            }
-                          },
+                          onPressed: guardando
+                              ? null
+                              : () async {
+                                  final data = _herramientas;
+                                  if (data == null) return;
+                                  final diagnostico =
+                                      data.diagnosticoConversacional;
+                                  if (diagnostico == null) return;
+                                  final anteriores = Map<String, int>.of(
+                                    diagnostico.valoresConfirmados,
+                                  );
+                                  final nuevos = Map<String, int>.of(
+                                    anteriores,
+                                  );
+                                  for (
+                                    var i = 0;
+                                    i < _etiquetasRueda.length;
+                                    i++
+                                  ) {
+                                    if (!faltantesIniciales.contains(i) ||
+                                        dimensionesEditadas.contains(i)) {
+                                      nuevos[_etiquetasRueda[i]] = editados[i]
+                                          .round();
+                                    }
+                                  }
+                                  actualizarDialogo(() => guardando = true);
+                                  try {
+                                    await HistorialRuedaService.registrarValoraciones(
+                                      anteriores: anteriores,
+                                      nuevos: nuevos,
+                                      cicloId: HerramientasService.cicloActivo(
+                                        data,
+                                      )?.id,
+                                    );
+                                    diagnostico.valoresConfirmados = nuevos;
+                                    diagnostico.confirmado = true;
+                                    await HerramientasService.guardar(data);
+                                    if (dialogContext.mounted)
+                                      Navigator.pop(dialogContext);
+                                  } catch (_) {
+                                    if (!dialogContext.mounted) return;
+                                    actualizarDialogo(() => guardando = false);
+                                    ScaffoldMessenger.of(dialogContext)
+                                        .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'No se pudo guardar la rueda. Inténtalo de nuevo.',
+                                            ),
+                                          ),
+                                        );
+                                  }
+                                },
                           child: Text(
                             _tieneDiagnosticoConversacionalConfirmado
                                 ? 'Guardar cambios'
@@ -1386,8 +1512,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                       .withValues(alpha: 0.20),
                                 ),
                                 child: Slider(
-                                  value:
-                                      editados[index].clamp(0, 10).toDouble(),
+                                  value: editados[index]
+                                      .clamp(0, 10)
+                                      .toDouble(),
                                   min: 0,
                                   max: 10,
                                   divisions: 10,
@@ -1411,6 +1538,15 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Historial de ${_etiquetasRueda[index]}',
+                              icon: const Icon(Icons.history, size: 18),
+                              onPressed: guardando
+                                  ? null
+                                  : () => _abrirHistorialPilar(
+                                      _etiquetasRueda[index],
+                                    ),
                             ),
                           ],
                         );
@@ -1522,7 +1658,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   Widget _puntoInteractivo(int index, ColorScheme scheme) {
     const center = 145.0;
     const radius = 118.0;
-    final angle = (index * 2 * 3.141592653589793 / _duracionCiclo) -
+    final angle =
+        (index * 2 * 3.141592653589793 / _duracionCiclo) -
         3.141592653589793 / 2;
     final x = center + radius * math.cos(angle) - 13;
     final y = center + radius * math.sin(angle) - 13;
@@ -1540,8 +1677,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
             color: _colorDia(_dias[index]),
             shape: BoxShape.circle,
             border: Border.all(
-              color:
-                  seleccionado ? Colors.orangeAccent : const Color(0xFF0B1020),
+              color: seleccionado
+                  ? Colors.orangeAccent
+                  : const Color(0xFF0B1020),
               width: seleccionado ? 2.5 : 1.5,
             ),
           ),
