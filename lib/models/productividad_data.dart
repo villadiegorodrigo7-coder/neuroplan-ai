@@ -1,5 +1,11 @@
 /// Modelos independientes de las herramientas de NEUROPLAN.
 
+const pilaresRuedaVida = [
+  'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
+  'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
+  'Organización', 'Motivación', 'Satisfacción',
+];
+
 class MatrizEisenhower {
   List<String> urgenteImportante;
   List<String> importanteNoUrgente;

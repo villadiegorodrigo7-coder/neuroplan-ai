@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/productividad_data.dart';
+
 /// Ágora. La app ya NO habla con Gemini directamente ni guarda ninguna clave:
 /// le manda el mensaje a la función de servidor "agora-chat" (en Supabase),
 /// que es la única que tiene la clave de Gemini y la que cuenta el límite
@@ -352,11 +354,7 @@ $contextoUsuario
     List<Map<String, String>> respuestas, {
     String? contextoUsuario,
   }) async {
-    const dimensiones = [
-      'Salud', 'Estudios', 'Trabajo', 'Finanzas', 'Familia', 'Amigos',
-      'Descanso', 'Crecimiento', 'Energía', 'Estrés', 'Claridad mental',
-      'Organización', 'Motivación', 'Satisfacción',
-    ];
+    const dimensiones = pilaresRuedaVida;
     final respuesta = await sendMessage(
       '''
 La conversación de diagnóstico inicial ya concluyó. Ahora realiza una lectura reflexiva de lo que la persona expresó y prepara una PROPUESTA VISUAL PRELIMINAR para su Rueda de la Vida.

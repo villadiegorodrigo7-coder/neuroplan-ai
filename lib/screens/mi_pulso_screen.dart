@@ -1040,23 +1040,6 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
     Color(0xFFFF876B), // Satisfacción general
   ];
 
-  static const List<String> _etiquetasRueda = [
-    'Salud',
-    'Estudios',
-    'Trabajo',
-    'Finanzas',
-    'Familia',
-    'Amigos',
-    'Descanso',
-    'Crecimiento',
-    'Energía',
-    'Estrés',
-    'Claridad mental',
-    'Organización',
-    'Motivación',
-    'Satisfacción',
-  ];
-
   bool get _hayPropuestaRueda =>
       (_herramientas?.diagnosticoConversacional?.valoresPropuestos.isNotEmpty ??
           false) ||
@@ -1073,11 +1056,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   }
 
   Set<int> get _dimensionesSinDatoRueda => {
-    for (var i = 0; i < _etiquetasRueda.length; i++)
-      if (!_valoresDisponiblesRueda.containsKey(_etiquetasRueda[i])) i,
+    for (var i = 0; i < pilaresRuedaVida.length; i++)
+      if (!_valoresDisponiblesRueda.containsKey(pilaresRuedaVida[i])) i,
   };
 
-  List<double> _valoresRuedaUnificada() => _etiquetasRueda
+  List<double> _valoresRuedaUnificada() => pilaresRuedaVida
       .map((etiqueta) => (_valoresDisponiblesRueda[etiqueta] ?? 0).toDouble())
       .toList();
 
@@ -1158,7 +1141,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     child: CustomPaint(
                       painter: RadarDiagnosticoPainter(
                         values: valores,
-                        labels: _etiquetasRueda,
+                        labels: pilaresRuedaVida,
                         color: const Color(0xFF9B75FF),
                         axisColors: _coloresRueda,
                         textColor: Colors.white,
@@ -1349,12 +1332,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                   );
                                   for (
                                     var i = 0;
-                                    i < _etiquetasRueda.length;
+                                    i < pilaresRuedaVida.length;
                                     i++
                                   ) {
                                     if (!faltantesIniciales.contains(i) ||
                                         dimensionesEditadas.contains(i)) {
-                                      nuevos[_etiquetasRueda[i]] = editados[i]
+                                      nuevos[pilaresRuedaVida[i]] = editados[i]
                                           .round();
                                     }
                                   }
@@ -1428,7 +1411,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                               child: CustomPaint(
                                 painter: RadarDiagnosticoPainter(
                                   values: editados,
-                                  labels: _etiquetasRueda,
+                                  labels: pilaresRuedaVida,
                                   color: const Color(0xFF9B75FF),
                                   axisColors: _coloresRueda,
                                   textColor: Colors.white,
@@ -1452,11 +1435,11 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                     ),
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
-                      itemCount: _etiquetasRueda.length,
+                      itemCount: pilaresRuedaVida.length,
                       itemBuilder: (context, index) {
                         final fundamento = _herramientas
                             ?.diagnosticoConversacional
-                            ?.fundamentos[_etiquetasRueda[index]];
+                            ?.fundamentos[pilaresRuedaVida[index]];
                         return Row(
                           children: [
                             Container(
@@ -1475,7 +1458,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    _etiquetasRueda[index],
+                                    pilaresRuedaVida[index],
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -1540,12 +1523,12 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Historial de ${_etiquetasRueda[index]}',
+                              tooltip: 'Historial de ${pilaresRuedaVida[index]}',
                               icon: const Icon(Icons.history, size: 18),
                               onPressed: guardando
                                   ? null
                                   : () => _abrirHistorialPilar(
-                                      _etiquetasRueda[index],
+                                      pilaresRuedaVida[index],
                                     ),
                             ),
                           ],

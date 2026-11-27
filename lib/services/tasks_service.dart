@@ -107,7 +107,7 @@ class TasksService extends ChangeNotifier {
 
   /// Agrega una tarea en un cuadrante. Se refleja en la matriz del
   /// La matriz independiente, que se refleja en la pantalla de Tareas.
-  void agregar(String titulo, String cuadrante) {
+  Future<void> agregar(String titulo, String cuadrante) async {
     final texto = titulo.trim();
     if (texto.isEmpty || !cuadrantesSincronizados.containsKey(cuadrante)) {
       return;
@@ -119,8 +119,10 @@ class TasksService extends ChangeNotifier {
       cuadrante: cuadrante,
     ));
     _notificar();
-    unawaited(_guardar());
-    unawaited(_modificarMatriz((m) => _listaDe(m, cuadrante).add(texto)));
+    await Future.wait([
+      _guardar(),
+      _modificarMatriz((m) => _listaDe(m, cuadrante).add(texto)),
+    ]);
   }
 
   /// Asigna un cuadrante a una tarea que no tenía (por ejemplo, las que se
