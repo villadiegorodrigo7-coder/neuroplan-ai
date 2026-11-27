@@ -873,7 +873,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               Icon(Icons.lock_outline_rounded, color: _lila, size: 17),
               SizedBox(width: 8),
               Expanded(child: Text(
-                'La evaluación final seguirá pendiente hasta tu cierre.',
+                'Esta Rueda acompaña tu vida: puedes revisarla cuando quieras, sin esperar al cierre del ciclo.',
                 style: TextStyle(color: _textoTenue, fontSize: 11))),
             ]),
           ],
@@ -995,7 +995,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               const Row(children: [
                 Icon(Icons.lock_outline_rounded, size: 13, color: _lila),
                 SizedBox(width: 4),
-                Expanded(child: Text('Evaluación final pendiente',
+                Expanded(child: Text('Tu perspectiva de vida · actualización libre',
                   style: TextStyle(fontSize: 10,
                     color: _textoTenue))),
               ]),
