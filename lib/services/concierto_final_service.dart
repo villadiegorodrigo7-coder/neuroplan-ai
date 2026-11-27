@@ -93,13 +93,14 @@ class ConciertoFinalSnapshot {
       ..writeln('Registros de hábitos: $registrosHabitos. Evaluaciones de bloques: ${evaluaciones.length}.')
       ..writeln('Historial de actividad: ${!historialActividadesConsultado ? 'no consultado' : (historialActividadesDisponible ? 'disponible' : 'no disponible')}.');
     if (recorridoRueda.isNotEmpty) {
-      salida.writeln('RUEDA DE LA VIDA · VALORACIONES CONFIRMADAS Y AVANCES DEL CICLO');
+      salida.writeln('RUEDA DE LA VIDA · REFERENCIA PERSONAL A LO LARGO DE LA VIDA (NO ES UNA EVALUACIÓN OBLIGATORIA DE ESTE CICLO)');
       for (final pilar in recorridoRueda) {
         salida.writeln('- ${pilar.pilar}: partida ${pilar.inicio?.valor ?? 'sin valoración'}, última dentro del período ${pilar.ultimo?.valor ?? 'sin valoración posterior'}');
         for (final nota in pilar.notas.reversed.take(3)) {
           salida.writeln('  · ${EntradaDiario.claveFecha(nota.fecha.toLocal())}: ${nota.nota}');
         }
       }
+      salida.writeln('Estos pilares acompañan la trayectoria personal con independencia del ciclo de 30 días; no es obligatorio volver a valorarlos ni contrastar dos Ruedas para realizar Concierto Final. Su evolución puede aportar contexto cuando la persona lo desee, pero no es una calificación del período.');
       salida.writeln('Las notas explican el recorrido. No conviertas una nota en una puntuación ni supongas que subir en estrés es una mejora.');
     }
     if (diarios.isNotEmpty) {
