@@ -7,6 +7,77 @@ import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
 import 'package:neuroplan_ai/services/concierto_final_service.dart';
 
 void main() {
+  testWidgets('La Rueda inicial muestra valores confirmados y no crea una final',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final inicial = <String, int>{'Salud': 7, 'Familia': 4};
+    final ciclo = CicloNeuroplan(
+      id: 'diagnostico', fechaInicio: '2026-11-01', duracionDias: 30);
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: ciclo, esVistaPrevia: true,
+      fechaHasta: '2026-11-20',
+      valoresRuedaInicial: inicial,
+      ruedaInicialHistorica: true,
+      diarios: [], tareas: [], agenda: [], habitos: [],
+      evaluaciones: [], conversaciones: [], historialActividades: [],
+      historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    inicial['Salud'] = 1;
+    expect(snapshot.valoresRuedaInicial['Salud'], 7);
+    expect(() => snapshot.valoresRuedaInicial['Salud'] = 9, throwsUnsupportedError);
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+    final tarjeta = find.byKey(const ValueKey('concierto-rueda-inicial'));
+    await tester.scrollUntilVisible(tarjeta, 210,
+      scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(tarjeta);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('concierto-radar-inicial')), findsOneWidget);
+    expect(find.textContaining('Evaluación final pendiente'), findsOneWidget);
+    await tester.tap(tarjeta);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('concierto-radar-real')), findsOneWidget);
+    expect(find.text('Punto de partida registrado'), findsOneWidget);
+    expect(find.text('7/10'), findsOneWidget);
+    expect(find.text('4/10'), findsOneWidget);
+    expect(find.text('14/10'), findsNothing);
+    expect(ciclo.estado, 'activo');
+    expect(ciclo.conciertoFinalCompletado, isFalse);
+  });
+
+  testWidgets('Sin diagnóstico confirmado no inventa datos de la Rueda',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: CicloNeuroplan(id: 'sin-diagnostico',
+        fechaInicio: '2026-11-01', duracionDias: 30),
+      esVistaPrevia: true, fechaHasta: '2026-11-20',
+      diarios: [], tareas: [], agenda: [], habitos: [],
+      evaluaciones: [], conversaciones: [], historialActividades: [],
+      historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+    final tarjeta = find.byKey(const ValueKey('concierto-rueda-inicial'));
+    await tester.scrollUntilVisible(tarjeta, 180,
+      scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No hay dimensiones confirmadas'), findsOneWidget);
+    expect(find.byKey(const ValueKey('concierto-radar-inicial')), findsNothing);
+    await tester.tap(tarjeta);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('concierto-radar-real')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('El recorrido mantiene el diseño en un móvil angosto',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 700));
