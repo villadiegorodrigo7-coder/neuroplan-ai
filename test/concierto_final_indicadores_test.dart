@@ -7,7 +7,7 @@ import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
 import 'package:neuroplan_ai/services/concierto_final_service.dart';
 
 void main() {
-  testWidgets('La Rueda inicial muestra valores confirmados y no crea una final',
+  testWidgets('La Rueda compara las valoraciones inicial y actual sin cerrar el ciclo',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 820));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -18,6 +18,7 @@ void main() {
       ciclo: ciclo, esVistaPrevia: true,
       fechaHasta: '2026-11-20',
       valoresRuedaInicial: inicial,
+      valoresRuedaActual: const {'Salud': 6, 'Familia': 4},
       ruedaInicialHistorica: true,
       diarios: [], tareas: [], agenda: [], habitos: [],
       evaluaciones: [], conversaciones: [], historialActividades: [],
@@ -37,13 +38,16 @@ void main() {
     await tester.ensureVisible(tarjeta);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('concierto-radar-inicial')), findsOneWidget);
-    expect(find.textContaining('actualización libre'), findsOneWidget);
+    expect(find.byKey(const ValueKey('concierto-radar-actual')), findsOneWidget);
+    expect(find.textContaining('1 dimensiones con cambios registrados'),
+      findsOneWidget);
     await tester.tap(tarjeta);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('concierto-radar-real')), findsOneWidget);
-    expect(find.text('Punto de partida registrado'), findsOneWidget);
+    expect(find.text('Inicial'), findsWidgets);
+    expect(find.text('Actual'), findsWidgets);
     expect(find.text('7/10'), findsOneWidget);
-    expect(find.text('4/10'), findsOneWidget);
+    expect(find.text('6/10'), findsOneWidget);
     expect(find.text('14/10'), findsNothing);
     expect(ciclo.estado, 'activo');
     expect(ciclo.conciertoFinalCompletado, isFalse);
