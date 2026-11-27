@@ -128,9 +128,16 @@ void main() {
       home: ConciertoFinalScreen(snapshot: snapshot),
     ));
     expect(find.text('Mi recorrido'), findsOneWidget);
+    expect(find.byKey(const ValueKey('concierto-portada-premium')),
+      findsOneWidget);
     expect(find.text('Vista previa'), findsOneWidget);
     expect(find.text('Reflexionar con Ágora'), findsNothing);
-    expect(find.textContaining('días por vivir'), findsOneWidget);
+    expect(find.textContaining('por vivir'), findsOneWidget);
+    final desplegar = find.byKey(const ValueKey('concierto-toggle-partitura'));
+    await tester.ensureVisible(desplegar);
+    await tester.pumpAndSettle();
+    await tester.tap(desplegar);
+    await tester.pumpAndSettle();
     final dia16 = find.byKey(const ValueKey('concierto-dia-16'));
     await tester.scrollUntilVisible(dia16, 210,
       scrollable: find.byType(Scrollable).first);
@@ -176,8 +183,13 @@ void main() {
       theme: ThemeData.dark(),
       home: ConciertoFinalScreen(snapshot: snapshot),
     ));
-    expect(find.text('Los colores de tu ciclo'), findsOneWidget);
+    expect(find.text('Cada día tiene su propio color.'), findsOneWidget);
     // El nuevo recorrido abre el último día: seleccionamos el primero.
+    final desplegar = find.byKey(const ValueKey('concierto-toggle-partitura'));
+    await tester.ensureVisible(desplegar);
+    await tester.pumpAndSettle();
+    await tester.tap(desplegar);
+    await tester.pumpAndSettle();
     final dia1 = find.byKey(const ValueKey('concierto-dia-1'));
     await tester.ensureVisible(dia1);
     await tester.pumpAndSettle();
