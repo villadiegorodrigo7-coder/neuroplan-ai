@@ -97,16 +97,27 @@ class ConciertoFinalSnapshot {
       ..writeln('Ocurrencias de agenda cumplidas: $compromisosCumplidos. Marcadas como no cumplidas: $compromisosMarcadosNoCumplidos. Sin marca: $compromisosSinMarca.')
       ..writeln('Registros de hábitos: $registrosHabitos. Evaluaciones de bloques: ${evaluaciones.length}.')
       ..writeln('Historial de actividad: ${!historialActividadesConsultado ? 'no consultado' : (historialActividadesDisponible ? 'disponible' : 'no disponible')}.');
+    if (valoresRuedaInicial.isNotEmpty || valoresRuedaActual.isNotEmpty) {
+      salida.writeln('RUEDA DE LA VIDA · VISIÓN LONGITUDINAL INDEPENDIENTE DEL CICLO');
+      salida.writeln(ruedaInicialHistorica
+          ? 'La referencia inicial proviene de las primeras valoraciones históricas registradas.'
+          : 'La referencia inicial histórica está incompleta; no deduzcas cambios donde faltan antecedentes.');
+      for (final pilar in pilaresRuedaVida) {
+        final inicial = valoresRuedaInicial[pilar];
+        final actual = valoresRuedaActual[pilar];
+        if (inicial == null && actual == null) continue;
+        salida.writeln('- $pilar: inicial ${inicial == null ? 'sin dato' : '$inicial/10'}, '
+            'actual confirmado ${actual == null ? 'sin dato' : '$actual/10'}.');
+      }
+      salida.writeln('Que no exista una valoración nueva dentro del ciclo NO significa que falte la valoración actual ni que el bienestar haya empeorado. La Rueda pertenece a la vida de la persona, no a los 30 días.');
+    }
     if (recorridoRueda.isNotEmpty) {
-      salida.writeln('RUEDA DE LA VIDA · REFERENCIA PERSONAL A LO LARGO DE LA VIDA (NO ES UNA EVALUACIÓN OBLIGATORIA DE ESTE CICLO)');
       for (final pilar in recorridoRueda) {
-        salida.writeln('- ${pilar.pilar}: partida ${pilar.inicio?.valor ?? 'sin valoración'}, última dentro del período ${pilar.ultimo?.valor ?? 'sin valoración posterior'}');
         for (final nota in pilar.notas.reversed.take(3)) {
-          salida.writeln('  · ${EntradaDiario.claveFecha(nota.fecha.toLocal())}: ${nota.nota}');
+          salida.writeln('NOTA EN ${pilar.pilar}: ${EntradaDiario.claveFecha(nota.fecha.toLocal())}: ${nota.nota}');
         }
       }
-      salida.writeln('Estos pilares acompañan la trayectoria personal con independencia del ciclo de 30 días; no es obligatorio volver a valorarlos ni contrastar dos Ruedas para realizar Concierto Final. Su evolución puede aportar contexto cuando la persona lo desee, pero no es una calificación del período.');
-      salida.writeln('Las notas explican el recorrido. No conviertas una nota en una puntuación ni supongas que subir en estrés es una mejora.');
+      salida.writeln('No conviertas las notas en puntuaciones ni asumas que un aumento en estrés representa una mejoría.');
     }
     if (diarios.isNotEmpty) {
       salida.writeln('INDICADORES DE MI PULSO:');
