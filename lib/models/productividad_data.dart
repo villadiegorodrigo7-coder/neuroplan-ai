@@ -295,6 +295,7 @@ class DiagnosticoConversacional {
   Map<String, int> valoresPropuestos;
   Map<String, int> valoresConfirmados;
   Map<String, String> fundamentos;
+  Map<String, List<String>> contextoPorPilar;
   String resumen;
   bool confirmado;
   /// Datos del esquema antiguo conservados como antecedentes, nunca como
@@ -305,18 +306,36 @@ class DiagnosticoConversacional {
     Map<String, int>? valoresPropuestos,
     Map<String, int>? valoresConfirmados,
     Map<String, String>? fundamentos,
+    Map<String, List<String>>? contextoPorPilar,
     this.resumen = '',
     this.confirmado = false,
     Map<String, dynamic>? antecedentesHistoricos,
   })  : valoresPropuestos = valoresPropuestos ?? {},
         valoresConfirmados = valoresConfirmados ?? {},
         fundamentos = fundamentos ?? {},
+        contextoPorPilar = contextoPorPilar ?? {},
         antecedentesHistoricos = antecedentesHistoricos ?? {};
+
+  bool agregarContexto(Map<String, List<String>> notas) {
+    var huboCambios = false;
+    for (final pilar in notas.keys) {
+      final guardadas = List<String>.of(contextoPorPilar[pilar] ?? const []);
+      for (final nota in notas[pilar]!) {
+        if (!guardadas.contains(nota)) {
+          guardadas.add(nota);
+          huboCambios = true;
+        }
+      }
+      contextoPorPilar[pilar] = guardadas;
+    }
+    return huboCambios;
+  }
 
   Map<String, dynamic> toJson() => {
         'valoresPropuestos': valoresPropuestos,
         'valoresConfirmados': valoresConfirmados,
         'fundamentos': fundamentos,
+        if (contextoPorPilar.isNotEmpty) 'contextoPorPilar': contextoPorPilar,
         'resumen': resumen,
         'confirmado': confirmado,
         if (antecedentesHistoricos.isNotEmpty)
@@ -328,6 +347,12 @@ class DiagnosticoConversacional {
         valoresPropuestos: Map<String, int>.from(json['valoresPropuestos'] ?? {}),
         valoresConfirmados: Map<String, int>.from(json['valoresConfirmados'] ?? {}),
         fundamentos: Map<String, String>.from(json['fundamentos'] ?? {}),
+        contextoPorPilar: {
+          if (json['contextoPorPilar'] case final Map contexto)
+            for (final pilar in pilaresRuedaVida)
+              if (contexto[pilar] case final List notas)
+                pilar: notas.whereType<String>().toList(),
+        },
         resumen: (json['resumen'] ?? '').toString(),
         confirmado: json['confirmado'] == true,
         antecedentesHistoricos: json['antecedentesHistoricos'] is Map

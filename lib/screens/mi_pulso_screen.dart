@@ -141,15 +141,17 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       );
       if (propuesta == null) return data;
 
-      data.diagnosticoConversacional = DiagnosticoConversacional(
-        valoresPropuestos: Map<String, int>.from(
-          propuesta['valoresPropuestos'] as Map,
-        ),
-        fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
-        resumen: (propuesta['resumen'] ?? '').toString(),
-      );
-      await HerramientasService.guardar(data);
-      return data;
+      final actual = await HerramientasService.cargar();
+      if (!mounted) return actual;
+      final rueda = actual.diagnosticoConversacional ?? DiagnosticoConversacional();
+      if (rueda.confirmado || rueda.valoresPropuestos.isNotEmpty) return actual;
+      rueda
+        ..valoresPropuestos = Map<String, int>.from(propuesta['valoresPropuestos'] as Map)
+        ..fundamentos = Map<String, String>.from(propuesta['fundamentos'] as Map)
+        ..resumen = (propuesta['resumen'] ?? '').toString();
+      actual.diagnosticoConversacional = rueda;
+      await HerramientasService.guardar(actual);
+      return actual;
     } catch (error, stackTrace) {
       debugPrint('No se pudo recuperar la Rueda de la Vida: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -1069,6 +1071,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
       .toList();
 
   Widget _composicionDiagnostica(ColorScheme scheme) {
+    final contexto = _herramientas?.diagnosticoConversacional?.contextoPorPilar;
     final valores = _valoresRuedaUnificada();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1082,7 +1085,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
         ),
         Text(
           !_hayPropuestaRueda
-              ? 'Base inicial: todas las dimensiones parten de 0. Ágora las revisará mediante sondeo y propondrá valores a partir de lo que conversen.'
+              ? 'Lo que compartas en el diagnóstico puede aparecer por pilar mientras conversas con Ágora.'
               : _tieneDiagnosticoConversacionalConfirmado
               ? 'Diagnóstico conversacional confirmado. Puedes volver a revisar tus dimensiones.'
               : 'Propuesta preliminar de Ágora. Revisa cada dimensión y confirma solo cuando te represente.',
@@ -1105,6 +1108,19 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                 color: Colors.white.withValues(alpha: 0.82),
               ),
             ),
+          ),
+        if (contexto != null && contexto.isNotEmpty)
+          ExpansionTile(
+            title: const Text('Contexto del diagnóstico'),
+            subtitle: Text('${contexto.length} pilares con notas'),
+            children: [
+              for (final pilar in pilaresRuedaVida)
+                if (contexto[pilar]?.isNotEmpty == true)
+                  ListTile(
+                    title: Text(pilar),
+                    subtitle: Text(contexto[pilar]!.map((nota) => '“$nota”').join('\n')),
+                  ),
+            ],
           ),
         const SizedBox(height: 12),
         Center(
@@ -1149,9 +1165,7 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                         color: const Color(0xFF9B75FF),
                         axisColors: _coloresRueda,
                         textColor: Colors.white,
-                        missingIndices: _hayPropuestaRueda
-                            ? _dimensionesSinDatoRueda
-                            : const <int>{},
+                        missingIndices: _dimensionesSinDatoRueda,
                       ),
                       child: const SizedBox.expand(),
                     ),

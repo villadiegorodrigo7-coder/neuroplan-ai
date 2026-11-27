@@ -10,6 +10,7 @@ import '../models/productividad_data.dart';
 import '../services/acciones_agora.dart';
 import '../services/chat_history_service.dart';
 import '../services/concierto_final_service.dart';
+import '../services/contexto_diagnostico_rueda.dart';
 import '../services/diario_store.dart';
 import '../services/gemini_service.dart';
 import '../services/herramientas_service.dart';
@@ -475,16 +476,22 @@ class _ChatScreenState extends State<ChatScreen>
       );
       if (propuesta == null) return;
 
-      data.diagnosticoConversacional = DiagnosticoConversacional(
-        valoresPropuestos: Map<String, int>.from(
+      final actual = await HerramientasService.cargar();
+      if (!mounted) return;
+      final diagnostico =
+          actual.diagnosticoConversacional ?? DiagnosticoConversacional();
+      if (diagnostico.confirmado || diagnostico.valoresPropuestos.isNotEmpty)
+        return;
+      diagnostico
+        ..valoresPropuestos = Map<String, int>.from(
           propuesta['valoresPropuestos'] as Map,
-        ),
-        fundamentos: Map<String, String>.from(propuesta['fundamentos'] as Map),
-        resumen: (propuesta['resumen'] ?? '').toString(),
-        antecedentesHistoricos:
-            existente?.antecedentesHistoricos ?? <String, dynamic>{},
-      );
-      await HerramientasService.guardar(data);
+        )
+        ..fundamentos = Map<String, String>.from(
+          propuesta['fundamentos'] as Map,
+        )
+        ..resumen = (propuesta['resumen'] ?? '').toString();
+      actual.diagnosticoConversacional = diagnostico;
+      await HerramientasService.guardar(actual);
 
       final aviso = ChatMessageData(
         role: 'model',
@@ -853,11 +860,40 @@ class _ChatScreenState extends State<ChatScreen>
       incluirAntecedentesDiagnostico: conv.title == 'Diagnóstico inicial',
     );
 
+    final cuenta = Supabase.instance.client.auth.currentUser?.id;
     final respuestaAgora = await GeminiService.sendMessage(
       text,
       history: history,
       contextoUsuario: contexto,
     );
+    final esDiagnostico = conv.title == 'Diagnóstico inicial';
+    final extraccion = ContextoDiagnosticoRueda.extraer(
+      respuestaAgora,
+      esDiagnostico
+          ? conv.messages
+                .where((mensaje) => mensaje.role == 'user')
+                .map((mensaje) => mensaje.content)
+          : const <String>[],
+    );
+    if (esDiagnostico &&
+        extraccion.notas.isNotEmpty &&
+        mounted &&
+        Supabase.instance.client.auth.currentUser?.id == cuenta) {
+      try {
+        final datos = await HerramientasService.cargar();
+        if (mounted &&
+            Supabase.instance.client.auth.currentUser?.id == cuenta) {
+          final rueda =
+              datos.diagnosticoConversacional ?? DiagnosticoConversacional();
+          if (rueda.agregarContexto(extraccion.notas)) {
+            datos.diagnosticoConversacional = rueda;
+            await HerramientasService.guardar(datos);
+          }
+        }
+      } catch (_) {
+        // El chat sigue disponible si no se puede guardar el contexto.
+      }
+    }
     final diagnosticoCompleto =
         conv.title == 'Diagnóstico inicial' &&
         (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
@@ -881,7 +917,7 @@ class _ChatScreenState extends State<ChatScreen>
         conv.messages.add(ChatMessageData(role: 'system', content: marca));
       }
     }
-    final interpretada = AccionAgora.interpretar(respuestaAgora);
+    final interpretada = AccionAgora.interpretar(extraccion.mensaje);
     final response = interpretada.mensaje
         .replaceAll('[[DIAGNOSTICO_COMPLETO]]', '')
         .replaceAll(marcadorCierre, '')
@@ -921,6 +957,18 @@ class _ChatScreenState extends State<ChatScreen>
     final data = await HerramientasService.cargar();
     final partes = <String>[];
     final diagnostico = data.diagnosticoConversacional;
+
+    if (incluirAntecedentesDiagnostico) {
+      partes.add(ContextoDiagnosticoRueda.instrucciones);
+    }
+    if (_cicloDeConcierto(conversacionActual) == null &&
+        diagnostico != null &&
+        diagnostico.contextoPorPilar.isNotEmpty) {
+      partes.add(
+        'Contexto ya guardado por pilar, en palabras de la persona:\n'
+        '${diagnostico.contextoPorPilar.entries.map((entrada) => '- ${entrada.key}: ${entrada.value.reversed.take(3).join(' | ')}').join('\n')}',
+      );
+    }
 
     if (incluirAntecedentesDiagnostico &&
         diagnostico != null &&
