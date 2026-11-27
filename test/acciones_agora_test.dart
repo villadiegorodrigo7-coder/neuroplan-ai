@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neuroplan_ai/services/acciones_agora.dart';
+import 'package:neuroplan_ai/models/productividad_data.dart';
+import 'package:neuroplan_ai/services/herramientas_service.dart';
 import 'package:neuroplan_ai/services/historial_rueda_service.dart';
 import 'package:neuroplan_ai/services/tasks_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -62,5 +64,26 @@ void main() {
     final guardada = TasksService.instance.tasks.single;
     expect(guardada.title, 'Practicar inglés');
     expect(guardada.cuadrante, 'importanteNoUrgente');
+    const valorar =
+        '[[ACCION_NEUROPLAN]] {"tipo":"valor_rueda","destino":"Familia","texto":"4"}';
+    final valoracion = AccionAgora.interpretar(valorar).accion!;
+    await expectLater(
+      valoracion.guardar(cuentaVigente: () => true),
+      throwsStateError,
+    );
+    await HerramientasService.guardar(
+      HerramientasData(
+        diagnostico: DiagnosticoConversacional(
+          confirmado: true,
+          valoresConfirmados: {'Familia': 2},
+        ),
+      ),
+    );
+    await valoracion.guardar(cuentaVigente: () => true);
+    final datos = await HerramientasService.cargar();
+    expect(datos.diagnosticoConversacional?.valoresConfirmados['Familia'], 4);
+    final historial = await HistorialRuedaService.cargar();
+    expect(historial.singleWhere((r) => r.tipo == 'inicio').valor, 2);
+    expect(historial.singleWhere((r) => r.tipo == 'valoracion').valor, 4);
   });
 }

@@ -882,6 +882,59 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
     );
   }
 
+  Widget _avanceRueda() {
+    final colores = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _titulo('Evolución de la Rueda de la Vida', icono: Icons.track_changes_rounded),
+        if (snapshot.recorridoRueda.where((pilar) => pilar.ultimo != null).length >= 3)
+          SizedBox(
+            height: 260,
+            child: CustomPaint(
+              painter: RadarDiagnosticoPainter(
+                values: snapshot.recorridoRueda.map((pilar) => (pilar.ultimo?.valor ?? 0).toDouble()).toList(),
+                labels: snapshot.recorridoRueda.map((pilar) => pilar.pilar).toList(),
+                missingIndices: {
+                  for (var i = 0; i < snapshot.recorridoRueda.length; i++)
+                    if (snapshot.recorridoRueda[i].ultimo == null) i,
+                },
+                color: colores.primary,
+                textColor: colores.onSurface,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        for (final pilar in snapshot.recorridoRueda)
+          Card(
+            child: ExpansionTile(
+              title: Text(pilar.pilar),
+              subtitle: Text(
+                'Partida: ${pilar.inicio?.valor == null ? 'sin dato' : '${pilar.inicio!.valor}/10'}'
+                ' · Última: ${pilar.ultimo?.valor == null ? 'sin valoración posterior' : '${pilar.ultimo!.valor}/10'}',
+              ),
+              trailing: pilar.cambio == null
+                  ? null
+                  : Text(
+                      '${pilar.cambio! > 0 ? '+' : ''}${pilar.cambio}',
+                      style: TextStyle(color: colores.primary, fontWeight: FontWeight.w700),
+                    ),
+              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              children: [
+                if (pilar.notas.isEmpty) const Text('Sin notas en este ciclo.'),
+                for (final nota in pilar.notas)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('${EntradaDiario.claveFecha(nota.fecha.toLocal())} · ${nota.nota}'),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _transformacion() {
     final valores = snapshot.valoresRuedaInicial;
     final tieneRueda = valores.isNotEmpty;
@@ -1091,6 +1144,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
             _cultivando(),
             const SizedBox(height: 18),
             _transformacion(),
+            if (snapshot.recorridoRueda.isNotEmpty) _avanceRueda(),
             const SizedBox(height: 19),
             _pieMusical(),
           ],

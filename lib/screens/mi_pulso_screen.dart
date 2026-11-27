@@ -17,8 +17,8 @@ import '../services/tasks_service.dart';
 import '../widgets/panel_cuenta.dart';
 import '../widgets/pulso_painter.dart';
 import '../widgets/radar_diagnostico_painter.dart';
-import 'chat_screen.dart';
 import 'concierto_final_screen.dart';
+import 'rueda_objetivos_screen.dart';
 
 /// Mi pulso reúne dos dimensiones complementarias: la experiencia diaria
 /// (Mi ritmo) y las intenciones elegidas (Mis intenciones).
@@ -221,13 +221,8 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
 
   static const Color _diaTranscurrido = Color(0xFFFF9800);
 
-  int get _diasTranscurridos {
-    final inicio = _inicioCiclo;
-    if (inicio == null) return 0;
-    final hoy = DateTime(_hoy.year, _hoy.month, _hoy.day);
-    final diferencia = hoy.difference(inicio).inDays;
-    return (diferencia + 1).clamp(0, _duracionCiclo);
-  }
+  int get _diasTranscurridos =>
+      (_cicloActual?.diaDelCiclo(_hoy) ?? 0).clamp(0, _duracionCiclo);
 
   // Durante el ciclo muestra el avance; al completarlo conserva la historia
   // diaria mediante los colores del semáforo registrados en el diario.
@@ -324,12 +319,22 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
                           true) ...[
                         _invitacionConciertoFinal(scheme),
                         const SizedBox(height: 22),
-                      ] else if (_cicloActual?.estado == 'activo' &&
-                          _diasTranscurridos > 15 &&
-                          _diasTranscurridos <= _duracionCiclo &&
-                          !(_cicloActual?.conciertoFinalCompletado ?? false)) ...[
+                      ] else if (_cicloActual?.puedeVerVistaPreviaConcierto(_hoy) == true) ...[
                         _invitacionVistaPrevia(scheme),
                         const SizedBox(height: 22),
+                      ],
+                      if (_herramientas?.puedeCrearRuedaObjetivos(_hoy) ==
+                          true) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const RuedaObjetivosScreen(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.track_changes_rounded),
+                          label: const Text('Rueda de Objetivos'),
+                        ),
+                        const SizedBox(height: 14),
                       ],
                       resumen,
                       const SizedBox(height: 22),
@@ -513,10 +518,9 @@ class _MiPulsoScreenState extends State<MiPulsoScreen> {
   /// Vista de lectura sin acciones de cierre ni cambios en el ciclo.
   Future<void> _abrirVistaPreviaConcierto() async {
     final ciclo = _cicloActual;
-    if (ciclo == null || ciclo.estado != 'activo' ||
-        _diasTranscurridos <= 15 ||
-        _diasTranscurridos > ciclo.duracionDias ||
-        ciclo.conciertoFinalCompletado || _preparandoConcierto) {
+    if (ciclo == null ||
+        !ciclo.puedeVerVistaPreviaConcierto(_hoy) ||
+        _preparandoConcierto) {
       return;
     }
     setState(() => _preparandoConcierto = true);

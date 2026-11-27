@@ -5,6 +5,7 @@ import '../models/agenda_event.dart';
 import '../models/chat_conversation.dart';
 import '../models/entrada_diario.dart';
 import '../models/productividad_data.dart';
+import '../models/recorrido_rueda.dart';
 import '../models/task.dart';
 import 'agenda_store.dart';
 import 'chat_history_service.dart';
@@ -17,6 +18,7 @@ import 'tasks_service.dart';
 /// No cierra el ciclo, no modifica registros y no genera interpretaciones.
 class ConciertoFinalSnapshot {
   final CicloNeuroplan ciclo;
+  final List<RecorridoPilar> recorridoRueda;
   /// Vista de seguimiento: no habilita reflexión ni cierre definitivo.
   final bool esVistaPrevia;
   final String fechaHasta;
@@ -41,6 +43,7 @@ class ConciertoFinalSnapshot {
     this.fechaHasta = '',
     Map<String, int> valoresRuedaInicial = const {},
     this.ruedaInicialHistorica = false,
+    List<RecorridoPilar> recorridoRueda = const [],
     required List<EntradaDiario> diarios,
     required List<Task> tareas,
     required List<AgendaOcurrenciaSnapshot> agenda,
@@ -52,6 +55,7 @@ class ConciertoFinalSnapshot {
     required this.historialActividadesConsultado,
     this.conversacionesConFechaIndividual = false,
   })  : valoresRuedaInicial = Map.unmodifiable(valoresRuedaInicial),
+        recorridoRueda = List.unmodifiable(recorridoRueda),
         diarios = List.unmodifiable(diarios),
         tareas = List.unmodifiable(tareas),
         agenda = List.unmodifiable(agenda),
@@ -88,6 +92,16 @@ class ConciertoFinalSnapshot {
       ..writeln('Ocurrencias de agenda cumplidas: $compromisosCumplidos. Marcadas como no cumplidas: $compromisosMarcadosNoCumplidos. Sin marca: $compromisosSinMarca.')
       ..writeln('Registros de hábitos: $registrosHabitos. Evaluaciones de bloques: ${evaluaciones.length}.')
       ..writeln('Historial de actividad: ${!historialActividadesConsultado ? 'no consultado' : (historialActividadesDisponible ? 'disponible' : 'no disponible')}.');
+    if (recorridoRueda.isNotEmpty) {
+      salida.writeln('RUEDA DE LA VIDA · VALORACIONES CONFIRMADAS Y AVANCES DEL CICLO');
+      for (final pilar in recorridoRueda) {
+        salida.writeln('- ${pilar.pilar}: partida ${pilar.inicio?.valor ?? 'sin valoración'}, última dentro del período ${pilar.ultimo?.valor ?? 'sin valoración posterior'}');
+        for (final nota in pilar.notas.reversed.take(3)) {
+          salida.writeln('  · ${EntradaDiario.claveFecha(nota.fecha.toLocal())}: ${nota.nota}');
+        }
+      }
+      salida.writeln('Las notas explican el recorrido. No conviertas una nota en una puntuación ni supongas que subir en estrés es una mejora.');
+    }
     if (diarios.isNotEmpty) {
       salida.writeln('INDICADORES DE MI PULSO:');
       for (final e in diarios.where((e) =>
@@ -231,12 +245,8 @@ class ConciertoFinalService {
     if (inicioCiclo == null) {
       throw StateError('El ciclo no tiene una fecha de inicio válida.');
     }
-    final diasVividos = DateTime(hoy.year, hoy.month, hoy.day)
-        .difference(DateTime(inicioCiclo.year, inicioCiclo.month, inicioCiclo.day))
-        .inDays + 1;
     if (vistaPrevia) {
-      if (ciclo.periodoCompletado(hoy) || diasVividos <= 15 ||
-          diasVividos > ciclo.duracionDias) {
+      if (!ciclo.puedeVerVistaPreviaConcierto(hoy)) {
         throw StateError('La vista previa solo está disponible desde el día 16 y antes del Concierto Final.');
       }
     } else if (!ciclo.periodoCompletado(hoy)) {
@@ -326,38 +336,25 @@ class ConciertoFinalService {
             pilar: diagnostico.valoresConfirmados[pilar]!,
     };
     final iniciales = <String, int>{...confirmados};
+    var recorridoRueda = <RecorridoPilar>[];
+    try {
+      recorridoRueda = RecorridoPilar.delCiclo(
+        await HistorialRuedaService.cargar(),
+        cicloId: ciclo.id,
+        desde: desde,
+        hasta: hasta,
+      );
+    } catch (_) {
+      debugPrint('No se pudo consultar el historial de la Rueda.');
+    }
     final pilaresConOrigen = <String>{};
-    if (confirmados.isNotEmpty) {
-      try {
-        final historialRueda = await HistorialRuedaService.cargar();
-        final inicioCalendario = DateTime(inicio.year, inicio.month, inicio.day);
-        for (final pilar in confirmados.keys) {
-          final originales = historialRueda.where((r) =>
-              r.pilar == pilar && r.tipo == 'inicio' &&
-              r.valor != null && r.valor! >= 0 && r.valor! <= 10).toList()
-            ..sort((a, b) => a.fecha.compareTo(b.fecha));
-          if (originales.isEmpty) continue;
-          var valor = originales.first.valor!;
-          // En ciclos posteriores, recupera la última valoración anterior
-          // al inicio de ese ciclo, sin usar cambios ocurridos durante él.
-          final anteriores = historialRueda.where((r) {
-            if (r.pilar != pilar || r.tipo != 'valoracion' ||
-                r.valor == null || r.valor! < 0 || r.valor! > 10) {
-              return false;
-            }
-            final fecha = r.fecha.toLocal();
-            return DateTime(fecha.year, fecha.month, fecha.day)
-                .isBefore(inicioCalendario);
-          }).toList()..sort((a, b) => a.fecha.compareTo(b.fecha));
-          if (anteriores.isNotEmpty) valor = anteriores.last.valor!;
-          iniciales[pilar] = valor;
-          pilaresConOrigen.add(pilar);
-        }
-      } catch (error) {
-        debugPrint('No se pudo consultar el historial inicial de la Rueda: $error');
+    for (final pilar in recorridoRueda) {
+      final valor = pilar.inicio?.valor;
+      if (valor != null) {
+        iniciales[pilar.pilar] = valor;
+        pilaresConOrigen.add(pilar.pilar);
       }
     }
-
     final historial = await _cargarHistorial(desde, hasta);
 
     return ConciertoFinalSnapshot(
@@ -367,6 +364,7 @@ class ConciertoFinalService {
       valoresRuedaInicial: iniciales,
       ruedaInicialHistorica: iniciales.isNotEmpty &&
           pilaresConOrigen.length == iniciales.length,
+      recorridoRueda: recorridoRueda,
       diarios: diarios,
       tareas: tareas,
       agenda: agenda,

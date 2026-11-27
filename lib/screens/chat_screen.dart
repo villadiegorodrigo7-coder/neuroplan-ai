@@ -297,8 +297,7 @@ class _ChatScreenState extends State<ChatScreen>
       conv.messages.add(
         ChatMessageData(
           role: 'model',
-          content:
-              'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
+          content: 'Podemos mirar juntos los momentos que marcaron este ciclo. ¿Qué te gustaría reconocer primero de tu recorrido?',
         ),
       );
       _conversations.insert(0, conv);
@@ -343,14 +342,16 @@ class _ChatScreenState extends State<ChatScreen>
             },
           )
           .toList();
-      final respuestasUsuario =
-          historial.where((m) => m['role'] == 'user').length;
+      final respuestasUsuario = historial
+          .where((m) => m['role'] == 'user')
+          .length;
       if (respuestasUsuario == 0) return;
 
       // La conversación puede cubrir varias preguntas en una sola respuesta.
       // No imponemos un mínimo artificial de turnos: el clasificador evalúa
       // el contenido real y el cierre integrador, no el número de mensajes.
-      final tieneMarcador = diagnostico.diagnosticoCompleto ||
+      final tieneMarcador =
+          diagnostico.diagnosticoCompleto ||
           diagnostico.messages.any(
             (m) => m.content.contains('[[DIAGNOSTICO_COMPLETO]]'),
           );
@@ -487,8 +488,7 @@ class _ChatScreenState extends State<ChatScreen>
 
       final aviso = ChatMessageData(
         role: 'model',
-        content:
-            'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
+        content: 'He preparado una primera hipótesis visual de tu Rueda de la Vida a partir de lo que conversamos. No es una calificación ni una conclusión definitiva. Puedes revisarla, ajustar cada dimensión y confirmarla cuando te represente, desde Mi Pulso.',
       );
       conv.messages.add(aviso);
       await _persist();
@@ -601,8 +601,8 @@ class _ChatScreenState extends State<ChatScreen>
                   cerrado
                       ? 'Ciclo cerrado · Disponible en tu historial'
                       : _cierreConciertoDisponible
-                          ? 'Puedes cerrar tu ciclo cuando quieras.'
-                          : 'Reflexión de cierre con Ágora',
+                      ? 'Puedes cerrar tu ciclo cuando quieras.'
+                      : 'Reflexión de cierre con Ágora',
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ],
@@ -711,7 +711,9 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _confirmarAccion(
-      ChatConversation conversacion, AccionAgora accion) async {
+    ChatConversation conversacion,
+    AccionAgora accion,
+  ) async {
     if (_guardandoAccion || _accionesPendientes[conversacion.id] != accion)
       return;
     final auth = Supabase.instance.client.auth;
@@ -722,20 +724,26 @@ class _ChatScreenState extends State<ChatScreen>
     });
     try {
       await accion.guardar(
-          cuentaVigente: () => mounted && auth.currentUser?.id == cuenta);
+        cuentaVigente: () => mounted && auth.currentUser?.id == cuenta,
+      );
       if (!mounted || auth.currentUser?.id != cuenta) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(accion.tipo == TipoAccionAgora.notaRueda
-                ? 'Nota guardada en la rueda.'
-                : 'Tarea creada en la matriz.')),
+          content: Text(switch (accion.tipo) {
+            TipoAccionAgora.notaRueda => 'Nota guardada en la rueda.',
+            TipoAccionAgora.valorRueda => 'Valoración guardada en la rueda.',
+            TipoAccionAgora.tarea => 'Tarea creada en la matriz.',
+          }),
+        ),
       );
     } catch (_) {
       if (!mounted || auth.currentUser?.id != cuenta) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'No se pudo confirmar el guardado. Revisa el destino antes de volver a intentarlo.')),
+          content: Text(
+            'No se pudo confirmar el guardado. Revisa el destino antes de volver a intentarlo.',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _guardandoAccion = false);
@@ -743,7 +751,9 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Widget _confirmacionAccion(
-      ChatConversation conversacion, AccionAgora accion) {
+    ChatConversation conversacion,
+    AccionAgora accion,
+  ) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Padding(
@@ -765,7 +775,8 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
                 TextButton(
                   onPressed: () => setState(
-                      () => _accionesPendientes.remove(conversacion.id)),
+                    () => _accionesPendientes.remove(conversacion.id),
+                  ),
                   child: const Text('Descartar'),
                 ),
               ],
@@ -847,7 +858,8 @@ class _ChatScreenState extends State<ChatScreen>
       history: history,
       contextoUsuario: contexto,
     );
-    final diagnosticoCompleto = conv.title == 'Diagnóstico inicial' &&
+    final diagnosticoCompleto =
+        conv.title == 'Diagnóstico inicial' &&
         (respuestaAgora.contains('[[DIAGNOSTICO_COMPLETO]]') ||
             conv.diagnosticoCompleto);
     if (diagnosticoCompleto) {
@@ -940,7 +952,9 @@ class _ChatScreenState extends State<ChatScreen>
         );
       }
     }
-    if (diagnostico != null && diagnostico.confirmado) {
+    if (_cicloDeConcierto(conversacionActual) == null &&
+        diagnostico != null &&
+        diagnostico.confirmado) {
       final valores = diagnostico.valoresConfirmados.entries
           .map((e) => '${e.key}: ${e.value}/10')
           .join(', ');
@@ -1015,26 +1029,40 @@ class _ChatScreenState extends State<ChatScreen>
         );
       }
     }
-    try {
-      final registros = await HistorialRuedaService.cargar();
-      final iniciales = registros.where(
-        (registro) => registro.tipo == 'inicio',
-      );
-      final recientes =
-          registros.where((registro) => registro.tipo != 'inicio').take(20);
-      if (registros.isNotEmpty) {
-        final recorrido = [
-          for (final registro in [...iniciales, ...recientes])
-            '- ${registro.fecha.toLocal().toIso8601String().split('T').first} · ${registro.pilar} · ${registro.tipo} · ${registro.valor == null ? _recortar(registro.nota, max: 280) : '${registro.valor}/10'}',
-        ].join('\n');
-        partes.add(
-          'Historial de la rueda confirmado o escrito por la persona. Una nota aporta contexto y no cambia una valoración. En Concierto Final compara el punto de partida y las valoraciones disponibles.\n$recorrido',
+    if (_cicloDeConcierto(conversacionActual) == null) {
+      try {
+        final registros = await HistorialRuedaService.cargar();
+        final iniciales = registros.where(
+          (registro) => registro.tipo == 'inicio',
         );
+        final recientes = registros
+            .where((registro) => registro.tipo != 'inicio')
+            .take(20);
+        if (registros.isNotEmpty) {
+          final recorrido = [
+            for (final registro in [...iniciales, ...recientes])
+              '- ${registro.fecha.toLocal().toIso8601String().split('T').first} · ${registro.pilar} · ${registro.tipo} · ${registro.valor == null ? _recortar(registro.nota, max: 280) : '${registro.valor}/10'}',
+          ].join('\n');
+          partes.add(
+            'Historial de la rueda confirmado o escrito por la persona. Una nota aporta contexto y no cambia una valoración.\n$recorrido',
+          );
+        }
+      } catch (_) {
+        // La conversación puede continuar con la rueda confirmada del dispositivo.
       }
-    } catch (_) {
-      // La conversación puede continuar con la rueda confirmada del dispositivo.
     }
-
+    if (_cicloDeConcierto(conversacionActual) == null &&
+        data.objetivosRueda.isNotEmpty) {
+      partes.add(
+        'Objetivos que la persona fijó. Úsalos cuando sean pertinentes y no supongas avances:\n'
+        '${data.objetivosRueda.take(20).map((objetivo) {
+          final nota = objetivo.avances.lastOrNull?.nota ?? '';
+          return '- ${objetivo.nombre}: ${objetivo.meta} · revisar el ${objetivo.fechaMeta}'
+              ' · ${objetivo.valor == null ? 'por valorar' : '${objetivo.valor}/10'}'
+              '${nota.isEmpty ? '' : ' · Última nota: $nota'}';
+        }).join('\n')}',
+      );
+    }
     if (_permiteAcciones(conversacionActual))
       partes.add(AccionAgora.instrucciones);
 
@@ -1075,13 +1103,14 @@ class _ChatScreenState extends State<ChatScreen>
       if (p.isNotEmpty) lineas.add('Hoy: ${p.join('; ')}.');
     }
 
-    final anteriores = store.entradas
-        .where((e) => e.fecha.compareTo(hoy) < 0)
-        .toList()
-      ..sort((a, b) => b.fecha.compareTo(a.fecha));
+    final anteriores =
+        store.entradas.where((e) => e.fecha.compareTo(hoy) < 0).toList()
+          ..sort((a, b) => b.fecha.compareTo(a.fecha));
 
-    final semaforos =
-        anteriores.where((e) => e.semaforo.isNotEmpty).take(7).toList();
+    final semaforos = anteriores
+        .where((e) => e.semaforo.isNotEmpty)
+        .take(7)
+        .toList();
     if (semaforos.isNotEmpty) {
       lineas.add(
         'Semáforos de días anteriores (del más reciente): '
@@ -1123,8 +1152,9 @@ class _ChatScreenState extends State<ChatScreen>
     const maxPorGrupo = 10;
 
     String lista(List<String> titulos) {
-      final mostrados =
-          titulos.take(maxPorGrupo).map((t) => _recortar(t, max: 80));
+      final mostrados = titulos
+          .take(maxPorGrupo)
+          .map((t) => _recortar(t, max: 80));
       final resto = titulos.length - maxPorGrupo;
       return mostrados.join('; ') + (resto > 0 ? ' (y $resto más)' : '');
     }
@@ -1520,8 +1550,8 @@ class _ChatScreenState extends State<ChatScreen>
                                     _iniciandoCiclo
                                         ? 'Iniciando…'
                                         : (_esPrimerCiclo
-                                            ? 'Comenzar mi primer ciclo'
-                                            : 'Comenzar un nuevo ciclo'),
+                                              ? 'Comenzar mi primer ciclo'
+                                              : 'Comenzar un nuevo ciclo'),
                                   ),
                                 ),
                               ),
@@ -1591,8 +1621,9 @@ class _ChatScreenState extends State<ChatScreen>
             child: Text(
               msg.content,
               style: TextStyle(
-                color:
-                    isUser ? Colors.white : Colors.white.withValues(alpha: 0.9),
+                color: isUser
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.9),
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -1717,10 +1748,10 @@ class _ChatScreenState extends State<ChatScreen>
                   onKeyEvent: (node, event) {
                     final esEnter =
                         event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter;
                     final esTelefono =
                         defaultTargetPlatform == TargetPlatform.android ||
-                            defaultTargetPlatform == TargetPlatform.iOS;
+                        defaultTargetPlatform == TargetPlatform.iOS;
                     if (!esEnter ||
                         esTelefono ||
                         HardwareKeyboard.instance.isShiftPressed ||
@@ -1765,13 +1796,15 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
               ),
               IconButton(
-                tooltip:
-                    _isListening ? 'Terminar de dictar' : 'Dictar con la voz',
+                tooltip: _isListening
+                    ? 'Terminar de dictar'
+                    : 'Dictar con la voz',
                 onPressed: _isLoading ? null : _toggleDictado,
                 icon: Icon(
                   _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
-                  color:
-                      _isListening ? Colors.redAccent : const Color(0xFF67E8F9),
+                  color: _isListening
+                      ? Colors.redAccent
+                      : const Color(0xFF67E8F9),
                   size: 21,
                 ),
                 style: IconButton.styleFrom(

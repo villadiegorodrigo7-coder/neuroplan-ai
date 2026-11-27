@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/productividad_data.dart';
+import '../models/objetivo_rueda.dart';
 
 /// Datos de las herramientas activas de NEUROPLAN.
 /// Almacena las herramientas actuales de forma independiente.
@@ -15,6 +16,7 @@ class HerramientasData {
   List<EvaluacionBloque> evaluacionesBloques;
   List<HabitoSeguimiento> habitos;
   List<CicloNeuroplan> ciclos;
+  List<ObjetivoRueda> objetivosRueda;
   DiagnosticoConversacional? diagnostico;
 
   HerramientasData({
@@ -24,13 +26,22 @@ class HerramientasData {
     List<EvaluacionBloque>? evaluacionesBloques,
     List<HabitoSeguimiento>? habitos,
     List<CicloNeuroplan>? ciclos,
+    List<ObjetivoRueda>? objetivosRueda,
     this.diagnostico,
   })  : matriz = matriz ?? MatrizEisenhower(),
         seguimiento = seguimiento ?? Seguimiento30Dias(),
         evaluacionFinal = evaluacionFinal ?? EvaluacionFinal(),
         evaluacionesBloques = evaluacionesBloques ?? [],
         habitos = habitos ?? [],
-        ciclos = ciclos ?? [];
+        ciclos = ciclos ?? [],
+        objetivosRueda = objetivosRueda ?? [];
+
+  bool puedeCrearRuedaObjetivos(DateTime ahora) => ciclos.any(
+    (ciclo) =>
+        (ciclo.estado == 'activo' ||
+            (ciclo.estado == 'cerrado' && ciclo.conciertoFinalCompletado)) &&
+        ciclo.tieneContextoDeConcierto(ahora),
+  );
 
   MatrizEisenhower get matrizEisenhower => matriz;
   set matrizEisenhower(MatrizEisenhower value) => matriz = value;
@@ -47,6 +58,8 @@ class HerramientasData {
         'evaluacionesBloques': evaluacionesBloques.map((e) => e.toJson()).toList(),
         'habitos': habitos.map((h) => h.toJson()).toList(),
         'ciclos': ciclos.map((c) => c.toJson()).toList(),
+        if (objetivosRueda.isNotEmpty)
+          'objetivosRueda': objetivosRueda.map((objetivo) => objetivo.toJson()).toList(),
         if (diagnostico != null) 'diagnostico': diagnostico!.toJson(),
       };
 
@@ -72,6 +85,10 @@ class HerramientasData {
       ciclos: ((json['ciclos'] as List?) ?? const [])
           .whereType<Map>()
           .map((c) => CicloNeuroplan.fromJson(Map<String, dynamic>.from(c)))
+          .toList(),
+      objetivosRueda: (json['objetivosRueda'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ObjetivoRueda.fromJson)
           .toList(),
       diagnostico: json['diagnostico'] is Map
           ? DiagnosticoConversacional.fromJson(

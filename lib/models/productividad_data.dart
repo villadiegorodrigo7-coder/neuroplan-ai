@@ -188,21 +188,33 @@ class CicloNeuroplan {
   DateTime? get fechaFin {
     final fecha = inicio;
     if (fecha == null) return null;
-    return DateTime(fecha.year, fecha.month, fecha.day)
-        .add(Duration(days: duracionDias - 1));
+    return DateTime(fecha.year, fecha.month, fecha.day + duracionDias - 1);
   }
 
-  /// El período se considera cumplido al día siguiente del último día,
-  /// para no revelar el cierre antes de que termine el día final.
-  bool periodoCompletado(DateTime ahora) {
-    final fin = fechaFin;
-    if (fin == null) return false;
-    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
-    return hoy.isAfter(fin);
+  int diaDelCiclo(DateTime ahora) {
+    final fecha = inicio;
+    if (fecha == null) return 0;
+    final hoy = DateTime.utc(ahora.year, ahora.month, ahora.day);
+    final comienzo = DateTime.utc(fecha.year, fecha.month, fecha.day);
+    return hoy.difference(comienzo).inDays + 1;
   }
+
+  bool tieneContextoDeConcierto(DateTime ahora) =>
+      duracionDias >= 16 && diaDelCiclo(ahora) >= 16;
+
+  bool puedeVerVistaPreviaConcierto(DateTime ahora) =>
+      estado == 'activo' &&
+      !conciertoFinalCompletado &&
+      tieneContextoDeConcierto(ahora) &&
+      !periodoCompletado(ahora);
+
+  /// El período se cumple el día posterior al último día del ciclo.
+  bool periodoCompletado(DateTime ahora) => diaDelCiclo(ahora) > duracionDias;
 
   bool get puedeRealizarConciertoFinal =>
-      periodoCompletado(DateTime.now()) && !conciertoFinalCompletado;
+      estado == 'activo' &&
+      !conciertoFinalCompletado &&
+      periodoCompletado(DateTime.now());
 
   Map<String, dynamic> toJson() => {
         'id': id,
