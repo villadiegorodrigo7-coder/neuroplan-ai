@@ -947,7 +947,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                     color: _textoTenue))),
               ]),
             ]),
-          )),
+          ),
           if (tieneRueda)
             const Icon(Icons.chevron_right_rounded,
               color: _lila, size: 18),
