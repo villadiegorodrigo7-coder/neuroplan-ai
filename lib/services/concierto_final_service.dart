@@ -24,6 +24,9 @@ class ConciertoFinalSnapshot {
   final String fechaHasta;
   /// Únicamente dimensiones confirmadas; no incorpora propuestas de Ágora.
   final Map<String, int> valoresRuedaInicial;
+  /// Valoraciones actualmente confirmadas por la persona, independientes
+  /// de los límites temporales del ciclo.
+  final Map<String, int> valoresRuedaActual;
   /// Verdadero solo si todas las dimensiones se reconstruyeron del historial.
   final bool ruedaInicialHistorica;
   final List<EntradaDiario> diarios;
@@ -42,6 +45,7 @@ class ConciertoFinalSnapshot {
     this.esVistaPrevia = false,
     this.fechaHasta = '',
     Map<String, int> valoresRuedaInicial = const {},
+    Map<String, int> valoresRuedaActual = const {},
     this.ruedaInicialHistorica = false,
     List<RecorridoPilar> recorridoRueda = const [],
     required List<EntradaDiario> diarios,
@@ -55,6 +59,7 @@ class ConciertoFinalSnapshot {
     required this.historialActividadesConsultado,
     this.conversacionesConFechaIndividual = false,
   })  : valoresRuedaInicial = Map.unmodifiable(valoresRuedaInicial),
+        valoresRuedaActual = Map.unmodifiable(valoresRuedaActual),
         recorridoRueda = List.unmodifiable(recorridoRueda),
         diarios = List.unmodifiable(diarios),
         tareas = List.unmodifiable(tareas),
@@ -336,26 +341,38 @@ class ConciertoFinalService {
               diagnostico.valoresConfirmados[pilar]! <= 10)
             pilar: diagnostico.valoresConfirmados[pilar]!,
     };
+    // La comparación representa dos perspectivas de la misma Rueda:
+    // el primer valor registrado de cada pilar y su valoración confirmada HOY.
+    // Ninguna depende de que finalice este ciclo.
     final iniciales = <String, int>{...confirmados};
+    final pilaresConOrigen = <String>{};
     var recorridoRueda = <RecorridoPilar>[];
     try {
+      final registros = await HistorialRuedaService.cargar();
       recorridoRueda = RecorridoPilar.delCiclo(
-        await HistorialRuedaService.cargar(),
+        registros,
         cicloId: ciclo.id,
         desde: desde,
         hasta: hasta,
       );
-    } catch (_) {
-      debugPrint('No se pudo consultar el historial de la Rueda.');
-    }
-    final pilaresConOrigen = <String>{};
-    for (final pilar in recorridoRueda) {
-      final valor = pilar.inicio?.valor;
-      if (valor != null) {
-        iniciales[pilar.pilar] = valor;
-        pilaresConOrigen.add(pilar.pilar);
+      for (final pilar in confirmados.keys) {
+        final inicios = registros.where((r) =>
+            r.pilar == pilar &&
+            r.tipo == 'inicio' &&
+            r.valor != null &&
+            r.valor! >= 0 && r.valor! <= 10).toList()
+          ..sort((a, b) => a.fecha.compareTo(b.fecha));
+        if (inicios.isNotEmpty) {
+          iniciales[pilar] = inicios.first.valor!;
+          pilaresConOrigen.add(pilar);
+        }
       }
+    } catch (error) {
+      debugPrint('No se pudo consultar el historial de la Rueda: $error');
     }
+    // Cuando no existe un punto de partida histórico, los valores se
+    // mantienen como referencia confirmada; nunca se afirma que son el pasado.
+
     final historial = await _cargarHistorial(desde, hasta);
 
     return ConciertoFinalSnapshot(
@@ -363,6 +380,7 @@ class ConciertoFinalService {
       esVistaPrevia: vistaPrevia,
       fechaHasta: hasta,
       valoresRuedaInicial: iniciales,
+      valoresRuedaActual: confirmados,
       ruedaInicialHistorica: iniciales.isNotEmpty &&
           pilaresConOrigen.length == iniciales.length,
       recorridoRueda: recorridoRueda,
