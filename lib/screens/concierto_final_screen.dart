@@ -29,6 +29,8 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
   static const _textoTenue = Color(0xFFB6BED8);
 
   int _diaSeleccionado = 0;
+  bool _mostrarRitmo = false;
+  bool _mostrarAcciones = false;
   ConciertoFinalSnapshot get snapshot => widget.snapshot;
 
   int get _diasVividos {
@@ -62,6 +64,25 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       return colorDeSemaforo(diarios[_fechaClave(i)]?.semaforo ?? '') ??
           _sinRegistro;
     });
+  }
+
+  void _seleccionarDia(int indice) {
+    if (indice < 0 || indice >= snapshot.ciclo.duracionDias) return;
+    if (snapshot.esVistaPrevia && indice >= _diasVividos) return;
+    if (_diaSeleccionado == indice) return;
+    setState(() => _diaSeleccionado = indice);
+  }
+
+  void _tocarAnillo(TapDownDetails toque, double lado, int cantidad) {
+    if (cantidad == 0) return;
+    final p = toque.localPosition - Offset(lado / 2, lado / 2);
+    final radio = p.distance;
+    final centroAnillo = lado * .405;
+    if (radio < centroAnillo - 19 || radio > centroAnillo + 19) return;
+    final angulo = (math.atan2(p.dy, p.dx) + math.pi / 2 + 2 * math.pi) %
+        (2 * math.pi);
+    final indice = (angulo / (2 * math.pi) * cantidad).floor();
+    _seleccionarDia(indice);
   }
 
   String _nombre(Color color) {
@@ -181,25 +202,42 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800))),
       ]),
       const SizedBox(height: 4),
-      SizedBox(
-        height: 276, width: 276,
-        child: Stack(alignment: Alignment.center, children: [
-          CustomPaint(size: const Size(276, 276),
-            painter: _AnilloConciertoPainter(
-              colores: colores, seleccionado: _diaSeleccionado)),
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('TU CICLO', style: TextStyle(color: _lila,
-              letterSpacing: 4, fontSize: 11)),
-            const SizedBox(height: 5),
-            Text('${_diasVividos}',
-              key: const ValueKey('concierto-dias-vividos'),
-              style: const TextStyle(fontSize: 62, height: 1.1,
-                fontWeight: FontWeight.w300, color: Colors.white)),
-            Text('de ${snapshot.ciclo.duracionDias} días',
-              style: const TextStyle(color: _textoTenue, fontSize: 14)),
-          ]),
-        ]),
-      ),
+      LayoutBuilder(builder: (context, medidas) {
+        final lado = math.min(276.0, medidas.maxWidth);
+        return Center(child: GestureDetector(
+          key: const ValueKey('concierto-anillo-interactivo'),
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (toque) => _tocarAnillo(toque, lado, colores.length),
+          child: SizedBox(
+            height: lado, width: lado,
+            child: Stack(alignment: Alignment.center, children: [
+              CustomPaint(size: Size(lado, lado),
+                painter: _AnilloConciertoPainter(
+                  colores: colores, seleccionado: _diaSeleccionado)),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('TU CICLO', style: TextStyle(color: _lila,
+                  letterSpacing: 4, fontSize: 11)),
+                const SizedBox(height: 5),
+                Text('${_diasVividos}',
+                  key: const ValueKey('concierto-dias-vividos'),
+                  style: const TextStyle(fontSize: 62, height: 1.1,
+                    fontWeight: FontWeight.w300, color: Colors.white)),
+                Text('de ${snapshot.ciclo.duracionDias} días',
+                  style: const TextStyle(color: _textoTenue, fontSize: 14)),
+                const SizedBox(height: 9),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: Text('Día ${_diaSeleccionado + 1} · ${_nombre(colores[_diaSeleccionado])}',
+                    key: ValueKey(_diaSeleccionado),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11,
+                      color: colores[_diaSeleccionado])),
+                ),
+              ]),
+            ]),
+          ),
+        ));
+      }),
       if (snapshot.esVistaPrevia)
         Text('${porVivir} días por vivir',
           style: const TextStyle(color: _textoTenue, fontSize: 12)),
@@ -252,9 +290,7 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
                   child: InkWell(
                     key: ValueKey('concierto-dia-${i + 1}'),
                     borderRadius: BorderRadius.circular(12),
-                    onTap: disponible
-                        ? () => setState(() => _diaSeleccionado = i)
-                        : null,
+                    onTap: disponible ? () => _seleccionarDia(i) : null,
                     child: Column(children: [
                       SizedBox(height: 46, child: Center(child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -280,7 +316,14 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
         }));
       }),
       const SizedBox(height: 2),
-      _detalleDia(diarios, colores),
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 240),
+        switchInCurve: Curves.easeOutCubic,
+        child: KeyedSubtree(
+          key: ValueKey('detalle-dia-$_diaSeleccionado'),
+          child: _detalleDia(diarios, colores),
+        ),
+      ),
     ]);
   }
 
