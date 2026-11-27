@@ -396,10 +396,17 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
       child: Column(children: [
         SizedBox(width: 113, height: 113, child: Stack(
           alignment: Alignment.center, children: [
-            CustomPaint(size: const Size(113, 113),
-              painter: _MedidorCircularPainter(
-                progreso: ((valor ?? 0) / 5).clamp(0.0, 1.0),
-                color: color)),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 0, end: ((valor ?? 0) / 5).clamp(0.0, 1.0)),
+              duration: MediaQuery.maybeOf(context)?.disableAnimations == true
+                  ? Duration.zero : const Duration(milliseconds: 650),
+              curve: Curves.easeOutCubic,
+              builder: (context, progreso, _) => CustomPaint(
+                size: const Size(113, 113),
+                painter: _MedidorCircularPainter(
+                  progreso: progreso, color: color)),
+            ),
             Icon(icono, size: 48, color: color),
           ],
         )),
@@ -419,6 +426,58 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           style: const TextStyle(fontSize: 10, color: _textoTenue)),
       ]),
     ));
+  }
+
+  Widget _graficoRitmo(String titulo, Color color,
+      int Function(EntradaDiario) valor, int totalDias,
+      Map<String, EntradaDiario> diarios) {
+    final serie = List<int>.generate(totalDias, (i) {
+      if (snapshot.esVistaPrevia && i >= _diasVividos) return 0;
+      final entrada = diarios[_fechaClave(i)];
+      return entrada == null ? 0 : valor(entrada);
+    });
+    final disponibles = serie.where((n) => n > 0).length;
+    return Padding(
+      padding: const EdgeInsets.only(top: 11),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(titulo, style: TextStyle(color: color,
+            fontSize: 12, fontWeight: FontWeight.w800)),
+          Text('$disponibles registros',
+            style: const TextStyle(color: _textoTenue, fontSize: 10)),
+        ]),
+        const SizedBox(height: 7),
+        Semantics(
+          label: '$titulo: $disponibles días valorados sobre 5; '
+            'los días sin información se muestran sin conectar',
+          child: SizedBox(height: 77, width: double.infinity,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: MediaQuery.maybeOf(context)?.disableAnimations == true
+                  ? Duration.zero : const Duration(milliseconds: 470),
+              builder: (context, avance, _) => CustomPaint(
+                painter: _EvolucionDiasPainter(
+                  valores: serie, color: color, avance: avance)),
+            )),
+        ),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Día 1', style: TextStyle(
+            color: _textoTenue, fontSize: 10)),
+          Text('Día $totalDias', style: const TextStyle(
+            color: _textoTenue, fontSize: 10)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _tendencias(Map<String, EntradaDiario> diarios) {
+    return _superficieCard(color: _turquesa, child: Column(children: [
+      _graficoRitmo('Energía', _turquesa, (e) => e.energia,
+        snapshot.ciclo.duracionDias, diarios),
+      const SizedBox(height: 13),
+      _graficoRitmo('Estado emocional', _lila, (e) => e.estado,
+        snapshot.ciclo.duracionDias, diarios),
+    ]));
   }
 
   Widget _progreso(int marcado, int total, Color color) {
@@ -591,7 +650,19 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
           _anillo(colores),
           const SizedBox(height: 7),
           _partitura(colores, diarios),
-          _titulo('Cómo te has sentido', icono: Icons.favorite_border_rounded),
+          InkWell(
+            key: const ValueKey('concierto-toggle-ritmo'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => setState(() => _mostrarRitmo = !_mostrarRitmo),
+            child: Row(children: [
+              Expanded(child: _titulo('Cómo te has sentido',
+                icono: Icons.favorite_border_rounded)),
+              Text(_mostrarRitmo ? 'Ocultar' : 'Ver evolución',
+                style: const TextStyle(color: _lila, fontSize: 11)),
+              Icon(_mostrarRitmo ? Icons.keyboard_arrow_up_rounded
+                : Icons.keyboard_arrow_down_rounded, color: _lila),
+            ]),
+          ),
           Row(children: [
             _medidor(titulo: 'Energía', icono: Icons.wb_sunny_outlined,
               color: _turquesa, valor: energia,
@@ -602,6 +673,14 @@ class _ConciertoFinalScreenState extends State<ConciertoFinalScreen> {
               color: _lila, valor: estado,
               registros: snapshot.diasConEstado),
           ]),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            child: _mostrarRitmo
+                ? Padding(padding: const EdgeInsets.only(top: 10),
+                    child: _tendencias(diarios))
+                : const SizedBox.shrink(),
+          ),
           _titulo('Tus acciones en movimiento',
             icono: Icons.auto_graph_rounded),
           _acciones(),
@@ -777,4 +856,56 @@ class _RadarVacioPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RadarVacioPainter old) => false;
+}
+
+class _EvolucionDiasPainter extends CustomPainter {
+  const _EvolucionDiasPainter({
+    required this.valores, required this.color, required this.avance,
+  });
+  final List<int> valores;
+  final Color color;
+  final double avance;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const horizontal = 10.0;
+    const vertical = 10.0;
+    final ancho = math.max(0.0, size.width - horizontal * 2);
+    final alto = math.max(0.0, size.height - vertical * 2);
+    final cuadricula = Paint()
+      ..color = const Color(0xFFB6BED8).withValues(alpha: .14)
+      ..strokeWidth = 1;
+    for (var i = 0; i < 5; i++) {
+      final y = vertical + alto * i / 4;
+      canvas.drawLine(Offset(horizontal, y),
+        Offset(size.width - horizontal, y), cuadricula);
+    }
+    if (valores.isEmpty) return;
+    final ultimo = valores.length - 1;
+    final trazo = Paint()
+      ..color = color
+      ..strokeWidth = 2.3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final punto = Paint()..color = color;
+    Offset posicion(int i) {
+      final v = valores[i].clamp(1, 5);
+      return Offset(horizontal + ancho * i / math.max(1, ultimo),
+        vertical + (5 - v) / 4 * alto);
+    }
+    for (var i = 0; i < valores.length; i++) {
+      final xNormalizado = ultimo == 0 ? 0.0 : i / ultimo;
+      if (xNormalizado > avance || valores[i] <= 0) continue;
+      final actual = posicion(i);
+      if (i > 0 && valores[i - 1] > 0) {
+        canvas.drawLine(posicion(i - 1), actual, trazo);
+      }
+      canvas.drawCircle(actual, 3.5, punto);
+      canvas.drawCircle(actual, 1.5, Paint()..color = const Color(0xFF161B35));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EvolucionDiasPainter old) =>
+      old.avance != avance || old.color != color || old.valores != valores;
 }
