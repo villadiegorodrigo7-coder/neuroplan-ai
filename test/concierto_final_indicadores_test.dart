@@ -37,7 +37,7 @@ void main() {
     await tester.ensureVisible(tarjeta);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('concierto-radar-inicial')), findsOneWidget);
-    expect(find.textContaining('Evaluación final pendiente'), findsOneWidget);
+    expect(find.textContaining('actualización libre'), findsOneWidget);
     await tester.tap(tarjeta);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('concierto-radar-real')), findsOneWidget);
