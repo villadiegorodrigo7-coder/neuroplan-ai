@@ -92,6 +92,8 @@ void main() {
     final acciones = find.byKey(const ValueKey('concierto-toggle-acciones'));
     await tester.scrollUntilVisible(acciones, 180,
       scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(acciones);
+    await tester.pumpAndSettle();
     await tester.tap(acciones);
     await tester.pumpAndSettle();
     expect(find.text('Revisar apuntes'), findsOneWidget);
