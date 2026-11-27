@@ -81,11 +81,24 @@ void main() {
     expect(find.text('Día 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('concierto-toggle-partitura')),
       findsOneWidget);
+    final detalle = find.byKey(const ValueKey('concierto-detalle-dia'));
+    await tester.scrollUntilVisible(detalle, 180,
+      scrollable: find.byType(Scrollable).first);
+    expect(find.descendant(of: detalle, matching: find.text('Día 1 · 2026-11-01')),
+      findsOneWidget);
+    expect(find.descendant(of: detalle, matching: find.text('Bien')), findsOneWidget);
     expect(diario.energia, 4);
 
     final ritmo = find.byKey(const ValueKey('concierto-toggle-ritmo'));
-    await tester.scrollUntilVisible(ritmo, 180,
+    final desplazamiento = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    ).position;
+    desplazamiento.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(ritmo, 120,
       scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(ritmo);
+    await tester.pumpAndSettle();
     await tester.tap(ritmo);
     await tester.pumpAndSettle();
     expect(find.text('Ocultar'), findsOneWidget);
