@@ -2,10 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neuroplan_ai/models/entrada_diario.dart';
 import 'package:neuroplan_ai/models/productividad_data.dart';
+import 'package:neuroplan_ai/models/task.dart';
 import 'package:neuroplan_ai/screens/concierto_final_screen.dart';
 import 'package:neuroplan_ai/services/concierto_final_service.dart';
 
 void main() {
+  testWidgets('El recorrido abre detalles visuales al tocarlos sin editar registros',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final ciclo = CicloNeuroplan(
+      id: 'visual', fechaInicio: '2026-11-01', duracionDias: 30,
+    );
+    final diario = EntradaDiario(
+      id: 'dia1', fecha: '2026-11-01',
+      semaforo: 'bien', energia: 4, estado: 3,
+    );
+    final tarea = Task(id: 't1', title: 'Revisar apuntes',
+      fecha: '2026-11-01', done: true);
+    final snapshot = ConciertoFinalSnapshot(
+      ciclo: ciclo, diarios: [diario], tareas: [tarea],
+      agenda: [const AgendaOcurrenciaSnapshot(
+        eventoId: 'ev1', titulo: 'Clase de música',
+        fecha: '2026-11-01', marcada: true, cumplida: true)],
+      habitos: [const HabitoRegistroSnapshot(
+        habitoId: 'h1', nombre: 'Practicar', tipo: 'incorporar',
+        fecha: '2026-11-01', realizado: true)],
+      evaluaciones: [], conversaciones: [], historialActividades: [],
+      historialActividadesDisponible: false,
+      historialActividadesConsultado: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData.dark(),
+      home: ConciertoFinalScreen(snapshot: snapshot),
+    ));
+
+    final anillo = find.byKey(const ValueKey('concierto-anillo-interactivo'));
+    await tester.ensureVisible(anillo);
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(anillo);
+    await tester.tapAt(rect.topCenter + const Offset(7, 25));
+    await tester.pumpAndSettle();
+    expect(find.text('Día 1 · Bien'), findsOneWidget);
+    expect(diario.energia, 4);
+
+    final ritmo = find.byKey(const ValueKey('concierto-toggle-ritmo'));
+    await tester.scrollUntilVisible(ritmo, 180,
+      scrollable: find.byType(Scrollable).first);
+    await tester.tap(ritmo);
+    await tester.pumpAndSettle();
+    expect(find.text('Ocultar'), findsOneWidget);
+    expect(find.text('1 registros'), findsNWidgets(2));
+
+    final acciones = find.byKey(const ValueKey('concierto-toggle-acciones'));
+    await tester.scrollUntilVisible(acciones, 180,
+      scrollable: find.byType(Scrollable).first);
+    await tester.tap(acciones);
+    await tester.pumpAndSettle();
+    expect(find.text('Revisar apuntes'), findsOneWidget);
+    expect(find.text('Clase de música'), findsOneWidget);
+    expect(ciclo.estado, 'activo');
+    expect(ciclo.conciertoFinalCompletado, isFalse);
+  });
+
   testWidgets('Vista previa desde el dia 16 no ofrece cierre ni lee el futuro',
       (tester) async {
     final ciclo = CicloNeuroplan(
